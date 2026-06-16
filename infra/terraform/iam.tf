@@ -38,11 +38,10 @@ resource "aws_iam_role_policy" "lambda" {
         ]
         Resource = [
           aws_dynamodb_table.components.arn,
+          aws_dynamodb_table.component_sets.arn,
           aws_dynamodb_table.releases.arn,
           aws_dynamodb_table.deploysets.arn,
           aws_dynamodb_table.environments.arn,
-          aws_dynamodb_table.environment_targets.arn,
-          aws_dynamodb_table.target_resolutions.arn,
           aws_dynamodb_table.environment_state.arn,
           aws_dynamodb_table.deployment_executions.arn,
           "${aws_dynamodb_table.deployment_executions.arn}/index/*"
@@ -61,4 +60,3 @@ resource "aws_iam_role_policy" "lambda" {
     ]
   })
 }
-

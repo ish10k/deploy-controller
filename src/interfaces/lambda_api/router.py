@@ -7,17 +7,22 @@ from src.composition import Container
 from src.domain.errors import NotFoundError
 from src.domain.models import (
     Component,
-    DeploySet,
+    ComponentSet,
+    DeploySetCreateRequest,
     Environment,
-    EnvironmentTarget,
     Release,
-    TargetResolution,
 )
-from src.interfaces.fastapi.schemas import CreateDeploymentRequest, PlanDeploymentRequest
+from src.interfaces.fastapi.schemas import (
+    ClaimExecutionRequest,
+    CreateDeploymentRequest,
+    PlanDeploymentRequest,
+    ReportExecutionItemStatusRequest,
+    ReportExecutionStatusRequest,
+)
 from src.interfaces.lambda_api.responses import response
 
 
-def _body(event: dict[str, Any], model: type[BaseModel]) -> BaseModel:
+def _body[T: BaseModel](event: dict[str, Any], model: type[T]) -> T:
     raw = event.get("body") or "{}"
     data = json.loads(raw) if isinstance(raw, str) else raw
     return model.model_validate(data)
@@ -41,6 +46,14 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         component = _body(event, Component).model_copy(update={"component_id": parts[1]})
         return response(200, container.components.put(component))
 
+    if method == "GET" and parts == ["component-sets"]:
+        return response(200, container.component_sets.list())
+    if method == "GET" and len(parts) == 2 and parts[0] == "component-sets":
+        return response(200, container.component_sets.get(parts[1]))
+    if method == "PUT" and len(parts) == 2 and parts[0] == "component-sets":
+        component_set = _body(event, ComponentSet).model_copy(update={"component_set_id": parts[1]})
+        return response(200, container.component_sets.put(component_set))
+
     if method == "GET" and parts == ["releases"]:
         return response(200, container.releases.list(_query(event, "componentId")))
     if method == "GET" and len(parts) == 3 and parts[0] == "releases":
@@ -53,7 +66,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
     if method == "GET" and len(parts) == 2 and parts[0] == "deploysets":
         return response(200, container.deploysets.get(parts[1]))
     if method == "POST" and parts == ["deploysets"]:
-        return response(200, container.deploysets.create(_body(event, DeploySet)))
+        return response(200, container.deploysets.create(_body(event, DeploySetCreateRequest)))
 
     if method == "GET" and parts == ["environments"]:
         return response(200, container.environments.list())
@@ -62,29 +75,6 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
     if method == "PUT" and len(parts) == 2 and parts[0] == "environments":
         environment = _body(event, Environment).model_copy(update={"environment_id": parts[1]})
         return response(200, container.environments.put(environment))
-
-    if method == "GET" and parts == ["environment-targets"]:
-        return response(200, container.environment_targets.list(_query(event, "environmentId")))
-    if method == "GET" and len(parts) == 3 and parts[0] == "environment-targets":
-        return response(200, container.environment_targets.get(parts[1], parts[2]))
-    if method == "PUT" and len(parts) == 3 and parts[0] == "environment-targets":
-        target = _body(event, EnvironmentTarget).model_copy(
-            update={"environment_id": parts[1], "component_id": parts[2]}
-        )
-        return response(200, container.environment_targets.put(target))
-
-    if method == "GET" and parts == ["target-resolutions"]:
-        return response(200, container.target_resolutions.list(_query(event, "type")))
-    if len(parts) >= 3 and parts[0] == "target-resolutions":
-        component_type = parts[1]
-        target_key = "/".join(parts[2:])
-        if method == "GET":
-            return response(200, container.target_resolutions.get(component_type, target_key))
-        if method == "PUT":
-            resolution = _body(event, TargetResolution).model_copy(
-                update={"type": component_type, "target_key": target_key}
-            )
-            return response(200, container.target_resolutions.put(resolution))
 
     if method == "GET" and parts == ["environment-state"]:
         return response(200, container.read_only.list_environment_states())
@@ -97,20 +87,48 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         return response(200, container.read_only.get_deployment_execution(parts[1]))
 
     if method == "POST" and parts == ["deployments", "plan"]:
-        request = _body(event, PlanDeploymentRequest)
+        plan_request = _body(event, PlanDeploymentRequest)
         return response(200, container.plan_deployment.execute(
-            environment_id=request.environment_id,
-            deployset_id=request.deployset_id,
-            require_actual_sha_check=request.require_actual_sha_check,
+            environment_id=plan_request.environment_id,
+            deployset_id=plan_request.deployset_id,
+            force=plan_request.force,
         ))
     if method == "POST" and parts == ["deployments"]:
-        request = _body(event, CreateDeploymentRequest)
+        deployment_request = _body(event, CreateDeploymentRequest)
         execution = container.create_deployment.execute(
-            environment_id=request.environment_id,
-            deployset_id=request.deployset_id,
-            requested_by=request.requested_by,
-            require_actual_sha_check=request.require_actual_sha_check,
+            environment_id=deployment_request.environment_id,
+            deployset_id=deployment_request.deployset_id,
+            requested_by=deployment_request.requested_by,
+            force=deployment_request.force,
         )
-        return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "planned"})
+        return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "pending"})
+
+    if method == "GET" and parts == ["adapter", "executions", "pending"]:
+        return response(200, container.adapters.list_pending())
+    if method == "POST" and len(parts) == 4 and parts[:2] == ["adapter", "executions"] and parts[3] == "claim":
+        claim_request = _body(event, ClaimExecutionRequest)
+        return response(200, container.adapters.claim(parts[2], claim_request.claimed_by))
+    if (
+        method == "POST"
+        and len(parts) == 6
+        and parts[:2] == ["adapter", "executions"]
+        and parts[3] == "items"
+        and parts[5] == "status"
+    ):
+        item_status_request = _body(event, ReportExecutionItemStatusRequest)
+        return response(200, container.adapters.report_item_status(
+            deployment_execution_id=parts[2],
+            component_id=parts[4],
+            status=item_status_request.status,
+            reported_action=item_status_request.reported_action,
+            reported_by=item_status_request.reported_by,
+            adapter_reason=item_status_request.adapter_reason,
+            observed_artifact_sha256=item_status_request.observed_artifact_sha256,
+            message=item_status_request.message,
+            error=item_status_request.error,
+        ))
+    if method == "POST" and len(parts) == 4 and parts[:2] == ["adapter", "executions"] and parts[3] == "status":
+        execution_status_request = _body(event, ReportExecutionStatusRequest)
+        return response(200, container.adapters.report_execution_status(parts[2], execution_status_request.status))
 
     raise NotFoundError(f"Route not found: {method} {path}")

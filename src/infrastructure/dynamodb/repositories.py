@@ -1,19 +1,19 @@
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
-import boto3
-from boto3.dynamodb.conditions import Key
-from botocore.exceptions import ClientError
+import boto3  # type: ignore[import-untyped]
+from boto3.dynamodb.conditions import Key  # type: ignore[import-untyped]
+from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
+from src.domain.enums import ExecutionStatus
 from src.domain.errors import ConflictError
 from src.domain.models import (
     Component,
+    ComponentSet,
     DeploymentExecution,
     DeploySet,
     Environment,
     EnvironmentState,
-    EnvironmentTarget,
     Release,
-    TargetResolution,
 )
 
 T = TypeVar("T")
@@ -24,7 +24,7 @@ def _table(name: str) -> Any:
 
 
 def _dump(model: Any) -> dict[str, Any]:
-    return model.model_dump(by_alias=True, exclude_none=True)
+    return cast(dict[str, Any], model.model_dump(by_alias=True, exclude_none=True, mode="json"))
 
 
 def _create(table: Any, item: dict[str, Any], condition: str) -> None:
@@ -46,6 +46,18 @@ class DynamoComponentRepository:
         return [Component.model_validate(item) for item in self.table.scan().get("Items", [])]
     def put(self, component: Component) -> None:
         self.table.put_item(Item=_dump(component))
+
+
+class DynamoComponentSetRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, component_set_id: str) -> ComponentSet | None:
+        item = self.table.get_item(Key={"componentSetId": component_set_id}).get("Item")
+        return ComponentSet.model_validate(item) if item else None
+    def list(self) -> list[ComponentSet]:
+        return [ComponentSet.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, component_set: ComponentSet) -> None:
+        self.table.put_item(Item=_dump(component_set))
 
 
 class DynamoReleaseRepository:
@@ -88,38 +100,6 @@ class DynamoEnvironmentRepository:
         self.table.put_item(Item=_dump(environment))
 
 
-class DynamoEnvironmentTargetRepository:
-    def __init__(self, table_name: str) -> None:
-        self.table = _table(table_name)
-    def get(self, environment_id: str, component_id: str) -> EnvironmentTarget | None:
-        item = self.table.get_item(Key={"environmentId": environment_id, "componentId": component_id}).get("Item")
-        return EnvironmentTarget.model_validate(item) if item else None
-    def list_by_environment(self, environment_id: str | None = None) -> list[EnvironmentTarget]:
-        if environment_id is None:
-            items = self.table.scan().get("Items", [])
-        else:
-            items = self.table.query(KeyConditionExpression=Key("environmentId").eq(environment_id)).get("Items", [])
-        return [EnvironmentTarget.model_validate(item) for item in items]
-    def put(self, target: EnvironmentTarget) -> None:
-        self.table.put_item(Item=_dump(target))
-
-
-class DynamoTargetResolutionRepository:
-    def __init__(self, table_name: str) -> None:
-        self.table = _table(table_name)
-    def get(self, component_type: str, target_key: str) -> TargetResolution | None:
-        item = self.table.get_item(Key={"type": component_type, "targetKey": target_key}).get("Item")
-        return TargetResolution.model_validate(item) if item else None
-    def list_by_type(self, component_type: str | None = None) -> list[TargetResolution]:
-        if component_type is None:
-            items = self.table.scan().get("Items", [])
-        else:
-            items = self.table.query(KeyConditionExpression=Key("type").eq(component_type)).get("Items", [])
-        return [TargetResolution.model_validate(item) for item in items]
-    def put(self, resolution: TargetResolution) -> None:
-        self.table.put_item(Item=_dump(resolution))
-
-
 class DynamoEnvironmentStateRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
@@ -147,6 +127,10 @@ class DynamoDeploymentExecutionRepository:
         item = _dump(execution)
         item["executionSortKey"] = f"{execution.started_at}#{execution.deployment_execution_id}"
         _create(self.table, item, "attribute_not_exists(environmentId) AND attribute_not_exists(executionSortKey)")
+    def put(self, execution: DeploymentExecution) -> None:
+        item = _dump(execution)
+        item["executionSortKey"] = f"{execution.started_at}#{execution.deployment_execution_id}"
+        self.table.put_item(Item=item)
     def list_by_environment(self, environment_id: str | None = None) -> list[DeploymentExecution]:
         if environment_id is None:
             items = self.table.scan().get("Items", [])
@@ -164,3 +148,10 @@ class DynamoDeploymentExecutionRepository:
         )
         items = response.get("Items", [])
         return DeploymentExecution.model_validate(items[0]) if items else None
+    def list_pending(self) -> list[DeploymentExecution]:
+        items = self.table.scan().get("Items", [])
+        return [
+            DeploymentExecution.model_validate(item)
+            for item in items
+            if item.get("status") == ExecutionStatus.PENDING
+        ]

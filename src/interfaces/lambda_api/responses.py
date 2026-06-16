@@ -8,7 +8,7 @@ def to_json(value: Any) -> Any:
     if isinstance(value, list):
         return [to_json(item) for item in value]
     if hasattr(value, "model_dump"):
-        return value.model_dump(by_alias=True)
+        return value.model_dump(by_alias=True, mode="json")
     return value
 
 
@@ -24,4 +24,3 @@ def error_response(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, DeploySetControllerError):
         return response(exc.status_code, {"detail": str(exc)})
     return response(500, {"detail": "Internal server error"})
-

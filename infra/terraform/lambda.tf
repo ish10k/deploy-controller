@@ -12,15 +12,12 @@ resource "aws_lambda_function" "deploy_controller" {
     variables = {
       DEPLOYSET_BACKEND            = "dynamodb"
       COMPONENTS_TABLE             = aws_dynamodb_table.components.name
+      COMPONENT_SETS_TABLE         = aws_dynamodb_table.component_sets.name
       RELEASES_TABLE               = aws_dynamodb_table.releases.name
       DEPLOYSETS_TABLE             = aws_dynamodb_table.deploysets.name
       ENVIRONMENTS_TABLE           = aws_dynamodb_table.environments.name
-      ENVIRONMENT_TARGETS_TABLE    = aws_dynamodb_table.environment_targets.name
-      TARGET_RESOLUTIONS_TABLE     = aws_dynamodb_table.target_resolutions.name
       ENVIRONMENT_STATE_TABLE      = aws_dynamodb_table.environment_state.name
       DEPLOYMENT_EXECUTIONS_TABLE  = aws_dynamodb_table.deployment_executions.name
-      ARTIFACT_BUCKET              = aws_s3_bucket.artifacts.bucket
-      ECR_REGISTRY                 = var.ecr_registry
     }
   }
 

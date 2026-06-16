@@ -1,19 +1,19 @@
 # DeploySet Controller
 
-DeploySet Controller is a control-plane MVP for managing desired platform versions and producing deployment plans.
+DeploySet Controller is a generic DeploySet control plane for managing desired component versions and deployment execution history.
 
-It intentionally does not deploy Lambda, ECS, or EC2/IIS workloads yet. The MVP stores registries/configuration, calculates plans, creates append-only deployment execution records, and updates environment state.
+The core acts as the brain: it stores components, ComponentSets, immutable releases, immutable DeploySets, generic environments, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external adapters/runners.
 
 ## Core Invariant
 
-A component can noop only when all of these are true:
+A stored DeploySet is always complete and immutable. A create request may be partial, but missing required ComponentSet versions must be inferred from a base DeploySet or from the latest successful deployment state for an environment before the DeploySet is stored.
 
-- latest execution item exists
-- latest item status is `succeeded`
-- latest item version equals the requested release version
-- actual deployed SHA equals `Release.artifactSha256`
+At deployment request time, no version inference happens. The brain creates execution items from the complete DeploySet and selects either:
 
-Everything else plans as `deploy`. For local MVP testing, `requireActualShaCheck=false` lets planning ignore the actual SHA comparison until real readers are implemented.
+- `deploy` when no latest item exists, the latest item did not succeed, the version changed, or `force=true`
+- `skip` when the latest successful execution item already matches the requested version and `force=false`
+
+Adapters may still report `noop` after inspecting their own target state. A forced same-version redeploy that succeeds is flagged as possible drift.
 
 ## Local API
 
@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
 ```
 
-The in-memory backend starts with a small local seed: `local`, `dev`, and `prod` environments, several deploy sets (`local-default`, `local-hotfix`, `dev-default`, `prod-default`), `api` and `worker` components, and multiple releases and targets for each component.
+The in-memory backend starts with a small local seed: `local`, `dev`, and `prod` environments, a `local-platform` ComponentSet, several deploy sets (`local-default`, `local-hotfix`, `dev-default`, `prod-default`), `api` and `worker` components, and multiple opaque artifact releases.
 
 ## AWS Lambda API
 
@@ -32,6 +32,6 @@ Use `src.interfaces.lambda_api.handler.handler` as the Lambda handler. This rout
 
 - `src/domain/`: pure Pydantic models and planning rules
 - `src/application/`: use cases and ports
-- `src/infrastructure/`: memory, DynamoDB, and artifact convention adapters
+- `src/infrastructure/`: memory and DynamoDB persistence
 - `src/interfaces/`: FastAPI and API Gateway/Lambda entry points
 - `infra/terraform/`: DynamoDB, Lambda, HTTP API, IAM, CloudWatch, and artifact bucket infrastructure

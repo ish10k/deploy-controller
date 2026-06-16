@@ -1,24 +1,43 @@
+from src.domain.enums import DriftReason, ItemStatus, ReportedAction, RequestedAction, RequestedReason
 from src.domain.models import DeploymentExecutionItem
 
 
-def should_deploy(
+def requested_action_for_item(
     *,
     requested_version: str,
-    release_artifact_sha: str,
     latest_item: DeploymentExecutionItem | None,
-    actual_sha: str | None,
-    require_actual_sha_check: bool = True,
-) -> tuple[bool, str]:
-    if latest_item is None:
-        return True, "missing_latest_execution_item"
+    force: bool = False,
+) -> tuple[RequestedAction, ItemStatus, RequestedReason]:
+    if force:
+        return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.FORCE
 
-    if latest_item.status != "succeeded":
-        return True, "latest_status_not_succeeded"
+    if latest_item is None:
+        return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.MISSING_LATEST_EXECUTION_ITEM
+
+    if latest_item.status != ItemStatus.SUCCEEDED:
+        return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.LATEST_STATUS_NOT_SUCCEEDED
 
     if latest_item.version != requested_version:
-        return True, "version_changed"
+        return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.VERSION_CHANGED
 
-    if require_actual_sha_check and actual_sha != release_artifact_sha:
-        return True, "artifact_sha_mismatch"
+    return RequestedAction.SKIP, ItemStatus.SKIPPED, RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED
 
-    return False, "already_applied"
+
+def possible_drift_reason(
+    *,
+    requested_version: str,
+    latest_item: DeploymentExecutionItem | None,
+    force: bool,
+    reported_action: ReportedAction | None,
+    status: ItemStatus,
+) -> DriftReason | None:
+    if (
+        force
+        and latest_item is not None
+        and latest_item.status == ItemStatus.SUCCEEDED
+        and latest_item.version == requested_version
+        and reported_action == ReportedAction.DEPLOY
+        and status == ItemStatus.SUCCEEDED
+    ):
+        return DriftReason.SAME_VERSION_REDEPLOYED
+    return None

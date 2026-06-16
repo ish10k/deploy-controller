@@ -9,6 +9,17 @@ resource "aws_dynamodb_table" "components" {
   }
 }
 
+resource "aws_dynamodb_table" "component_sets" {
+  name         = "${var.name_prefix}-component-sets"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "componentSetId"
+
+  attribute {
+    name = "componentSetId"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "releases" {
   name         = "${var.name_prefix}-releases"
   billing_mode = "PAY_PER_REQUEST"
@@ -44,40 +55,6 @@ resource "aws_dynamodb_table" "environments" {
 
   attribute {
     name = "environmentId"
-    type = "S"
-  }
-}
-
-resource "aws_dynamodb_table" "environment_targets" {
-  name         = "${var.name_prefix}-environment-targets"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "environmentId"
-  range_key    = "componentId"
-
-  attribute {
-    name = "environmentId"
-    type = "S"
-  }
-
-  attribute {
-    name = "componentId"
-    type = "S"
-  }
-}
-
-resource "aws_dynamodb_table" "target_resolutions" {
-  name         = "${var.name_prefix}-target-resolutions"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "type"
-  range_key    = "targetKey"
-
-  attribute {
-    name = "type"
-    type = "S"
-  }
-
-  attribute {
-    name = "targetKey"
     type = "S"
   }
 }
@@ -120,4 +97,3 @@ resource "aws_dynamodb_table" "deployment_executions" {
     projection_type = "ALL"
   }
 }
-

@@ -1,30 +1,23 @@
 from src.application.ports.repositories import (
-    ActualShaReader,
-    ArtifactResolver,
     Clock,
     ComponentRepository,
+    ComponentSetRepository,
     DeploymentExecutionRepository,
     DeploySetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
-    EnvironmentTargetRepository,
     IdGenerator,
     ReleaseRepository,
-    TargetResolutionRepository,
 )
 
 __all__ = [
-    "ActualShaReader",
-    "ArtifactResolver",
     "Clock",
     "ComponentRepository",
+    "ComponentSetRepository",
     "DeploySetRepository",
     "DeploymentExecutionRepository",
     "EnvironmentRepository",
     "EnvironmentStateRepository",
-    "EnvironmentTargetRepository",
     "IdGenerator",
     "ReleaseRepository",
-    "TargetResolutionRepository",
 ]
-

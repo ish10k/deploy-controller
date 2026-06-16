@@ -1,69 +1,63 @@
 import os
 
-from src.application.use_cases.deployments import CreateDeploymentUseCase, PlanDeploymentUseCase
+from src.application.use_cases.deployments import AdapterUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
 from src.application.use_cases.registry import (
+    ComponentSetUseCases,
     ComponentUseCases,
     DeploySetUseCases,
-    EnvironmentTargetUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
-    TargetResolutionUseCases,
 )
 from src.composition.container import Container
-from src.infrastructure.artifacts import ConventionArtifactResolver
 from src.infrastructure.dynamodb.repositories import (
     DynamoComponentRepository,
+    DynamoComponentSetRepository,
     DynamoDeploymentExecutionRepository,
     DynamoDeploySetRepository,
     DynamoEnvironmentRepository,
     DynamoEnvironmentStateRepository,
-    DynamoEnvironmentTargetRepository,
     DynamoReleaseRepository,
-    DynamoTargetResolutionRepository,
 )
 from src.infrastructure.ids import UuidIdGenerator
-from src.infrastructure.memory.actual_sha_reader import MemoryActualShaReader
 from src.infrastructure.time import SystemClock
 
 
 def build_aws_container() -> Container:
     components = DynamoComponentRepository(os.environ["COMPONENTS_TABLE"])
+    component_sets = DynamoComponentSetRepository(os.environ["COMPONENT_SETS_TABLE"])
     releases = DynamoReleaseRepository(os.environ["RELEASES_TABLE"])
     deploysets = DynamoDeploySetRepository(os.environ["DEPLOYSETS_TABLE"])
     environments = DynamoEnvironmentRepository(os.environ["ENVIRONMENTS_TABLE"])
-    environment_targets = DynamoEnvironmentTargetRepository(os.environ["ENVIRONMENT_TARGETS_TABLE"])
-    target_resolutions = DynamoTargetResolutionRepository(os.environ["TARGET_RESOLUTIONS_TABLE"])
     states = DynamoEnvironmentStateRepository(os.environ["ENVIRONMENT_STATE_TABLE"])
     executions = DynamoDeploymentExecutionRepository(os.environ["DEPLOYMENT_EXECUTIONS_TABLE"])
+    clock = SystemClock()
     planner = PlanDeploymentUseCase(
         deploysets=deploysets,
         releases=releases,
         environments=environments,
-        components=components,
-        environment_targets=environment_targets,
-        target_resolutions=target_resolutions,
         executions=executions,
-        artifact_resolver=ConventionArtifactResolver(
-            artifact_bucket=os.environ["ARTIFACT_BUCKET"],
-            ecr_registry=os.environ["ECR_REGISTRY"],
-        ),
-        actual_sha_reader=MemoryActualShaReader(),
     )
     return Container(
         components=ComponentUseCases(components),
+        component_sets=ComponentSetUseCases(component_sets),
         releases=ReleaseUseCases(releases),
-        deploysets=DeploySetUseCases(deploysets),
+        deploysets=DeploySetUseCases(
+            deploysets=deploysets,
+            component_sets=component_sets,
+            releases=releases,
+            executions=executions,
+            clock=clock,
+        ),
         environments=EnvironmentUseCases(environments),
-        environment_targets=EnvironmentTargetUseCases(environment_targets),
-        target_resolutions=TargetResolutionUseCases(target_resolutions),
         read_only=ReadOnlyUseCases(states, executions),
         plan_deployment=planner,
         create_deployment=CreateDeploymentUseCase(
             planner=planner,
             executions=executions,
             states=states,
-            clock=SystemClock(),
+            clock=clock,
             id_generator=UuidIdGenerator(),
         ),
+        adapters=AdapterUseCases(executions=executions, states=states, clock=clock),
     )

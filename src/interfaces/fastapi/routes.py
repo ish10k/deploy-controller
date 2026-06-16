@@ -6,14 +6,19 @@ from src.composition import Container
 from src.domain.errors import DeploySetControllerError
 from src.domain.models import (
     Component,
-    DeploySet,
+    ComponentSet,
+    DeploySetCreateRequest,
     Environment,
-    EnvironmentTarget,
     Release,
-    TargetResolution,
 )
 from src.interfaces.fastapi.dependencies import get_container
-from src.interfaces.fastapi.schemas import CreateDeploymentRequest, PlanDeploymentRequest
+from src.interfaces.fastapi.schemas import (
+    ClaimExecutionRequest,
+    CreateDeploymentRequest,
+    PlanDeploymentRequest,
+    ReportExecutionItemStatusRequest,
+    ReportExecutionStatusRequest,
+)
 
 router = APIRouter()
 ContainerDep = Annotated[Container, Depends(get_container)]
@@ -23,7 +28,7 @@ def _json(value: Any) -> Any:
     if isinstance(value, list):
         return [_json(item) for item in value]
     if hasattr(value, "model_dump"):
-        return value.model_dump(by_alias=True)
+        return value.model_dump(by_alias=True, mode="json")
     return value
 
 
@@ -47,6 +52,22 @@ def get_component(component_id: str, container: ContainerDep) -> Any:
 @router.put("/components/{component_id}")
 def put_component(component_id: str, component: Component, container: ContainerDep) -> Any:
     return _handle(lambda: container.components.put(component.model_copy(update={"component_id": component_id})))
+
+
+@router.get("/component-sets")
+def list_component_sets(container: ContainerDep) -> Any:
+    return _handle(container.component_sets.list)
+
+
+@router.get("/component-sets/{component_set_id}")
+def get_component_set(component_set_id: str, container: ContainerDep) -> Any:
+    return _handle(lambda: container.component_sets.get(component_set_id))
+
+
+@router.put("/component-sets/{component_set_id}")
+def put_component_set(component_set_id: str, component_set: ComponentSet, container: ContainerDep) -> Any:
+    updated = component_set.model_copy(update={"component_set_id": component_set_id})
+    return _handle(lambda: container.component_sets.put(updated))
 
 
 @router.get("/releases")
@@ -75,8 +96,8 @@ def get_deployset(deployset_id: str, container: ContainerDep) -> Any:
 
 
 @router.post("/deploysets")
-def create_deployset(deployset: DeploySet, container: ContainerDep) -> Any:
-    return _handle(lambda: container.deploysets.create(deployset))
+def create_deployset(request: DeploySetCreateRequest, container: ContainerDep) -> Any:
+    return _handle(lambda: container.deploysets.create(request))
 
 
 @router.get("/environments")
@@ -93,48 +114,6 @@ def get_environment(environment_id: str, container: ContainerDep) -> Any:
 def put_environment(environment_id: str, environment: Environment, container: ContainerDep) -> Any:
     updated = environment.model_copy(update={"environment_id": environment_id})
     return _handle(lambda: container.environments.put(updated))
-
-
-@router.get("/environment-targets")
-def list_environment_targets(container: ContainerDep, environmentId: str | None = None) -> Any:
-    return _handle(lambda: container.environment_targets.list(environmentId))
-
-
-@router.get("/environment-targets/{environment_id}/{component_id}")
-def get_environment_target(environment_id: str, component_id: str, container: ContainerDep) -> Any:
-    return _handle(lambda: container.environment_targets.get(environment_id, component_id))
-
-
-@router.put("/environment-targets/{environment_id}/{component_id}")
-def put_environment_target(
-    environment_id: str,
-    component_id: str,
-    target: EnvironmentTarget,
-    container: ContainerDep,
-) -> Any:
-    updated = target.model_copy(update={"environment_id": environment_id, "component_id": component_id})
-    return _handle(lambda: container.environment_targets.put(updated))
-
-
-@router.get("/target-resolutions")
-def list_target_resolutions(container: ContainerDep, type: str | None = None) -> Any:
-    return _handle(lambda: container.target_resolutions.list(type))
-
-
-@router.get("/target-resolutions/{component_type}/{target_key:path}")
-def get_target_resolution(component_type: str, target_key: str, container: ContainerDep) -> Any:
-    return _handle(lambda: container.target_resolutions.get(component_type, target_key))
-
-
-@router.put("/target-resolutions/{component_type}/{target_key:path}")
-def put_target_resolution(
-    component_type: str,
-    target_key: str,
-    resolution: TargetResolution,
-    container: ContainerDep,
-) -> Any:
-    updated = resolution.model_copy(update={"type": component_type, "target_key": target_key})
-    return _handle(lambda: container.target_resolutions.put(updated))
 
 
 @router.get("/environment-state")
@@ -163,7 +142,7 @@ def plan_deployment(request: PlanDeploymentRequest, container: ContainerDep) -> 
         lambda: container.plan_deployment.execute(
             environment_id=request.environment_id,
             deployset_id=request.deployset_id,
-            require_actual_sha_check=request.require_actual_sha_check,
+            force=request.force,
         )
     )
 
@@ -176,8 +155,53 @@ def create_deployment(request: CreateDeploymentRequest, container: ContainerDep)
                 environment_id=request.environment_id,
                 deployset_id=request.deployset_id,
                 requested_by=request.requested_by,
-                require_actual_sha_check=request.require_actual_sha_check,
+                force=request.force,
             ).deployment_execution_id,
-            "status": "planned",
+            "status": "pending",
         }
     )
+
+
+@router.get("/adapter/executions/pending")
+def list_pending_adapter_executions(container: ContainerDep) -> Any:
+    return _handle(container.adapters.list_pending)
+
+
+@router.post("/adapter/executions/{deployment_execution_id}/claim")
+def claim_adapter_execution(
+    deployment_execution_id: str,
+    request: ClaimExecutionRequest,
+    container: ContainerDep,
+) -> Any:
+    return _handle(lambda: container.adapters.claim(deployment_execution_id, request.claimed_by))
+
+
+@router.post("/adapter/executions/{deployment_execution_id}/items/{component_id}/status")
+def report_adapter_item_status(
+    deployment_execution_id: str,
+    component_id: str,
+    request: ReportExecutionItemStatusRequest,
+    container: ContainerDep,
+) -> Any:
+    return _handle(
+        lambda: container.adapters.report_item_status(
+            deployment_execution_id=deployment_execution_id,
+            component_id=component_id,
+            status=request.status,
+            reported_action=request.reported_action,
+            reported_by=request.reported_by,
+            adapter_reason=request.adapter_reason,
+            observed_artifact_sha256=request.observed_artifact_sha256,
+            message=request.message,
+            error=request.error,
+        )
+    )
+
+
+@router.post("/adapter/executions/{deployment_execution_id}/status")
+def report_adapter_execution_status(
+    deployment_execution_id: str,
+    request: ReportExecutionStatusRequest,
+    container: ContainerDep,
+) -> Any:
+    return _handle(lambda: container.adapters.report_execution_status(deployment_execution_id, request.status))

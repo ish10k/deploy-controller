@@ -1,13 +1,14 @@
 # Core Planning Invariant
 
-DeploySet Controller plans `deploy` unless a component is proven already applied.
+DeploySet Controller creates execution items from a complete immutable DeploySet. It does not inspect provider infrastructure or derive artifact locations.
 
-A component can noop only when:
+The brain requests `skip` only when:
 
 - the latest deployment execution contains an item for the component
 - that item has status `succeeded`
 - that item has the requested version
-- the actual deployed SHA equals the release artifact SHA
+- the deployment request is not forced
 
-If actual SHA reading is not available yet, callers may set `requireActualShaCheck=false` for MVP testing.
+The brain requests `deploy` when no latest item exists, the latest item did not succeed, the requested version changed, or `force=true`.
 
+Adapters inspect real target state. They may report `deploy`, `noop`, or `skip`; a forced same-version deployment that succeeds is recorded as possible drift.

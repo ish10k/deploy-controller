@@ -1,27 +1,26 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from src.domain.enums import ExecutionStatus
 from src.domain.errors import ConflictError
 from src.domain.models import (
     Component,
+    ComponentSet,
     DeploymentExecution,
     DeploySet,
     Environment,
     EnvironmentState,
-    EnvironmentTarget,
     Release,
-    TargetResolution,
 )
 
 
 @dataclass
 class MemoryRepositories:
     components: dict[str, Component] = field(default_factory=dict)
+    component_sets: dict[str, ComponentSet] = field(default_factory=dict)
     releases: dict[tuple[str, str], Release] = field(default_factory=dict)
     deploysets: dict[str, DeploySet] = field(default_factory=dict)
     environments: dict[str, Environment] = field(default_factory=dict)
-    environment_targets: dict[tuple[str, str], EnvironmentTarget] = field(default_factory=dict)
-    target_resolutions: dict[tuple[str, str], TargetResolution] = field(default_factory=dict)
     environment_states: dict[str, EnvironmentState] = field(default_factory=dict)
     deployment_executions: dict[str, DeploymentExecution] = field(default_factory=dict)
 
@@ -33,6 +32,15 @@ class MemoryRepositories:
 
     def put_component(self, component: Component) -> None:
         self.components[component.component_id] = component
+
+    def get_component_set(self, component_set_id: str) -> ComponentSet | None:
+        return self.component_sets.get(component_set_id)
+
+    def list_component_sets(self) -> list[ComponentSet]:
+        return sorted(self.component_sets.values(), key=lambda item: item.component_set_id)
+
+    def put_component_set(self, component_set: ComponentSet) -> None:
+        self.component_sets[component_set.component_set_id] = component_set
 
     def get_release(self, component_id: str, version: str) -> Release | None:
         return self.releases.get((component_id, version))
@@ -69,30 +77,6 @@ class MemoryRepositories:
     def put_environment(self, environment: Environment) -> None:
         self.environments[environment.environment_id] = environment
 
-    def get_environment_target(self, environment_id: str, component_id: str) -> EnvironmentTarget | None:
-        return self.environment_targets.get((environment_id, component_id))
-
-    def list_environment_targets(self, environment_id: str | None = None) -> list[EnvironmentTarget]:
-        values: Iterable[EnvironmentTarget] = self.environment_targets.values()
-        if environment_id is not None:
-            values = (item for item in values if item.environment_id == environment_id)
-        return sorted(values, key=lambda item: (item.environment_id, item.component_id))
-
-    def put_environment_target(self, target: EnvironmentTarget) -> None:
-        self.environment_targets[(target.environment_id, target.component_id)] = target
-
-    def get_target_resolution(self, component_type: str, target_key: str) -> TargetResolution | None:
-        return self.target_resolutions.get((component_type, target_key))
-
-    def list_target_resolutions(self, component_type: str | None = None) -> list[TargetResolution]:
-        values: Iterable[TargetResolution] = self.target_resolutions.values()
-        if component_type is not None:
-            values = (item for item in values if item.type == component_type)
-        return sorted(values, key=lambda item: (item.type, item.target_key))
-
-    def put_target_resolution(self, resolution: TargetResolution) -> None:
-        self.target_resolutions[(resolution.type, resolution.target_key)] = resolution
-
     def get_environment_state(self, environment_id: str) -> EnvironmentState | None:
         return self.environment_states.get(environment_id)
 
@@ -110,6 +94,9 @@ class MemoryRepositories:
             raise ConflictError(f"DeploymentExecution already exists: {execution.deployment_execution_id}")
         self.deployment_executions[execution.deployment_execution_id] = execution
 
+    def put_deployment_execution(self, execution: DeploymentExecution) -> None:
+        self.deployment_executions[execution.deployment_execution_id] = execution
+
     def list_deployment_executions(self, environment_id: str | None = None) -> list[DeploymentExecution]:
         values: Iterable[DeploymentExecution] = self.deployment_executions.values()
         if environment_id is not None:
@@ -119,6 +106,12 @@ class MemoryRepositories:
     def latest_deployment_execution(self, environment_id: str) -> DeploymentExecution | None:
         executions = self.list_deployment_executions(environment_id)
         return executions[0] if executions else None
+
+    def list_pending_deployment_executions(self) -> list[DeploymentExecution]:
+        return sorted(
+            (item for item in self.deployment_executions.values() if item.status == ExecutionStatus.PENDING),
+            key=lambda item: (item.started_at, item.deployment_execution_id),
+        )
 
 
 class MemoryComponentRepository:
@@ -133,6 +126,20 @@ class MemoryComponentRepository:
 
     def put(self, component: Component) -> None:
         self.store.put_component(component)
+
+
+class MemoryComponentSetRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, component_set_id: str) -> ComponentSet | None:
+        return self.store.get_component_set(component_set_id)
+
+    def list(self) -> list[ComponentSet]:
+        return self.store.list_component_sets()
+
+    def put(self, component_set: ComponentSet) -> None:
+        self.store.put_component_set(component_set)
 
 
 class MemoryReleaseRepository:
@@ -177,34 +184,6 @@ class MemoryEnvironmentRepository:
         self.store.put_environment(environment)
 
 
-class MemoryEnvironmentTargetRepository:
-    def __init__(self, store: MemoryRepositories) -> None:
-        self.store = store
-
-    def get(self, environment_id: str, component_id: str) -> EnvironmentTarget | None:
-        return self.store.get_environment_target(environment_id, component_id)
-
-    def list_by_environment(self, environment_id: str | None = None) -> list[EnvironmentTarget]:
-        return self.store.list_environment_targets(environment_id)
-
-    def put(self, target: EnvironmentTarget) -> None:
-        self.store.put_environment_target(target)
-
-
-class MemoryTargetResolutionRepository:
-    def __init__(self, store: MemoryRepositories) -> None:
-        self.store = store
-
-    def get(self, component_type: str, target_key: str) -> TargetResolution | None:
-        return self.store.get_target_resolution(component_type, target_key)
-
-    def list_by_type(self, component_type: str | None = None) -> list[TargetResolution]:
-        return self.store.list_target_resolutions(component_type)
-
-    def put(self, resolution: TargetResolution) -> None:
-        self.store.put_target_resolution(resolution)
-
-
 class MemoryEnvironmentStateRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
@@ -229,8 +208,14 @@ class MemoryDeploymentExecutionRepository:
     def create(self, execution: DeploymentExecution) -> None:
         self.store.create_deployment_execution(execution)
 
+    def put(self, execution: DeploymentExecution) -> None:
+        self.store.put_deployment_execution(execution)
+
     def list_by_environment(self, environment_id: str | None = None) -> list[DeploymentExecution]:
         return self.store.list_deployment_executions(environment_id)
 
     def latest_for_environment(self, environment_id: str) -> DeploymentExecution | None:
         return self.store.latest_deployment_execution(environment_id)
+
+    def list_pending(self) -> list[DeploymentExecution]:
+        return self.store.list_pending_deployment_executions()

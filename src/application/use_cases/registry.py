@@ -1,21 +1,26 @@
 from src.application.ports import (
+    Clock,
     ComponentRepository,
+    ComponentSetRepository,
     DeploymentExecutionRepository,
     DeploySetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
-    EnvironmentTargetRepository,
     ReleaseRepository,
-    TargetResolutionRepository,
 )
-from src.domain.errors import ConflictError, NotFoundError
+from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, RequestedAction
+from src.domain.errors import ConflictError, NotFoundError, ValidationError
 from src.domain.models import (
     Component,
+    ComponentSet,
+    DeploymentExecution,
     DeploySet,
+    DeploySetCreateRequest,
+    DeploySetCreateResult,
+    DeploySetItem,
     Environment,
-    EnvironmentTarget,
+    EnvironmentState,
     Release,
-    TargetResolution,
 )
 
 
@@ -39,6 +44,24 @@ class ComponentUseCases:
 
     def list(self) -> list[Component]:
         return self.components.list()
+
+
+class ComponentSetUseCases:
+    def __init__(self, component_sets: ComponentSetRepository) -> None:
+        self.component_sets = component_sets
+
+    def put(self, component_set: ComponentSet) -> ComponentSet:
+        self.component_sets.put(component_set)
+        return component_set
+
+    def get(self, component_set_id: str) -> ComponentSet:
+        component_set = self.component_sets.get(component_set_id)
+        if component_set is None:
+            raise NotFoundError(f"ComponentSet not found: {component_set_id}")
+        return component_set
+
+    def list(self) -> list[ComponentSet]:
+        return self.component_sets.list()
 
 
 class ReleaseUseCases:
@@ -67,17 +90,157 @@ class ReleaseUseCases:
 
 
 class DeploySetUseCases:
-    def __init__(self, deploysets: DeploySetRepository) -> None:
+    def __init__(
+        self,
+        *,
+        deploysets: DeploySetRepository,
+        component_sets: ComponentSetRepository,
+        releases: ReleaseRepository,
+        executions: DeploymentExecutionRepository,
+        clock: Clock,
+    ) -> None:
         self.deploysets = deploysets
+        self.component_sets = component_sets
+        self.releases = releases
+        self.executions = executions
+        self.clock = clock
 
-    def create(self, deployset: DeploySet) -> DeploySet:
+    def create(self, request: DeploySet | DeploySetCreateRequest | dict[str, object]) -> DeploySetCreateResult:
+        if isinstance(request, dict):
+            request = DeploySetCreateRequest.model_validate(request)
+        deployset, warnings = self._expand(request)
         existing = self.deploysets.get(deployset.deployset_id)
         if existing is not None:
             if _same(existing, deployset):
-                return existing
+                return DeploySetCreateResult(deployset=existing, warnings=warnings)
             raise ConflictError(f"DeploySet already exists with different content: {deployset.deployset_id}")
         self.deploysets.create(deployset)
-        return deployset
+        return DeploySetCreateResult(deployset=deployset, warnings=warnings)
+
+    def _expand(self, request: DeploySet | DeploySetCreateRequest) -> tuple[DeploySet, list[str]]:
+        if isinstance(request, DeploySet):
+            self._validate_complete(request)
+            return request, []
+
+        component_set = self.component_sets.get(request.component_set_id)
+        if component_set is None:
+            raise NotFoundError(f"ComponentSet not found: {request.component_set_id}")
+
+        component_ids = [item.component_id for item in component_set.components]
+        component_id_set = set(component_ids)
+        required_component_ids = [item.component_id for item in component_set.components if item.required]
+        explicit_versions = {item.component_id: item.version for item in request.items}
+        unknown = sorted(set(explicit_versions) - component_id_set)
+        if unknown:
+            raise ValidationError(f"DeploySet contains components outside ComponentSet: {', '.join(unknown)}")
+        missing = [component_id for component_id in required_component_ids if component_id not in explicit_versions]
+        inferred_versions: dict[str, str] = {}
+
+        if missing:
+            if request.base_deployset_id is None and request.base_environment_id is None:
+                raise ValidationError(
+                    "baseEnvironmentId or baseDeploySetId is required when required components are missing"
+                )
+            inferred_versions = self._infer_versions(
+                missing=missing,
+                base_deployset_id=request.base_deployset_id,
+                base_environment_id=request.base_environment_id,
+            )
+
+        items = [
+            DeploySetItem(
+                component_id=component_id,
+                version=explicit_versions[component_id],
+                source=DeploySetItemSource.EXPLICIT,
+            )
+            for component_id in component_ids
+            if component_id in explicit_versions
+        ]
+        items.extend(
+            DeploySetItem(
+                component_id=component_id,
+                version=inferred_versions[component_id],
+                source=DeploySetItemSource.INFERRED,
+            )
+            for component_id in missing
+        )
+        self._validate_releases(items)
+        warnings = []
+        if inferred_versions:
+            source = (
+                f"baseDeploySetId={request.base_deployset_id}"
+                if request.base_deployset_id is not None
+                else f"baseEnvironmentId={request.base_environment_id}"
+            )
+            warnings.append(
+                f"{len(inferred_versions)} component versions were inferred from {source}. "
+                "Fully explicit DeploySets are recommended."
+            )
+
+        return (
+            DeploySet(
+                deployset_id=request.deployset_id,
+                component_set_id=request.component_set_id,
+                schema_version=1,
+                base_environment_id=request.base_environment_id,
+                base_deployset_id=request.base_deployset_id,
+                items=items,
+                created_at=self.clock.now(),
+                created_by=request.created_by,
+                tags=request.tags,
+            ),
+            warnings,
+        )
+
+    def _infer_versions(
+        self,
+        *,
+        missing: list[str],
+        base_deployset_id: str | None,
+        base_environment_id: str | None,
+    ) -> dict[str, str]:
+        if base_deployset_id is not None:
+            base = self.deploysets.get(base_deployset_id)
+            if base is None:
+                raise NotFoundError(f"Base DeploySet not found: {base_deployset_id}")
+            base_versions = {item.component_id: item.version for item in base.items}
+        else:
+            executions = self.executions.list_by_environment(base_environment_id)
+            successful = next(
+                (execution for execution in executions if execution.status == ExecutionStatus.SUCCEEDED),
+                None,
+            )
+            if successful is None:
+                raise ValidationError(f"No successful deployment state found for environment: {base_environment_id}")
+            base_versions = {
+                item.component_id: item.version
+                for item in successful.items
+                if item.status == ItemStatus.SUCCEEDED and item.requested_action == RequestedAction.DEPLOY
+            }
+
+        inferred = {}
+        for component_id in missing:
+            version = base_versions.get(component_id)
+            if version is None:
+                raise ValidationError(f"Could not infer version for required component: {component_id}")
+            inferred[component_id] = version
+        return inferred
+
+    def _validate_complete(self, deployset: DeploySet) -> None:
+        component_set = self.component_sets.get(deployset.component_set_id)
+        if component_set is None:
+            raise NotFoundError(f"ComponentSet not found: {deployset.component_set_id}")
+        required = {item.component_id for item in component_set.components if item.required}
+        present = {item.component_id for item in deployset.items}
+        missing = sorted(required - present)
+        if missing:
+            raise ValidationError(f"DeploySet is missing required components: {', '.join(missing)}")
+        self._validate_releases(deployset.items)
+
+    def _validate_releases(self, items: list[DeploySetItem]) -> None:
+        for item in items:
+            if self.releases.get(item.component_id, item.version) is None:
+                raise NotFoundError(f"Release not found: {item.component_id}/{item.version}")
 
     def get(self, deployset_id: str) -> DeploySet:
         deployset = self.deploysets.get(deployset_id)
@@ -107,42 +270,6 @@ class EnvironmentUseCases:
         return self.environments.list()
 
 
-class EnvironmentTargetUseCases:
-    def __init__(self, targets: EnvironmentTargetRepository) -> None:
-        self.targets = targets
-
-    def put(self, target: EnvironmentTarget) -> EnvironmentTarget:
-        self.targets.put(target)
-        return target
-
-    def get(self, environment_id: str, component_id: str) -> EnvironmentTarget:
-        target = self.targets.get(environment_id, component_id)
-        if target is None:
-            raise NotFoundError(f"EnvironmentTarget not found: {environment_id}/{component_id}")
-        return target
-
-    def list(self, environment_id: str | None = None) -> list[EnvironmentTarget]:
-        return self.targets.list_by_environment(environment_id)
-
-
-class TargetResolutionUseCases:
-    def __init__(self, resolutions: TargetResolutionRepository) -> None:
-        self.resolutions = resolutions
-
-    def put(self, resolution: TargetResolution) -> TargetResolution:
-        self.resolutions.put(resolution)
-        return resolution
-
-    def get(self, component_type: str, target_key: str) -> TargetResolution:
-        resolution = self.resolutions.get(component_type, target_key)
-        if resolution is None:
-            raise NotFoundError(f"TargetResolution not found: {component_type}/{target_key}")
-        return resolution
-
-    def list(self, component_type: str | None = None) -> list[TargetResolution]:
-        return self.resolutions.list_by_type(component_type)
-
-
 class ReadOnlyUseCases:
     def __init__(
         self,
@@ -152,20 +279,20 @@ class ReadOnlyUseCases:
         self.states = states
         self.executions = executions
 
-    def get_environment_state(self, environment_id: str):
+    def get_environment_state(self, environment_id: str) -> EnvironmentState:
         state = self.states.get(environment_id)
         if state is None:
             raise NotFoundError(f"EnvironmentState not found: {environment_id}")
         return state
 
-    def list_environment_states(self):
+    def list_environment_states(self) -> list[EnvironmentState]:
         return self.states.list()
 
-    def get_deployment_execution(self, deployment_execution_id: str):
+    def get_deployment_execution(self, deployment_execution_id: str) -> DeploymentExecution:
         execution = self.executions.get(deployment_execution_id)
         if execution is None:
             raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
         return execution
 
-    def list_deployment_executions(self, environment_id: str | None = None):
+    def list_deployment_executions(self, environment_id: str | None = None) -> list[DeploymentExecution]:
         return self.executions.list_by_environment(environment_id)

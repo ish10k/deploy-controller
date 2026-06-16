@@ -1,16 +1,21 @@
 from src.application.ports import (
-    ActualShaReader,
-    ArtifactResolver,
     Clock,
-    ComponentRepository,
     DeploymentExecutionRepository,
     DeploySetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
-    EnvironmentTargetRepository,
     IdGenerator,
     ReleaseRepository,
-    TargetResolutionRepository,
+)
+from src.domain.enums import (
+    EXECUTION_STATUSES,
+    ITEM_STATUSES,
+    REPORTED_ACTIONS,
+    EnvironmentStatus,
+    ExecutionStatus,
+    ItemStatus,
+    ReportedAction,
+    RequestedAction,
 )
 from src.domain.errors import NotFoundError, ValidationError
 from src.domain.models import (
@@ -19,7 +24,7 @@ from src.domain.models import (
     DeploymentPlan,
     EnvironmentState,
 )
-from src.domain.planning import should_deploy
+from src.domain.planning import possible_drift_reason, requested_action_for_item
 
 
 class PlanDeploymentUseCase:
@@ -29,29 +34,19 @@ class PlanDeploymentUseCase:
         deploysets: DeploySetRepository,
         releases: ReleaseRepository,
         environments: EnvironmentRepository,
-        components: ComponentRepository,
-        environment_targets: EnvironmentTargetRepository,
-        target_resolutions: TargetResolutionRepository,
         executions: DeploymentExecutionRepository,
-        artifact_resolver: ArtifactResolver,
-        actual_sha_reader: ActualShaReader,
     ) -> None:
         self.deploysets = deploysets
         self.releases = releases
         self.environments = environments
-        self.components = components
-        self.environment_targets = environment_targets
-        self.target_resolutions = target_resolutions
         self.executions = executions
-        self.artifact_resolver = artifact_resolver
-        self.actual_sha_reader = actual_sha_reader
 
     def execute(
         self,
         *,
         environment_id: str,
         deployset_id: str,
-        require_actual_sha_check: bool = True,
+        force: bool = False,
     ) -> DeploymentPlan:
         deployset = self.deploysets.get(deployset_id)
         if deployset is None:
@@ -68,56 +63,28 @@ class PlanDeploymentUseCase:
 
         planned_items: list[DeploymentExecutionItem] = []
         for deployset_item in deployset.items:
-            component = self.components.get(deployset_item.component_id)
-            if component is None:
-                raise NotFoundError(f"Component not found: {deployset_item.component_id}")
-            if not component.active:
-                raise ValidationError(f"Component is inactive: {component.component_id}")
-
-            release = self.releases.get(component.component_id, deployset_item.version)
+            release = self.releases.get(deployset_item.component_id, deployset_item.version)
             if release is None:
-                raise NotFoundError(f"Release not found: {component.component_id}/{deployset_item.version}")
+                raise NotFoundError(f"Release not found: {deployset_item.component_id}/{deployset_item.version}")
 
-            target = self.environment_targets.get(environment_id, component.component_id)
-            if target is None:
-                raise NotFoundError(f"EnvironmentTarget not found: {environment_id}/{component.component_id}")
-            if target.type != component.type:
-                raise ValidationError(f"EnvironmentTarget type does not match component type: {component.component_id}")
-
-            resolution = self.target_resolutions.get(component.type, target.target_key)
-            if resolution is None:
-                raise NotFoundError(f"TargetResolution not found: {component.type}/{target.target_key}")
-
-            self.artifact_resolver.resolve(
-                component_type=component.type,
-                component_id=component.component_id,
-                version=release.version,
-                artifact_sha256=release.artifact_sha256,
-            )
-            actual_sha = self.actual_sha_reader.read_actual_sha256(
-                component_type=component.type,
-                target_key=target.target_key,
-            )
-            deploy, reason = should_deploy(
+            requested_action, status, reason = requested_action_for_item(
                 requested_version=deployset_item.version,
-                release_artifact_sha=release.artifact_sha256,
-                latest_item=latest_by_component.get(component.component_id),
-                actual_sha=actual_sha,
-                require_actual_sha_check=require_actual_sha_check,
+                latest_item=latest_by_component.get(deployset_item.component_id),
+                force=force,
             )
             planned_items.append(
                 DeploymentExecutionItem(
-                    componentId=component.component_id,
+                    component_id=deployset_item.component_id,
                     version=release.version,
-                    artifactSha256=release.artifact_sha256,
-                    actualSha256=actual_sha,
-                    action="deploy" if deploy else "noop",
-                    status="pending" if deploy else "succeeded",
-                    reason=reason,
+                    artifact=release.artifact,
+                    requested_action=requested_action,
+                    reported_action=ReportedAction.SKIP if requested_action == RequestedAction.SKIP else None,
+                    status=status,
+                    requested_reason=reason,
                 )
             )
 
-        return DeploymentPlan(environmentId=environment_id, deploySetId=deployset_id, items=planned_items)
+        return DeploymentPlan(environment_id=environment_id, deployset_id=deployset_id, items=planned_items)
 
 
 class CreateDeploymentUseCase:
@@ -142,32 +109,156 @@ class CreateDeploymentUseCase:
         environment_id: str,
         deployset_id: str,
         requested_by: str,
-        require_actual_sha_check: bool = True,
+        force: bool = False,
     ) -> DeploymentExecution:
-        plan = self.planner.execute(
-            environment_id=environment_id,
-            deployset_id=deployset_id,
-            require_actual_sha_check=require_actual_sha_check,
-        )
+        plan = self.planner.execute(environment_id=environment_id, deployset_id=deployset_id, force=force)
         now = self.clock.now()
         execution = DeploymentExecution(
-            deploymentExecutionId=self.id_generator.new_id(),
-            environmentId=environment_id,
-            deploySetId=deployset_id,
-            status="planned",
-            requestedBy=requested_by,
-            startedAt=now,
-            completedAt=None,
+            deployment_execution_id=self.id_generator.new_id(),
+            environment_id=environment_id,
+            deployset_id=deployset_id,
+            status=ExecutionStatus.PENDING,
+            requested_by=requested_by,
+            force=force,
+            started_at=now,
+            completed_at=None,
             items=plan.items,
         )
         self.executions.create(execution)
         self.states.put(
             EnvironmentState(
-                environmentId=environment_id,
-                deploySetId=deployset_id,
-                status="planned",
-                lastDeploymentExecutionId=execution.deployment_execution_id,
-                updatedAt=now,
+                environment_id=environment_id,
+                deployset_id=deployset_id,
+                status=EnvironmentStatus.PENDING,
+                last_deployment_execution_id=execution.deployment_execution_id,
+                updated_at=now,
             )
         )
         return execution
+
+
+class AdapterUseCases:
+    def __init__(
+        self,
+        *,
+        executions: DeploymentExecutionRepository,
+        states: EnvironmentStateRepository,
+        clock: Clock,
+    ) -> None:
+        self.executions = executions
+        self.states = states
+        self.clock = clock
+
+    def list_pending(self) -> list[DeploymentExecution]:
+        return self.executions.list_pending()
+
+    def claim(self, deployment_execution_id: str, claimed_by: str) -> DeploymentExecution:
+        execution = self._get(deployment_execution_id)
+        if execution.status != ExecutionStatus.PENDING:
+            raise ValidationError(f"Execution is not pending: {deployment_execution_id}")
+        updated = execution.model_copy(update={"status": ExecutionStatus.CLAIMED, "claimed_by": claimed_by})
+        self.executions.put(updated)
+        self._update_state(updated)
+        return updated
+
+    def report_item_status(
+        self,
+        *,
+        deployment_execution_id: str,
+        component_id: str,
+        status: str,
+        reported_action: str,
+        reported_by: str,
+        adapter_reason: str | None = None,
+        observed_artifact_sha256: str | None = None,
+        message: str | None = None,
+        error: str | None = None,
+    ) -> DeploymentExecution:
+        if status not in ITEM_STATUSES:
+            raise ValidationError(f"Unsupported item status: {status}")
+        if reported_action not in REPORTED_ACTIONS:
+            raise ValidationError(f"Unsupported reported action: {reported_action}")
+        status = ItemStatus(status)
+        reported_action = ReportedAction(reported_action)
+
+        execution = self._get(deployment_execution_id)
+        previous_latest = self._previous_latest_item(execution, component_id)
+        updated_items = []
+        found = False
+        for item in execution.items:
+            if item.component_id != component_id:
+                updated_items.append(item)
+                continue
+            found = True
+            drift_reason = possible_drift_reason(
+                requested_version=item.version,
+                latest_item=previous_latest,
+                force=execution.force,
+                reported_action=reported_action,
+                status=status,
+            )
+            updated_items.append(
+                item.model_copy(
+                    update={
+                        "status": status,
+                        "reported_action": reported_action,
+                        "adapter_reason": adapter_reason,
+                        "observed_artifact_sha256": observed_artifact_sha256,
+                        "drift_detected": drift_reason is not None,
+                        "drift_reason": drift_reason,
+                        "reported_by": reported_by,
+                        "message": message,
+                        "error": error,
+                    }
+                )
+            )
+        if not found:
+            raise NotFoundError(f"Execution item not found: {deployment_execution_id}/{component_id}")
+        updated = execution.model_copy(update={"items": updated_items})
+        self.executions.put(updated)
+        return updated
+
+    def report_execution_status(self, deployment_execution_id: str, status: str) -> DeploymentExecution:
+        if status not in EXECUTION_STATUSES:
+            raise ValidationError(f"Unsupported execution status: {status}")
+        status = ExecutionStatus(status)
+        execution = self._get(deployment_execution_id)
+        completed_at = (
+            self.clock.now()
+            if status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED}
+            else execution.completed_at
+        )
+        updated = execution.model_copy(update={"status": status, "completed_at": completed_at})
+        self.executions.put(updated)
+        self._update_state(updated)
+        return updated
+
+    def _get(self, deployment_execution_id: str) -> DeploymentExecution:
+        execution = self.executions.get(deployment_execution_id)
+        if execution is None:
+            raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
+        return execution
+
+    def _previous_latest_item(
+        self,
+        execution: DeploymentExecution,
+        component_id: str,
+    ) -> DeploymentExecutionItem | None:
+        for candidate in self.executions.list_by_environment(execution.environment_id):
+            if candidate.deployment_execution_id == execution.deployment_execution_id:
+                continue
+            for item in candidate.items:
+                if item.component_id == component_id:
+                    return item
+        return None
+
+    def _update_state(self, execution: DeploymentExecution) -> None:
+        self.states.put(
+            EnvironmentState(
+                environment_id=execution.environment_id,
+                deployset_id=execution.deployset_id,
+                status=execution.status,
+                last_deployment_execution_id=execution.deployment_execution_id,
+                updated_at=self.clock.now(),
+            )
+        )

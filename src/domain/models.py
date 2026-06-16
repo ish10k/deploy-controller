@@ -1,12 +1,19 @@
-from typing import Any, Literal
-
 from pydantic import BaseModel, ConfigDict, Field
 
-ComponentType = Literal["lambda", "ecs", "ec2-iis"]
-EnvironmentStatus = Literal["idle", "planned", "applying", "succeeded", "failed", "rejected"]
-ExecutionStatus = Literal["planned", "applying", "succeeded", "failed", "rejected"]
-ItemAction = Literal["deploy", "noop", "skip"]
-ItemStatus = Literal["pending", "running", "succeeded", "failed", "skipped"]
+from src.domain.enums import (
+    DeploySetItemSource,
+    DriftReason,
+    EnvironmentStatus,
+    ExecutionStatus,
+    ItemStatus,
+    Permission,
+    PrincipalType,
+    ReportedAction,
+    RequestedAction,
+    RequestedReason,
+    WebhookDeliveryStatus,
+    WebhookEvent,
+)
 
 
 class ApiModel(BaseModel):
@@ -15,56 +22,131 @@ class ApiModel(BaseModel):
 
 class Component(ApiModel):
     component_id: str = Field(alias="componentId")
-    type: ComponentType
+    type: str | None = None
     active: bool = True
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class ComponentSetItem(ApiModel):
+    component_id: str = Field(alias="componentId")
+    required: bool = True
+
+
+class ComponentSet(ApiModel):
+    component_set_id: str = Field(alias="componentSetId")
+    description: str | None = None
+    components: list[ComponentSetItem]
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+
+
+class Artifact(ApiModel):
+    key: str
+    sha256: str
 
 
 class Release(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
-    artifact_sha256: str = Field(alias="artifactSha256")
-    source_sha256: str | None = Field(default=None, alias="sourceSha256")
+    artifact: Artifact
+    git_sha: str | None = Field(default=None, alias="gitSha")
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
+    tags: dict[str, str] = Field(default_factory=dict)
 
 
 class DeploySetItem(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
+    source: DeploySetItemSource = DeploySetItemSource.EXPLICIT
 
 
 class DeploySet(ApiModel):
     deployset_id: str = Field(alias="deploySetId")
+    component_set_id: str = Field(alias="componentSetId")
     schema_version: int = Field(alias="schemaVersion")
+    base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
+    base_deployset_id: str | None = Field(default=None, alias="baseDeploySetId")
     items: list[DeploySetItem]
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class DeploySetCreateItem(ApiModel):
+    component_id: str = Field(alias="componentId")
+    version: str
+
+
+class DeploySetCreateRequest(ApiModel):
+    deployset_id: str = Field(alias="deploySetId")
+    component_set_id: str = Field(alias="componentSetId")
+    base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
+    base_deployset_id: str | None = Field(default=None, alias="baseDeploySetId")
+    items: list[DeploySetCreateItem]
+    created_by: str = Field(alias="createdBy")
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class DeploySetCreateResult(ApiModel):
+    deployset: DeploySet
+    warnings: list[str] = Field(default_factory=list)
 
 
 class Environment(ApiModel):
     environment_id: str = Field(alias="environmentId")
-    aws_account_id: str = Field(alias="awsAccountId")
-    region: str
     active: bool = True
+    provider_hint: str | None = Field(default=None, alias="providerHint")
+    tags: dict[str, str] = Field(default_factory=dict)
 
 
-class EnvironmentTarget(ApiModel):
-    environment_id: str = Field(alias="environmentId")
-    component_id: str = Field(alias="componentId")
-    type: ComponentType
-    target_key: str = Field(alias="targetKey")
+class Principal(ApiModel):
+    principal_id: str = Field(alias="principalId")
+    type: PrincipalType
+    active: bool = True
+    role_ids: list[str] = Field(default_factory=list, alias="roleIds")
+    tags: dict[str, str] = Field(default_factory=dict)
 
 
-class TargetResolution(ApiModel):
-    type: ComponentType
-    target_key: str = Field(alias="targetKey")
-    target: dict[str, Any]
+class Role(ApiModel):
+    role_id: str = Field(alias="roleId")
+    permissions: list[Permission]
+    description: str | None = None
+
+
+class AuthContext(ApiModel):
+    principal_id: str = Field(alias="principalId")
+    permissions: list[Permission]
+
+
+class Webhook(ApiModel):
+    webhook_id: str = Field(alias="webhookId")
+    url: str
+    events: list[WebhookEvent]
+    active: bool = True
+    secret_ref: str | None = Field(default=None, alias="secretRef")
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+
+
+class WebhookDelivery(ApiModel):
+    webhook_delivery_id: str = Field(alias="webhookDeliveryId")
+    webhook_id: str = Field(alias="webhookId")
+    event: WebhookEvent
+    status: WebhookDeliveryStatus
+    payload: dict[str, object]
+    attempts: int = 0
+    last_error: str | None = Field(default=None, alias="lastError")
+    created_at: str = Field(alias="createdAt")
+    updated_at: str = Field(alias="updatedAt")
 
 
 class EnvironmentState(ApiModel):
     environment_id: str = Field(alias="environmentId")
     deployset_id: str | None = Field(default=None, alias="deploySetId")
-    status: EnvironmentStatus = "idle"
+    status: EnvironmentStatus = EnvironmentStatus.IDLE
     last_deployment_execution_id: str | None = Field(default=None, alias="lastDeploymentExecutionId")
     updated_at: str = Field(alias="updatedAt")
 
@@ -72,11 +154,17 @@ class EnvironmentState(ApiModel):
 class DeploymentExecutionItem(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
-    artifact_sha256: str | None = Field(default=None, alias="artifactSha256")
-    actual_sha256: str | None = Field(default=None, alias="actualSha256")
-    action: ItemAction
+    artifact: Artifact
+    requested_action: RequestedAction = Field(alias="requestedAction")
+    reported_action: ReportedAction | None = Field(default=None, alias="reportedAction")
     status: ItemStatus
-    reason: str | None = None
+    requested_reason: RequestedReason | None = Field(default=None, alias="requestedReason")
+    adapter_reason: str | None = Field(default=None, alias="adapterReason")
+    observed_artifact_sha256: str | None = Field(default=None, alias="observedArtifactSha256")
+    drift_detected: bool = Field(default=False, alias="driftDetected")
+    drift_reason: DriftReason | None = Field(default=None, alias="driftReason")
+    reported_by: str | None = Field(default=None, alias="reportedBy")
+    message: str | None = None
     error: str | None = None
 
 
@@ -86,8 +174,10 @@ class DeploymentExecution(ApiModel):
     deployset_id: str = Field(alias="deploySetId")
     status: ExecutionStatus
     requested_by: str = Field(alias="requestedBy")
+    force: bool = False
     started_at: str = Field(alias="startedAt")
     completed_at: str | None = Field(default=None, alias="completedAt")
+    claimed_by: str | None = Field(default=None, alias="claimedBy")
     items: list[DeploymentExecutionItem]
 
 
