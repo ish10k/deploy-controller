@@ -1,0 +1,2 @@
+"""DynamoDB repository adapters."""
+

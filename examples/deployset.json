@@ -1,0 +1,10 @@
+{
+  "deploySetId": "2026.06.16.1",
+  "schemaVersion": 1,
+  "items": [
+    { "componentId": "APIv2", "version": "2.14.0" },
+    { "componentId": "create_device_in_ress", "version": "1.6.3" }
+  ],
+  "createdAt": "2026-06-16T12:15:00Z",
+  "createdBy": "ci"
+}
