@@ -38,7 +38,11 @@ async function discovery() {
   };
 }
 
-export async function startLogin(returnTo = window.location.pathname + window.location.search) {
+function safeReturnTo(value: string) {
+  return value.startsWith("/auth/") || value === "/login" || value === "/forbidden" ? "/" : value;
+}
+
+export async function startLogin(returnTo = safeReturnTo(window.location.pathname + window.location.search)) {
   const config = await discovery();
   const state = randomString();
   const verifier = randomString(64);
@@ -97,7 +101,7 @@ export async function completeLogin(callbackUrl: string) {
     idToken: payload.id_token ?? null,
     expiresAt: Date.now() + payload.expires_in * 1000,
   });
-  return storedState.returnTo || "/";
+  return safeReturnTo(storedState.returnTo || "/");
 }
 
 export async function logout() {

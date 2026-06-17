@@ -51,7 +51,7 @@ services:
       SETTLE_OIDC_GROUPS_CLAIM: groups
       SETTLE_OIDC_EMAIL_CLAIM: email
       SETTLE_OIDC_NAME_CLAIM: name
-      SETTLE_OIDC_SUBJECT_CLAIM: sub
+      SETTLE_OIDC_SUBJECT_CLAIM: email
       SETTLE_BOOTSTRAP_ALLOWED_EMAIL: admin@example.local
     depends_on:
       - local-oidc

@@ -42,11 +42,14 @@ export function AuthCallbackPage() {
     loginCompletion
       .then(async (returnTo) => {
         if (cancelled) return;
-        const status = await auth.refresh();
-        if (status !== "authenticated") {
+        const result = await auth.refresh();
+        if (result.status !== "authenticated") {
+          loginCompletion = null;
+          setError(result.error ?? "Settle rejected the OIDC session. Please sign in again.");
           return;
         }
-        await navigate({ to: returnTo });
+        loginCompletion = null;
+        await navigate({ to: returnTo, replace: true });
       })
       .catch((caught) => {
         if (cancelled) return;

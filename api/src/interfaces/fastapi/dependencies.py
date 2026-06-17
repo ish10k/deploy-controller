@@ -42,6 +42,7 @@ def get_auth_context(
         raise UnauthorizedError("OIDC authentication is not configured in this runtime.")
     issuer = os.getenv("SETTLE_OIDC_ISSUER")
     audience = os.getenv("SETTLE_OIDC_AUDIENCE")
+    client_id = os.getenv("SETTLE_OIDC_CLIENT_ID", "settle-ui")
     if not issuer or not audience:
         raise UnauthorizedError("OIDC issuer and audience must be configured.")
     public_issuer = os.getenv("SETTLE_OIDC_PUBLIC_ISSUER", issuer)
@@ -54,6 +55,7 @@ def get_auth_context(
         OidcSettings(
             issuer=issuer,
             audience=audience,
+            client_id=client_id,
             jwks_url=jwks_url,
             accepted_issuers=list({issuer, public_issuer}),
             email_claim=email_claim,

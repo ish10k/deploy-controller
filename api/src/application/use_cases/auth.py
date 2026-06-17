@@ -65,18 +65,27 @@ def require_pat_context(
 class OidcSettings:
     issuer: str
     audience: str
+    client_id: str
     jwks_url: str
     accepted_issuers: list[str]
     email_claim: str = "email"
     name_claim: str = "name"
     subject_claim: str = "sub"
+    clock_skew_seconds: int = 60
 
 
 def verify_oidc_token(token: str, settings: OidcSettings) -> dict[str, Any]:
     try:
         import jwt
         from jwt import PyJWKClient
-        from jwt.exceptions import PyJWTError
+        from jwt.exceptions import (
+            ExpiredSignatureError,
+            ImmatureSignatureError,
+            InvalidIssuedAtError,
+            InvalidSignatureError,
+            PyJWKClientError,
+            PyJWTError,
+        )
     except ImportError as exc:
         raise UnauthorizedError("OIDC authentication dependencies are not installed.") from exc
 
@@ -87,18 +96,30 @@ def verify_oidc_token(token: str, settings: OidcSettings) -> dict[str, Any]:
             signing_key.key,
             algorithms=["RS256"],
             audience=settings.audience,
-            options={"verify_iss": False, "require": [settings.subject_claim, "exp"], "verify_aud": False},
+            options={"verify_iss": False, "require": ["exp"], "verify_aud": False},
+            leeway=settings.clock_skew_seconds,
         )
+    except ExpiredSignatureError as exc:
+        raise UnauthorizedError("OIDC access token is expired.") from exc
+    except (ImmatureSignatureError, InvalidIssuedAtError) as exc:
+        raise UnauthorizedError("OIDC token time claims are not valid yet. Check API and OIDC provider clocks.") from exc
+    except InvalidSignatureError as exc:
+        raise UnauthorizedError("OIDC token signature is invalid for the configured JWKS URL.") from exc
+    except PyJWKClientError as exc:
+        raise UnauthorizedError(f"OIDC signing key could not be loaded from JWKS URL: {exc}") from exc
     except PyJWTError as exc:
-        raise UnauthorizedError("OIDC token is invalid or expired.") from exc
+        raise UnauthorizedError(f"OIDC token is invalid: {exc}") from exc
 
     issuer = claims.get("iss")
     if issuer not in settings.accepted_issuers:
         raise UnauthorizedError("OIDC token issuer is not trusted.")
     audience = claims.get("aud")
     audiences = audience if isinstance(audience, list) else [audience]
-    if settings.audience not in audiences and claims.get("azp") != "settle-ui":
+    if settings.audience not in audiences and claims.get("azp") != settings.client_id:
         raise UnauthorizedError("OIDC token audience is not trusted.")
     if not claims.get(settings.subject_claim):
-        raise UnauthorizedError("OIDC token subject claim is required.")
+        available_claims = ", ".join(sorted(claims.keys()))
+        raise UnauthorizedError(
+            f'OIDC token subject claim "{settings.subject_claim}" is required. Available claims: {available_claims}'
+        )
     return claims
