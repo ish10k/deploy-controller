@@ -1,37 +1,25 @@
 # DeploySet Controller
 
-DeploySet Controller is a generic DeploySet control plane for managing desired component versions and deployment execution history.
+This repository now uses a simple monorepo layout:
 
-The core acts as the brain: it stores components, ComponentSets, immutable releases, immutable DeploySets, generic environments, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external adapters/runners.
+- `api/` contains the Python backend project
+- `frontend/` contains the React control-plane UI
+- `infra/` contains Terraform and cloud infrastructure
 
-## Core Invariant
-
-A stored DeploySet is always complete and immutable. A create request may be partial, but missing required ComponentSet versions must be inferred from a base DeploySet or from the latest successful deployment state for an environment before the DeploySet is stored.
-
-At deployment request time, no version inference happens. The brain creates execution items from the complete DeploySet and selects either:
-
-- `deploy` when no latest item exists, the latest item did not succeed, the version changed, or `force=true`
-- `skip` when the latest successful execution item already matches the requested version and `force=false`
-
-Adapters may still report `noop` after inspecting their own target state. A forced same-version redeploy that succeeds is flagged as possible drift.
-
-## Local API
+To work on the backend:
 
 ```bash
+cd api
 pip install -e ".[dev]"
 DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
 ```
 
-The in-memory backend starts with a small local seed: `local`, `dev`, and `prod` environments, a `local-platform` ComponentSet, several deploy sets (`local-default`, `local-hotfix`, `dev-default`, `prod-default`), `api` and `worker` components, and multiple opaque artifact releases.
+To work on the frontend:
 
-## AWS Lambda API
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
 
-Use `src.interfaces.lambda_api.handler.handler` as the Lambda handler. This router does not use Mangum.
-
-## Shape
-
-- `src/domain/`: pure Pydantic models and planning rules
-- `src/application/`: use cases and ports
-- `src/infrastructure/`: memory and DynamoDB persistence
-- `src/interfaces/`: FastAPI and API Gateway/Lambda entry points
-- `infra/terraform/`: DynamoDB, Lambda, HTTP API, IAM, CloudWatch, and artifact bucket infrastructure
+The frontend calls the backend through Vite at `/api`. By default the proxy targets `http://127.0.0.1:8000`; set `VITE_API_TARGET` before `pnpm dev` to point it elsewhere.

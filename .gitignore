@@ -170,6 +170,13 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
+frontend/.tanstack/
+
 # PyPI configuration file
 .pypirc
 
