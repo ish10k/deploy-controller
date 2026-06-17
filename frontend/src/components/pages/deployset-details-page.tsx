@@ -114,7 +114,15 @@ function DeploySetDetailsView({
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <MetaRow icon={PackageCheck} label="DeploySet" value={deployset.deploySetId} />
-              <MetaRow icon={Layers3} label="Component Set" value={deployset.componentSetId} />
+              <MetaRow
+                icon={Layers3}
+                label="Component Set"
+                value={
+                  <Link to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                    {deployset.componentSetId}
+                  </Link>
+                }
+              />
               <MetaRow
                 icon={GitBranch}
                 label="Base DeploySet"
