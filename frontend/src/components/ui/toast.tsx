@@ -8,8 +8,9 @@ type ToastVariant = "default" | "success" | "error" | "info";
 
 type ToastInput = {
   title: string;
-  description?: string;
+  description?: ReactNode;
   variant?: ToastVariant;
+  durationMs?: number;
 };
 
 type ToastRecord = ToastInput & {
@@ -30,11 +31,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const timers = toasts.map((entry) =>
-      window.setTimeout(() => {
-        setToasts((current) => current.filter((toast) => toast.id !== entry.id));
-      }, 4500),
-    );
+    const timers = toasts
+      .filter((entry) => entry.durationMs !== 0)
+      .map((entry) =>
+        window.setTimeout(() => {
+          setToasts((current) => current.filter((toast) => toast.id !== entry.id));
+        }, entry.durationMs ?? 4500),
+      );
 
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
@@ -84,7 +87,7 @@ function ToastCard({
   onDismiss,
 }: {
   title: string;
-  description?: string;
+  description?: ReactNode;
   variant: ToastVariant;
   onDismiss: () => void;
 }) {
@@ -97,7 +100,7 @@ function ToastCard({
   const Icon = variant === "success" ? CheckCircle2 : variant === "error" ? AlertCircle : Info;
 
   return (
-    <div className={cn("w-[360px] rounded-lg border p-4 shadow-lg", styles[variant])}>
+    <div className={cn("w-[min(520px,calc(100vw-2rem))] rounded-lg border p-4 shadow-lg", styles[variant])}>
       <div className="flex items-start gap-3">
         <div className="mt-0.5">
           <Icon className="h-4 w-4" />

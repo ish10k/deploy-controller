@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 
 import { ToastProvider } from "@/components/ui/toast";
 import { AppProvider } from "@/lib/app-context";
+import { AuthProvider } from "@/lib/auth-context";
 import { router } from "@/routes/root";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
@@ -26,9 +27,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <AppProvider>
-          <RouterProvider router={router} />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <RouterProvider router={router} />
+          </AppProvider>
+        </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>
   </React.StrictMode>,

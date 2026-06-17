@@ -10,10 +10,14 @@ from src.domain.models import (
     Component,
     ComponentSet,
     DeploymentExecution,
+    DeploymentRunner,
     DeploySet,
     Environment,
     EnvironmentState,
+    BootstrapState,
+    Principal,
     Release,
+    ReleaseSource,
 )
 
 T = TypeVar("T")
@@ -76,6 +80,18 @@ class DynamoReleaseRepository:
         return [Release.model_validate(item) for item in items]
 
 
+class DynamoReleaseSourceRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, release_source_id: str) -> ReleaseSource | None:
+        item = self.table.get_item(Key={"releaseSourceId": release_source_id}).get("Item")
+        return ReleaseSource.model_validate(item) if item else None
+    def list(self) -> list[ReleaseSource]:
+        return [ReleaseSource.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, release_source: ReleaseSource) -> None:
+        self.table.put_item(Item=_dump(release_source))
+
+
 class DynamoDeploySetRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
@@ -98,6 +114,52 @@ class DynamoEnvironmentRepository:
         return [Environment.model_validate(item) for item in self.table.scan().get("Items", [])]
     def put(self, environment: Environment) -> None:
         self.table.put_item(Item=_dump(environment))
+
+
+class DynamoDeploymentRunnerRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, runner_id: str) -> DeploymentRunner | None:
+        item = self.table.get_item(Key={"runnerId": runner_id}).get("Item")
+        return DeploymentRunner.model_validate(item) if item else None
+    def list(self) -> list[DeploymentRunner]:
+        return [DeploymentRunner.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, runner: DeploymentRunner) -> None:
+        self.table.put_item(Item=_dump(runner))
+
+
+class DynamoPrincipalRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, principal_id: str) -> Principal | None:
+        item = self.table.get_item(Key={"principalId": principal_id}).get("Item")
+        return Principal.model_validate(item) if item else None
+    def get_by_oidc(self, external_issuer: str, external_subject: str) -> Principal | None:
+        items = self.table.scan().get("Items", [])
+        for item in items:
+            if (
+                item.get("type") == "user"
+                and item.get("externalIssuer") == external_issuer
+                and item.get("externalSubject") == external_subject
+            ):
+                return Principal.model_validate(item)
+        return None
+    def list(self) -> list[Principal]:
+        return [Principal.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, principal: Principal) -> None:
+        self.table.put_item(Item=_dump(principal))
+
+
+class DynamoBootstrapStateRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self) -> BootstrapState:
+        item = self.table.get_item(Key={"id": "bootstrap"}).get("Item")
+        return BootstrapState.model_validate(item) if item else BootstrapState()
+    def put(self, state: BootstrapState) -> None:
+        item = _dump(state)
+        item["id"] = "bootstrap"
+        self.table.put_item(Item=item)
 
 
 class DynamoEnvironmentStateRepository:

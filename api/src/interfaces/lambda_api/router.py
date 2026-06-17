@@ -4,13 +4,19 @@ from typing import Any
 from pydantic import BaseModel
 
 from src.composition import Container
+from src.application.use_cases.auth import require_pat_context
 from src.domain.errors import NotFoundError
 from src.domain.models import (
     Component,
     ComponentSet,
+    DeploymentRunner,
+    DeploymentRunnerCreateRequest,
     DeploySetCreateRequest,
     Environment,
+    Principal,
     Release,
+    ReleaseSource,
+    ReleaseSourceCreateRequest,
 )
 from src.interfaces.fastapi.schemas import (
     ClaimExecutionRequest,
@@ -33,10 +39,42 @@ def _query(event: dict[str, Any], key: str) -> str | None:
     return params.get(key)
 
 
+def _auth_context(event: dict[str, Any], container: Container):
+    headers = event.get("headers") or {}
+    authorization = headers.get("authorization") or headers.get("Authorization")
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        from src.domain.errors import UnauthorizedError
+        raise UnauthorizedError("Authorization bearer token is required.")
+    if token.startswith("settle_pat_"):
+        return require_pat_context(
+            token=token,
+            principals=container.principals.list(),
+            runners=container.deployment_runners.list(),
+            release_sources=container.release_sources.list(),
+        )
+    from src.domain.errors import UnauthorizedError
+    raise UnauthorizedError("OIDC authentication is not configured in this runtime.")
+
+
 def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
     method = event.get("requestContext", {}).get("http", {}).get("method") or event.get("httpMethod", "GET")
     path = event.get("rawPath") or event.get("path", "/")
     parts = [part for part in path.strip("/").split("/") if part]
+
+    if method == "GET" and parts == ["whoami"]:
+        return response(200, container.principals.whoami(_auth_context(event, container)))
+    if method == "GET" and parts == ["bootstrap"]:
+        return response(200, container.principals.bootstrap_state())
+    if method == "GET" and parts == ["principals"]:
+        return response(200, container.principals.list())
+    if method == "POST" and parts == ["principals"]:
+        return response(200, container.principals.create(_body(event, Principal)))
+    if method == "GET" and len(parts) == 2 and parts[0] == "principals":
+        return response(200, container.principals.get(parts[1]))
+    if method == "PUT" and len(parts) == 2 and parts[0] == "principals":
+        principal = _body(event, Principal).model_copy(update={"principal_id": parts[1]})
+        return response(200, container.principals.put(principal))
 
     if method == "GET" and parts == ["components"]:
         return response(200, container.components.list())
@@ -105,32 +143,64 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         )
         return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "pending"})
 
-    if method == "GET" and parts == ["adapter", "executions", "pending"]:
-        return response(200, container.adapters.list_pending())
-    if method == "POST" and len(parts) == 4 and parts[:2] == ["adapter", "executions"] and parts[3] == "claim":
+    if method == "GET" and parts == ["release-sources"]:
+        return response(200, container.release_sources.list())
+    if method == "POST" and parts == ["release-sources"]:
+        release_source = _body(event, ReleaseSourceCreateRequest)
+        return response(200, container.release_sources.create(release_source))
+    if method == "GET" and len(parts) == 2 and parts[0] == "release-sources":
+        return response(200, container.release_sources.get(parts[1]))
+    if method == "PUT" and len(parts) == 2 and parts[0] == "release-sources":
+        release_source = _body(event, ReleaseSource).model_copy(update={"release_source_id": parts[1]})
+        return response(200, container.release_sources.put(release_source))
+    if method == "POST" and len(parts) == 3 and parts[0] == "release-sources" and parts[2] == "rotate-token":
+        return response(200, container.release_sources.rotate_token(parts[1]))
+    if method == "POST" and len(parts) == 3 and parts[0] == "release-sources" and parts[2] == "releases":
+        release = _body(event, Release)
+        return response(200, container.release_sources.publish_release(parts[1], release))
+
+    if method == "GET" and parts == ["deployment-runners"]:
+        return response(200, container.deployment_runners.list())
+    if method == "POST" and parts == ["deployment-runners"]:
+        runner = _body(event, DeploymentRunnerCreateRequest)
+        return response(200, container.deployment_runners.create(runner))
+    if method == "GET" and len(parts) == 2 and parts[0] == "deployment-runners":
+        return response(200, container.deployment_runners.get(parts[1]))
+    if method == "PUT" and len(parts) == 2 and parts[0] == "deployment-runners":
+        runner = _body(event, DeploymentRunner).model_copy(update={"runner_id": parts[1]})
+        return response(200, container.deployment_runners.put(runner))
+    if method == "POST" and len(parts) == 3 and parts[0] == "deployment-runners" and parts[2] == "rotate-token":
+        return response(200, container.deployment_runners.rotate_token(parts[1]))
+    if method == "POST" and len(parts) == 3 and parts[0] == "deployment-runners" and parts[2] == "heartbeat":
+        return response(200, container.deployment_runners.heartbeat(parts[1]))
+    if method == "GET" and len(parts) == 4 and parts[0] == "deployment-runners" and parts[2:] == ["executions", "pending"]:
+        return response(200, container.deployment_runners.list_pending(parts[1]))
+    if method == "POST" and len(parts) == 5 and parts[0] == "deployment-runners" and parts[2] == "executions" and parts[4] == "claim":
         claim_request = _body(event, ClaimExecutionRequest)
-        return response(200, container.adapters.claim(parts[2], claim_request.claimed_by))
+        return response(200, container.deployment_runners.claim(parts[1], parts[3], claim_request.lease_seconds))
     if (
         method == "POST"
-        and len(parts) == 6
-        and parts[:2] == ["adapter", "executions"]
-        and parts[3] == "items"
-        and parts[5] == "status"
+        and len(parts) == 7
+        and parts[0] == "deployment-runners"
+        and parts[2] == "executions"
+        and parts[4] == "items"
+        and parts[6] == "status"
     ):
         item_status_request = _body(event, ReportExecutionItemStatusRequest)
-        return response(200, container.adapters.report_item_status(
-            deployment_execution_id=parts[2],
-            component_id=parts[4],
+        return response(200, container.deployment_runners.report_item_status(
+            runner_id=parts[1],
+            deployment_execution_id=parts[3],
+            component_id=parts[5],
             status=item_status_request.status,
             reported_action=item_status_request.reported_action,
             reported_by=item_status_request.reported_by,
-            adapter_reason=item_status_request.adapter_reason,
+            runner_reason=item_status_request.runner_reason,
             message=item_status_request.message,
             error=item_status_request.error,
         ))
-    if method == "POST" and len(parts) == 4 and parts[:2] == ["adapter", "executions"] and parts[3] == "status":
+    if method == "POST" and len(parts) == 5 and parts[0] == "deployment-runners" and parts[2] == "executions" and parts[4] == "status":
         execution_status_request = _body(event, ReportExecutionStatusRequest)
-        return response(200, container.adapters.report_execution_status(parts[2], execution_status_request.status))
+        return response(200, container.deployment_runners.report_execution_status(parts[1], parts[3], execution_status_request.status))
 
     raise NotFoundError(f"Route not found: {method} {path}")
 

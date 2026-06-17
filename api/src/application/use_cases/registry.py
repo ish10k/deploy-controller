@@ -7,6 +7,7 @@ from src.application.ports import (
     EnvironmentRepository,
     EnvironmentStateRepository,
     ReleaseRepository,
+    ReleaseSourceRepository,
 )
 from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, RequestedAction
 from src.domain.errors import ConflictError, NotFoundError, ValidationError
@@ -21,7 +22,13 @@ from src.domain.models import (
     Environment,
     EnvironmentState,
     Release,
+    ReleaseSource,
+    ReleaseSourceCreateRequest,
+    ReleaseSourceCreateResult,
+    RotateTokenResult,
 )
+from src.application.use_cases.credentials import issue_pat
+from src.application.use_cases.identity import PrincipalUseCases
 
 
 def _same(left: object, right: object) -> bool:
@@ -87,6 +94,113 @@ class ReleaseUseCases:
 
     def list(self, component_id: str | None = None) -> list[Release]:
         return self.releases.list_by_component(component_id)
+
+
+class ReleaseSourceUseCases:
+    def __init__(
+        self,
+        *,
+        release_sources: ReleaseSourceRepository,
+        releases: ReleaseRepository,
+        component_sets: ComponentSetRepository,
+        clock: Clock,
+        principals: PrincipalUseCases,
+    ) -> None:
+        self.release_sources = release_sources
+        self.releases = releases
+        self.component_sets = component_sets
+        self.clock = clock
+        self.principals = principals
+
+    def create(self, request: ReleaseSourceCreateRequest) -> ReleaseSourceCreateResult:
+        existing = self.release_sources.get(request.release_source_id)
+        if existing is not None:
+            raise ConflictError(f"ReleaseSource already exists: {request.release_source_id}")
+        token, token_hash, token_prefix = issue_pat()
+        now = self.clock.now()
+        release_source = ReleaseSource(
+            release_source_id=request.release_source_id,
+            display_name=request.display_name,
+            principal_id=f"service:release-source:{request.release_source_id}",
+            auth_method="pat",
+            token_hash=token_hash,
+            token_prefix=token_prefix,
+            token_created_at=now,
+            token_rotated_at=None,
+            last_used_at=None,
+            active=request.active,
+            scope=request.scope,
+            tags=request.tags,
+            created_at=now,
+            created_by="user:local-admin",
+        )
+        self.principals.ensure_service_principal(
+            principal_id=release_source.principal_id,
+            display_name=release_source.display_name,
+            role="release-source",
+            created_by="system:release-source-create",
+            tags=release_source.tags,
+        )
+        self.release_sources.put(release_source)
+        return ReleaseSourceCreateResult(release_source=release_source, token=token)
+
+    def put(self, release_source: ReleaseSource) -> ReleaseSource:
+        self.release_sources.put(release_source)
+        return release_source
+
+    def get(self, release_source_id: str) -> ReleaseSource:
+        release_source = self.release_sources.get(release_source_id)
+        if release_source is None:
+            raise NotFoundError(f"ReleaseSource not found: {release_source_id}")
+        return release_source
+
+    def list(self) -> list[ReleaseSource]:
+        return self.release_sources.list()
+
+    def rotate_token(self, release_source_id: str) -> RotateTokenResult:
+        release_source = self.get(release_source_id)
+        token, token_hash, token_prefix = issue_pat()
+        now = self.clock.now()
+        updated = release_source.model_copy(
+            update={
+                "auth_method": "pat",
+                "token_hash": token_hash,
+                "token_prefix": token_prefix,
+                "token_created_at": release_source.token_created_at or now,
+                "token_rotated_at": now,
+            }
+        )
+        self.release_sources.put(updated)
+        return RotateTokenResult(token=token)
+
+    def publish_release(self, release_source_id: str, release: Release) -> Release:
+        release_source = self.get(release_source_id)
+        if not release_source.active:
+            raise ValidationError(f"ReleaseSource is inactive: {release_source_id}")
+        if not self._allows_component(release_source, release.component_id):
+            raise ValidationError(f"ReleaseSource scope does not allow component: {release.component_id}")
+
+        existing = self.releases.get(release.component_id, release.version)
+        if existing is not None:
+            if _same(existing, release):
+                return existing
+            raise ConflictError(
+                f"Release already exists with different content: {release.component_id}/{release.version}"
+            )
+        self.releases.create(release)
+        return release
+
+    def _allows_component(self, release_source: ReleaseSource, component_id: str) -> bool:
+        scope = release_source.scope
+        if not scope.component_ids and not scope.component_set_ids:
+            return True
+        if component_id in scope.component_ids:
+            return True
+        for component_set_id in scope.component_set_ids:
+            component_set = self.component_sets.get(component_set_id)
+            if component_set and any(item.component_id == component_id for item in component_set.components):
+                return True
+        return False
 
 
 class DeploySetUseCases:

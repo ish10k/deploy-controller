@@ -173,8 +173,8 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
                       title={`${item.componentId} ${item.status}`}
                       subtitle={[
                         `Requested ${item.requestedAction}`,
-                        item.reportedBy ? `reported by ${item.reportedBy}` : "awaiting adapter report",
-                        item.message ?? item.error ?? item.adapterReason ?? "",
+                        item.reportedBy ? `reported by ${item.reportedBy}` : "awaiting runner report",
+                        item.message ?? item.error ?? item.runnerReason ?? "",
                       ]
                         .filter(Boolean)
                         .join(" | ")}

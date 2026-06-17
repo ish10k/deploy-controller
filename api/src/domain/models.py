@@ -71,6 +71,43 @@ class Release(ApiModel):
     tags: dict[str, str] = Field(default_factory=dict)
 
 
+class ReleaseSourceScope(ApiModel):
+    component_set_ids: list[str] = Field(default_factory=list, alias="componentSetIds")
+    component_ids: list[str] = Field(default_factory=list, alias="componentIds")
+
+
+class ReleaseSource(ApiModel):
+    release_source_id: str = Field(alias="releaseSourceId")
+    display_name: str = Field(alias="displayName")
+    principal_id: str = Field(alias="principalId")
+    auth_method: str = Field(default="pat", alias="authMethod")
+    token_hash: str | None = Field(default=None, alias="tokenHash")
+    token_prefix: str | None = Field(default=None, alias="tokenPrefix")
+    token_created_at: str | None = Field(default=None, alias="tokenCreatedAt")
+    token_rotated_at: str | None = Field(default=None, alias="tokenRotatedAt")
+    last_used_at: str | None = Field(default=None, alias="lastUsedAt")
+    active: bool = True
+    scope: ReleaseSourceScope = Field(default_factory=ReleaseSourceScope)
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+
+
+class ReleaseSourceCreateRequest(ApiModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    release_source_id: str = Field(alias="releaseSourceId")
+    display_name: str = Field(alias="displayName")
+    active: bool = True
+    scope: ReleaseSourceScope = Field(default_factory=ReleaseSourceScope)
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class ReleaseSourceCreateResult(ApiModel):
+    release_source: ReleaseSource = Field(alias="releaseSource")
+    token: str
+
+
 class DeploySetItem(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
@@ -118,12 +155,71 @@ class Environment(ApiModel):
     tags: dict[str, str] = Field(default_factory=dict)
 
 
+class DeploymentRunnerScope(ApiModel):
+    environment_ids: list[str] = Field(default_factory=list, alias="environmentIds")
+    component_set_ids: list[str] = Field(default_factory=list, alias="componentSetIds")
+
+
+class DeploymentRunner(ApiModel):
+    runner_id: str = Field(alias="runnerId")
+    display_name: str = Field(alias="displayName")
+    principal_id: str = Field(alias="principalId")
+    auth_method: str = Field(default="pat", alias="authMethod")
+    token_hash: str | None = Field(default=None, alias="tokenHash")
+    token_prefix: str | None = Field(default=None, alias="tokenPrefix")
+    token_created_at: str | None = Field(default=None, alias="tokenCreatedAt")
+    token_rotated_at: str | None = Field(default=None, alias="tokenRotatedAt")
+    last_used_at: str | None = Field(default=None, alias="lastUsedAt")
+    active: bool = True
+    scope: DeploymentRunnerScope = Field(default_factory=DeploymentRunnerScope)
+    webhook_id: str | None = Field(default=None, alias="webhookId")
+    last_heartbeat_at: str | None = Field(default=None, alias="lastHeartbeatAt")
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+
+
+class DeploymentRunnerCreateRequest(ApiModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    runner_id: str = Field(alias="runnerId")
+    display_name: str = Field(alias="displayName")
+    active: bool = True
+    scope: DeploymentRunnerScope = Field(default_factory=DeploymentRunnerScope)
+    webhook_id: str | None = Field(default=None, alias="webhookId")
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class DeploymentRunnerCreateResult(ApiModel):
+    runner: DeploymentRunner
+    token: str
+
+
+class RotateTokenResult(ApiModel):
+    token: str
+
+
 class Principal(ApiModel):
     principal_id: str = Field(alias="principalId")
     type: PrincipalType
+    display_name: str = Field(alias="displayName")
+    email: str | None = None
+    auth_method: str = Field(alias="authMethod")
+    external_issuer: str | None = Field(default=None, alias="externalIssuer")
+    external_subject: str | None = Field(default=None, alias="externalSubject")
     active: bool = True
-    role_ids: list[str] = Field(default_factory=list, alias="roleIds")
+    roles: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+    last_seen_at: str | None = Field(default=None, alias="lastSeenAt")
+
+
+class BootstrapState(ApiModel):
+    completed: bool = False
+    completed_at: str | None = Field(default=None, alias="completedAt")
+    completed_by: str | None = Field(default=None, alias="completedBy")
 
 
 class Role(ApiModel):
@@ -134,7 +230,21 @@ class Role(ApiModel):
 
 class AuthContext(ApiModel):
     principal_id: str = Field(alias="principalId")
-    permissions: list[Permission]
+    principal_type: PrincipalType = Field(alias="principalType")
+    auth_method: str = Field(alias="authMethod")
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[Permission] = Field(default_factory=list)
+    claims: dict[str, object] = Field(default_factory=dict)
+
+
+class WhoAmI(ApiModel):
+    principal_id: str = Field(alias="principalId")
+    type: PrincipalType
+    auth_method: str = Field(alias="authMethod")
+    display_name: str = Field(alias="displayName")
+    email: str | None = None
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[Permission] = Field(default_factory=list)
 
 
 class Webhook(ApiModel):
@@ -176,7 +286,7 @@ class DeploymentExecutionItem(ApiModel):
     reported_action: ReportedAction | None = Field(default=None, alias="reportedAction")
     status: ItemStatus
     requested_reason: RequestedReason | None = Field(default=None, alias="requestedReason")
-    adapter_reason: str | None = Field(default=None, alias="adapterReason")
+    runner_reason: str | None = Field(default=None, alias="runnerReason")
     drift_detected: bool = Field(default=False, alias="driftDetected")
     drift_reason: DriftReason | None = Field(default=None, alias="driftReason")
     reported_by: str | None = Field(default=None, alias="reportedBy")

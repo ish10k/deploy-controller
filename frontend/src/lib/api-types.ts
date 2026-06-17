@@ -14,6 +14,7 @@ export type DriftReason =
   | "same_version_artifact_mismatch";
 export type DeploySetItemSource = "explicit" | "inferred";
 export type EnvironmentStatus = "idle" | "pending" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
+export type PrincipalType = "user" | "service";
 
 export interface Artifact {
   key: string;
@@ -55,6 +56,41 @@ export interface ApiRelease {
   createdAt: string;
   createdBy: string;
   tags: Record<string, string>;
+}
+
+export interface ApiReleaseSourceScope {
+  componentSetIds: string[];
+  componentIds: string[];
+}
+
+export interface ApiReleaseSource {
+  releaseSourceId: string;
+  displayName: string;
+  principalId: string;
+  authMethod: string;
+  tokenHash: string | null;
+  tokenPrefix: string | null;
+  tokenCreatedAt: string | null;
+  tokenRotatedAt: string | null;
+  lastUsedAt: string | null;
+  active: boolean;
+  scope: ApiReleaseSourceScope;
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ApiReleaseSourceCreateRequest {
+  releaseSourceId: string;
+  displayName: string;
+  active: boolean;
+  scope: ApiReleaseSourceScope;
+  tags: Record<string, string>;
+}
+
+export interface ApiReleaseSourceCreateResult {
+  releaseSource: ApiReleaseSource;
+  token: string;
 }
 
 export interface ApiDeploySetItem {
@@ -104,6 +140,81 @@ export interface ApiEnvironment {
   tags: Record<string, string>;
 }
 
+export interface ApiDeploymentRunnerScope {
+  environmentIds: string[];
+  componentSetIds: string[];
+}
+
+export interface ApiDeploymentRunner {
+  runnerId: string;
+  displayName: string;
+  principalId: string;
+  authMethod: string;
+  tokenHash: string | null;
+  tokenPrefix: string | null;
+  tokenCreatedAt: string | null;
+  tokenRotatedAt: string | null;
+  lastUsedAt: string | null;
+  active: boolean;
+  scope: ApiDeploymentRunnerScope;
+  webhookId: string | null;
+  lastHeartbeatAt: string | null;
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ApiDeploymentRunnerCreateRequest {
+  runnerId: string;
+  displayName: string;
+  active: boolean;
+  scope: ApiDeploymentRunnerScope;
+  webhookId: string | null;
+  tags: Record<string, string>;
+}
+
+export interface ApiDeploymentRunnerCreateResult {
+  runner: ApiDeploymentRunner;
+  token: string;
+}
+
+export interface ApiRotateTokenResult {
+  token: string;
+}
+
+export interface ApiPrincipal {
+  principalId: string;
+  type: PrincipalType;
+  displayName: string;
+  email: string | null;
+  authMethod: "oidc" | "pat" | string;
+  externalIssuer: string | null;
+  externalSubject: string | null;
+  active: boolean;
+  roles: string[];
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+  lastSeenAt: string | null;
+}
+
+export interface ApiBootstrapState {
+  completed: boolean;
+  completedAt: string | null;
+  completedBy: string | null;
+}
+
+export interface ApiWhoAmI {
+  principalId: string;
+  type: PrincipalType;
+  authMethod: "oidc" | "pat" | string;
+  displayName: string;
+  email: string | null;
+  roles: string[];
+  permissions: string[];
+}
+
 export interface ApiEnvironmentState {
   environmentId: string;
   deploySetId: string | null;
@@ -120,7 +231,7 @@ export interface ApiDeploymentExecutionItem {
   reportedAction: ReportedAction | null;
   status: ItemStatus;
   requestedReason: RequestedReason | null;
-  adapterReason: string | null;
+  runnerReason: string | null;
   driftDetected: boolean;
   driftReason: DriftReason | null;
   reportedBy: string | null;
@@ -170,7 +281,7 @@ export interface ApiPlanDeploymentRequest {
 }
 
 export interface ApiClaimExecutionRequest {
-  claimedBy: string;
+  leaseSeconds: number | null;
 }
 
 export interface ApiReportExecutionStatusRequest {
@@ -180,8 +291,8 @@ export interface ApiReportExecutionStatusRequest {
 export interface ApiReportExecutionItemStatusRequest {
   status: ItemStatus;
   reportedAction: ReportedAction;
-  reportedBy: string;
-  adapterReason: string | null;
+  reportedBy: string | null;
+  runnerReason: string | null;
   message: string | null;
   error: string | null;
 }
@@ -194,11 +305,21 @@ export type components = {
     DeploySet: ApiDeploySet;
     DeploymentExecution: ApiDeploymentExecution;
     DeploymentExecutionItem: ApiDeploymentExecutionItem;
+    DeploymentRunner: ApiDeploymentRunner;
+    DeploymentRunnerCreateRequest: ApiDeploymentRunnerCreateRequest;
+    DeploymentRunnerCreateResult: ApiDeploymentRunnerCreateResult;
     Environment: ApiEnvironment;
     EnvironmentState: ApiEnvironmentState;
     ExecutionStatus: ExecutionStatus;
     ItemStatus: ItemStatus;
     Release: ApiRelease;
+    ReleaseSource: ApiReleaseSource;
+    ReleaseSourceCreateRequest: ApiReleaseSourceCreateRequest;
+    ReleaseSourceCreateResult: ApiReleaseSourceCreateResult;
+    RotateTokenResult: ApiRotateTokenResult;
+    Principal: ApiPrincipal;
+    BootstrapState: ApiBootstrapState;
+    WhoAmI: ApiWhoAmI;
     ReportExecutionItemStatusRequest: ApiReportExecutionItemStatusRequest;
     ReportedAction: ReportedAction;
   };

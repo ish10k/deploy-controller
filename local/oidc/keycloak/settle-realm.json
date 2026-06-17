@@ -1,0 +1,114 @@
+{
+  "realm": "settle",
+  "enabled": true,
+  "displayName": "Settle Local",
+  "roles": {
+    "realm": [
+      { "name": "platform-admin" },
+      { "name": "platform-deployer" },
+      { "name": "platform-viewer" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "settle-ui",
+      "name": "Settle UI",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5173/*",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "settle-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "settle-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    },
+    {
+      "clientId": "settle-api",
+      "name": "Settle API",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@example.local",
+      "email": "admin@example.local",
+      "firstName": "Local",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["platform-admin"]
+    },
+    {
+      "username": "deployer@example.local",
+      "email": "deployer@example.local",
+      "firstName": "Local",
+      "lastName": "Deployer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["platform-deployer"]
+    },
+    {
+      "username": "viewer@example.local",
+      "email": "viewer@example.local",
+      "firstName": "Local",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["platform-viewer"]
+    }
+  ]
+}

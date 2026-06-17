@@ -231,7 +231,7 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
         ) : (
           <EnvironmentFactCard icon={Server} label="Current DeploySet" value="None" sublabel="No environment state" />
         )}
-        <EnvironmentFactCard icon={Hourglass} label="Pending Executions" value={String(row.pendingExecutions.length)} sublabel="Awaiting adapter work" />
+        <EnvironmentFactCard icon={Hourglass} label="Pending Executions" value={String(row.pendingExecutions.length)} sublabel="Awaiting runner work" />
         <EnvironmentFactCard icon={AlertTriangle} label="Drift Signals" value={String(driftCount)} sublabel="From latest execution" />
       </div>
 
@@ -425,9 +425,9 @@ function EnvironmentDetailsPanel({ row, focused = false }: { row: EnvironmentRow
               <span className="text-slate-600">{formatDateTime(latest?.startedAt)}</span>
             </span>
             <SmallLink to="/executions" label="View execution" />
-            <DetailLabel icon={Server} label="Adapter" />
+            <DetailLabel icon={Server} label="Deployment Runner" />
             <span className="font-medium text-blue-700">{latest?.claimedBy ?? "unclaimed"}</span>
-            <SmallLink to="/adapters" label="View queue" />
+            <SmallLink to="/deployment-runners" label="View queue" />
             <DetailLabel icon={Clock3} label="Updated" />
             <span className="text-slate-700">{formatDateTime(row.updatedAt)}</span>
             <span />
@@ -588,7 +588,7 @@ function SmallLink({
   params,
   label,
 }: {
-  to: "/deploysets" | "/component-sets" | "/component-sets/$componentSetId" | "/executions" | "/adapters";
+  to: "/deploysets" | "/component-sets" | "/component-sets/$componentSetId" | "/executions" | "/deployment-runners";
   params?: { componentSetId: string };
   label: string;
 }) {
@@ -800,7 +800,7 @@ function buildActivities(row: EnvironmentRow) {
     icon: Hourglass,
     tone: "text-blue-600",
     title: `Execution ${execution.deploymentExecutionId} pending`,
-    subtitle: `${execution.items.length} component actions awaiting adapter claim`,
+    subtitle: `${execution.items.length} component actions awaiting runner claim`,
     time: execution.startedAt,
   }));
   return [...latest, ...pending].slice(0, 5);

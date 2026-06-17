@@ -40,8 +40,12 @@ resource "aws_iam_role_policy" "lambda" {
           aws_dynamodb_table.components.arn,
           aws_dynamodb_table.component_sets.arn,
           aws_dynamodb_table.releases.arn,
+          aws_dynamodb_table.release_sources.arn,
           aws_dynamodb_table.deploysets.arn,
           aws_dynamodb_table.environments.arn,
+          aws_dynamodb_table.deployment_runners.arn,
+          aws_dynamodb_table.principals.arn,
+          aws_dynamodb_table.bootstrap.arn,
           aws_dynamodb_table.environment_state.arn,
           aws_dynamodb_table.deployment_executions.arn,
           "${aws_dynamodb_table.deployment_executions.arn}/index/*"

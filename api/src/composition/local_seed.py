@@ -7,6 +7,7 @@ from src.domain.enums import (
     ReportedAction,
     RequestedAction,
     RequestedReason,
+    PrincipalType,
 )
 from src.domain.models import (
     Artifact,
@@ -17,9 +18,14 @@ from src.domain.models import (
     DeploySetItem,
     DeploymentExecution,
     DeploymentExecutionItem,
+    DeploymentRunner,
+    DeploymentRunnerScope,
     Environment,
     EnvironmentState,
+    Principal,
     Release,
+    ReleaseSource,
+    ReleaseSourceScope,
     Source,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
@@ -74,7 +80,7 @@ def _execution_item(
     requested_reason: RequestedReason | None = None,
     reported_action: ReportedAction | None = None,
     reported_by: str | None = None,
-    adapter_reason: str | None = None,
+    runner_reason: str | None = None,
     message: str | None = None,
     error: str | None = None,
 ) -> DeploymentExecutionItem:
@@ -86,7 +92,7 @@ def _execution_item(
         reported_action=reported_action,
         status=status,
         requested_reason=requested_reason,
-        adapter_reason=adapter_reason,
+        runner_reason=runner_reason,
         reported_by=reported_by,
         message=message,
         error=error,
@@ -179,6 +185,58 @@ def seed_local_data(store: MemoryRepositories) -> None:
             tags={"domain": "data-platform", "environment": "shared"},
             created_at="2026-04-03T09:00:00Z",
             created_by="data-platform-bootstrap",
+        )
+    )
+
+    # External release publishers
+    store.put_release_source(
+        ReleaseSource(
+            release_source_id="platform-ci",
+            display_name="Platform CI",
+            principal_id="service:release-source:platform-ci",
+            active=True,
+            scope=ReleaseSourceScope(component_set_ids=["local-platform"], component_ids=[]),
+            tags={"team": "platform"},
+            created_at="2026-04-01T09:05:00Z",
+            created_by="platform-bootstrap",
+        )
+    )
+    store.put_principal(
+        Principal(
+            principal_id="service:release-source:platform-ci",
+            type=PrincipalType.SERVICE,
+            display_name="Platform CI",
+            auth_method="pat",
+            roles=["release-source"],
+            active=True,
+            tags={"team": "platform"},
+            created_at="2026-04-01T09:05:00Z",
+            created_by="system:local-seed",
+        )
+    )
+    store.put_release_source(
+        ReleaseSource(
+            release_source_id="data-ci",
+            display_name="Data CI",
+            principal_id="service:release-source:data-ci",
+            active=True,
+            scope=ReleaseSourceScope(component_set_ids=["data-services"], component_ids=[]),
+            tags={"team": "data-platform"},
+            created_at="2026-04-03T09:05:00Z",
+            created_by="data-platform-bootstrap",
+        )
+    )
+    store.put_principal(
+        Principal(
+            principal_id="service:release-source:data-ci",
+            type=PrincipalType.SERVICE,
+            display_name="Data CI",
+            auth_method="pat",
+            roles=["release-source"],
+            active=True,
+            tags={"team": "data-platform"},
+            created_at="2026-04-03T09:05:00Z",
+            created_by="system:local-seed",
         )
     )
 
@@ -365,6 +423,43 @@ def seed_local_data(store: MemoryRepositories) -> None:
         )
     )
 
+    # External deployment executors
+    for runner_id, display_name, environment_ids, component_set_ids, team in [
+        ("local-runner-01", "Local Runner", ["local"], ["local-platform"], "platform"),
+        ("dev-runner-01", "Dev Runner", ["dev"], ["local-platform"], "platform"),
+        ("staging-runner-01", "Staging Runner", ["staging"], ["local-platform"], "platform"),
+        ("prod-runner-01", "Prod Runner", ["prod"], ["local-platform"], "platform"),
+        ("data-runner-01", "Data Services Runner", ["shared-data"], ["data-services"], "data-platform"),
+    ]:
+        principal_id = f"service:deployment-runner:{runner_id}"
+        store.put_deployment_runner(
+            DeploymentRunner(
+                runner_id=runner_id,
+                display_name=display_name,
+                principal_id=principal_id,
+                active=True,
+                scope=DeploymentRunnerScope(environment_ids=environment_ids, component_set_ids=component_set_ids),
+                webhook_id=None,
+                last_heartbeat_at="2026-06-17T10:05:00Z",
+                tags={"team": team},
+                created_at="2026-04-01T09:10:00Z",
+                created_by="platform-bootstrap",
+            )
+        )
+        store.put_principal(
+            Principal(
+                principal_id=principal_id,
+                type=PrincipalType.SERVICE,
+                display_name=display_name,
+                auth_method="pat",
+                roles=["deployment-runner"],
+                active=True,
+                tags={"team": team},
+                created_at="2026-04-01T09:10:00Z",
+                created_by="system:local-seed",
+            )
+        )
+
     # Deployment history
     _seed_execution(
         store,
@@ -406,7 +501,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
                     reported_by="local-runner-01",
-                    adapter_reason="worker already matched the desired version",
+                    runner_reason="worker already matched the desired version",
                 ),
                 _execution_item(
                     component_id="auth",
@@ -529,7 +624,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
                     reported_by="staging-runner-01",
-                    adapter_reason="no worker changes in this change set",
+                    runner_reason="no worker changes in this change set",
                 ),
                 _execution_item(
                     component_id="auth",
@@ -539,7 +634,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
                     reported_by="staging-runner-01",
-                    adapter_reason="auth already matched the requested version",
+                    runner_reason="auth already matched the requested version",
                 ),
             ],
         ),

@@ -12,12 +12,23 @@ from src.domain.models import (
     DeploySet,
     DeploySetCreateResult,
     DeploymentExecution,
+    DeploymentRunner,
+    DeploymentRunnerCreateRequest,
+    DeploymentRunnerCreateResult,
     DeploymentPlan,
     Environment,
     EnvironmentState,
+    AuthContext,
+    BootstrapState,
+    Principal,
     Release,
+    ReleaseSource,
+    ReleaseSourceCreateRequest,
+    ReleaseSourceCreateResult,
+    RotateTokenResult,
+    WhoAmI,
 )
-from src.interfaces.fastapi.dependencies import get_container
+from src.interfaces.fastapi.dependencies import get_auth_context, get_container
 from src.interfaces.fastapi.schemas import (
     ClaimExecutionRequest,
     CreateDeploymentRequest,
@@ -41,6 +52,7 @@ def _generate_operation_id(route: APIRoute) -> str:
 
 router = APIRouter(generate_unique_id_function=_generate_operation_id)
 ContainerDep = Annotated[Container, Depends(get_container)]
+AuthDep = Annotated[AuthContext, Depends(get_auth_context)]
 
 NOT_FOUND_RESPONSES = {404: {"model": ErrorResponse, "description": "Resource not found"}}
 WRITE_RESPONSES = {
@@ -48,6 +60,85 @@ WRITE_RESPONSES = {
     404: {"model": ErrorResponse, "description": "Resource not found"},
     409: {"model": ErrorResponse, "description": "Conflict"},
 }
+
+
+@router.get(
+    "/whoami",
+    tags=["Principals"],
+    summary="Get the authenticated principal",
+    description="Returns the Principal and RBAC permissions resolved from the current OIDC or PAT authentication context.",
+    response_model=WhoAmI,
+    responses={401: {"model": ErrorResponse, "description": "Authentication required"}},
+)
+def whoami(context: AuthDep, container: ContainerDep) -> WhoAmI:
+    return _handle(lambda: container.principals.whoami(context))
+
+
+@router.get(
+    "/bootstrap",
+    tags=["Principals"],
+    summary="Get bootstrap state",
+    description="Returns whether first-user bootstrap has completed.",
+    response_model=BootstrapState,
+)
+def get_bootstrap(container: ContainerDep) -> BootstrapState:
+    return _handle(container.principals.bootstrap_state)
+
+
+@router.get(
+    "/principals",
+    tags=["Principals"],
+    summary="List principals",
+    description="Returns all registered human and service principals.",
+    response_model=list[Principal],
+    responses=NOT_FOUND_RESPONSES,
+)
+def list_principals(container: ContainerDep) -> list[Principal]:
+    return _handle(container.principals.list)
+
+
+@router.post(
+    "/principals",
+    tags=["Principals"],
+    summary="Create a principal",
+    description="Creates a Settle Principal. Human principals use OIDC; service principals use PAT and are normally created by product-object workflows.",
+    response_model=Principal,
+    responses=WRITE_RESPONSES,
+)
+def post_principal(principal: Principal, container: ContainerDep) -> Principal:
+    return _handle(lambda: container.principals.create(principal))
+
+
+@router.get(
+    "/principals/{principal_id}",
+    tags=["Principals"],
+    summary="Get a principal",
+    description="Returns a registered principal by ID.",
+    response_model=Principal,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_principal(
+    principal_id: Annotated[str, Path(description="Principal identifier.")],
+    container: ContainerDep,
+) -> Principal:
+    return _handle(lambda: container.principals.get(principal_id))
+
+
+@router.put(
+    "/principals/{principal_id}",
+    tags=["Principals"],
+    summary="Create or update a principal",
+    description="Stores a principal under the requested ID while enforcing the active human admin invariant.",
+    response_model=Principal,
+    responses=WRITE_RESPONSES,
+)
+def put_principal(
+    principal_id: Annotated[str, Path(description="Principal identifier.")],
+    principal: Principal,
+    container: ContainerDep,
+) -> Principal:
+    updated = principal.model_copy(update={"principal_id": principal_id})
+    return _handle(lambda: container.principals.put(updated))
 
 
 def _json(value: Any) -> Any:
@@ -193,6 +284,93 @@ def get_release(
 )
 def create_release(release: Release, container: ContainerDep) -> Release:
     return _handle(lambda: container.releases.create(release))
+
+
+@router.get(
+    "/release-sources",
+    tags=["Release Sources"],
+    summary="List release sources",
+    description="Returns all registered external release publishers.",
+    response_model=list[ReleaseSource],
+    responses=NOT_FOUND_RESPONSES,
+)
+def list_release_sources(container: ContainerDep) -> list[ReleaseSource]:
+    return _handle(container.release_sources.list)
+
+
+@router.post(
+    "/release-sources",
+    tags=["Release Sources"],
+    summary="Create a release source",
+    description="Registers an external release publisher and automatically creates its service principal and PAT.",
+    response_model=ReleaseSourceCreateResult,
+    responses=WRITE_RESPONSES,
+)
+def post_release_source(request: ReleaseSourceCreateRequest, container: ContainerDep) -> ReleaseSourceCreateResult:
+    return _handle(lambda: container.release_sources.create(request))
+
+
+@router.get(
+    "/release-sources/{release_source_id}",
+    tags=["Release Sources"],
+    summary="Get a release source",
+    description="Returns a registered release source by ID.",
+    response_model=ReleaseSource,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_release_source(
+    release_source_id: Annotated[str, Path(description="Release source identifier.")],
+    container: ContainerDep,
+) -> ReleaseSource:
+    return _handle(lambda: container.release_sources.get(release_source_id))
+
+
+@router.put(
+    "/release-sources/{release_source_id}",
+    tags=["Release Sources"],
+    summary="Create or update a release source",
+    description="Registers or updates an external actor that can publish releases within its scope.",
+    response_model=ReleaseSource,
+    responses=WRITE_RESPONSES,
+)
+def put_release_source(
+    release_source_id: Annotated[str, Path(description="Release source identifier.")],
+    release_source: ReleaseSource,
+    container: ContainerDep,
+) -> ReleaseSource:
+    updated = release_source.model_copy(update={"release_source_id": release_source_id})
+    return _handle(lambda: container.release_sources.put(updated))
+
+
+@router.post(
+    "/release-sources/{release_source_id}/rotate-token",
+    tags=["Release Sources"],
+    summary="Rotate a release source PAT",
+    description="Replaces the release source PAT. The previous token stops working immediately.",
+    response_model=RotateTokenResult,
+    responses=WRITE_RESPONSES,
+)
+def rotate_release_source_token(
+    release_source_id: Annotated[str, Path(description="Release source identifier.")],
+    container: ContainerDep,
+) -> RotateTokenResult:
+    return _handle(lambda: container.release_sources.rotate_token(release_source_id))
+
+
+@router.post(
+    "/release-sources/{release_source_id}/releases",
+    tags=["Release Sources"],
+    summary="Publish a release from a release source",
+    description="Creates the same immutable Release object as POST /releases, scoped to a registered release source.",
+    response_model=Release,
+    responses=WRITE_RESPONSES,
+)
+def publish_release_from_source(
+    release_source_id: Annotated[str, Path(description="Release source identifier.")],
+    release: Release,
+    container: ContainerDep,
+) -> Release:
+    return _handle(lambda: container.release_sources.publish_release(release_source_id, release))
 
 
 @router.get(
@@ -378,55 +556,147 @@ def create_deployment(request: CreateDeploymentRequest, container: ContainerDep)
 
 
 @router.get(
-    "/adapter/executions/pending",
-    tags=["Adapters"],
-    summary="List pending adapter executions",
-    description="Returns deployment executions that are ready to be claimed by an adapter.",
-    response_model=list[DeploymentExecution],
+    "/deployment-runners",
+    tags=["Deployment Runners"],
+    summary="List deployment runners",
+    description="Returns all registered external deployment executors.",
+    response_model=list[DeploymentRunner],
     responses=NOT_FOUND_RESPONSES,
 )
-def list_pending_adapter_executions(container: ContainerDep) -> list[DeploymentExecution]:
-    return _handle(container.adapters.list_pending)
+def list_deployment_runners(container: ContainerDep) -> list[DeploymentRunner]:
+    return _handle(container.deployment_runners.list)
 
 
 @router.post(
-    "/adapter/executions/{deployment_execution_id}/claim",
-    tags=["Adapters"],
+    "/deployment-runners",
+    tags=["Deployment Runners"],
+    summary="Create a deployment runner",
+    description="Registers an external executor and automatically creates its service principal and PAT.",
+    response_model=DeploymentRunnerCreateResult,
+    responses=WRITE_RESPONSES,
+)
+def post_deployment_runner(request: DeploymentRunnerCreateRequest, container: ContainerDep) -> DeploymentRunnerCreateResult:
+    return _handle(lambda: container.deployment_runners.create(request))
+
+
+@router.get(
+    "/deployment-runners/{runner_id}",
+    tags=["Deployment Runners"],
+    summary="Get a deployment runner",
+    description="Returns a registered deployment runner by ID.",
+    response_model=DeploymentRunner,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_deployment_runner(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    container: ContainerDep,
+) -> DeploymentRunner:
+    return _handle(lambda: container.deployment_runners.get(runner_id))
+
+
+@router.put(
+    "/deployment-runners/{runner_id}",
+    tags=["Deployment Runners"],
+    summary="Create or update a deployment runner",
+    description="Registers or updates an external actor that can claim and report deployment work within its scope.",
+    response_model=DeploymentRunner,
+    responses=WRITE_RESPONSES,
+)
+def put_deployment_runner(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    runner: DeploymentRunner,
+    container: ContainerDep,
+) -> DeploymentRunner:
+    updated = runner.model_copy(update={"runner_id": runner_id})
+    return _handle(lambda: container.deployment_runners.put(updated))
+
+
+@router.post(
+    "/deployment-runners/{runner_id}/rotate-token",
+    tags=["Deployment Runners"],
+    summary="Rotate a deployment runner PAT",
+    description="Replaces the deployment runner PAT. The previous token stops working immediately.",
+    response_model=RotateTokenResult,
+    responses=WRITE_RESPONSES,
+)
+def rotate_deployment_runner_token(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    container: ContainerDep,
+) -> RotateTokenResult:
+    return _handle(lambda: container.deployment_runners.rotate_token(runner_id))
+
+
+@router.post(
+    "/deployment-runners/{runner_id}/heartbeat",
+    tags=["Deployment Runners"],
+    summary="Record a deployment runner heartbeat",
+    description="Updates the runner heartbeat timestamp.",
+    response_model=DeploymentRunner,
+    responses=WRITE_RESPONSES,
+)
+def heartbeat_deployment_runner(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    container: ContainerDep,
+) -> DeploymentRunner:
+    return _handle(lambda: container.deployment_runners.heartbeat(runner_id))
+
+
+@router.get(
+    "/deployment-runners/{runner_id}/executions/pending",
+    tags=["Deployment Runners"],
+    summary="List pending runner executions",
+    description="Returns deployment executions that are in scope and ready to be claimed by a deployment runner.",
+    response_model=list[DeploymentExecution],
+    responses=NOT_FOUND_RESPONSES,
+)
+def list_pending_runner_executions(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    container: ContainerDep,
+) -> list[DeploymentExecution]:
+    return _handle(lambda: container.deployment_runners.list_pending(runner_id))
+
+
+@router.post(
+    "/deployment-runners/{runner_id}/executions/{deployment_execution_id}/claim",
+    tags=["Deployment Runners"],
     summary="Claim a deployment execution",
-    description="Marks a pending deployment execution as claimed.",
+    description="Marks a pending deployment execution as claimed by the deployment runner.",
     response_model=DeploymentExecution,
     responses=WRITE_RESPONSES,
 )
-def claim_adapter_execution(
+def claim_runner_execution(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     request: ClaimExecutionRequest,
     container: ContainerDep,
 ) -> DeploymentExecution:
-    return _handle(lambda: container.adapters.claim(deployment_execution_id, request.claimed_by))
+    return _handle(lambda: container.deployment_runners.claim(runner_id, deployment_execution_id, request.lease_seconds))
 
 
 @router.post(
-    "/adapter/executions/{deployment_execution_id}/items/{component_id}/status",
-    tags=["Adapters"],
+    "/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/status",
+    tags=["Deployment Runners"],
     summary="Report execution item status",
     description="Updates a single component item status for a deployment execution.",
     response_model=DeploymentExecution,
     responses=WRITE_RESPONSES,
 )
-def report_adapter_item_status(
+def report_runner_item_status(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     component_id: Annotated[str, Path(description="Component identifier.")],
     request: ReportExecutionItemStatusRequest,
     container: ContainerDep,
 ) -> DeploymentExecution:
     return _handle(
-        lambda: container.adapters.report_item_status(
+        lambda: container.deployment_runners.report_item_status(
+            runner_id=runner_id,
             deployment_execution_id=deployment_execution_id,
             component_id=component_id,
             status=request.status,
             reported_action=request.reported_action,
             reported_by=request.reported_by,
-            adapter_reason=request.adapter_reason,
+            runner_reason=request.runner_reason,
             message=request.message,
             error=request.error,
         )
@@ -434,18 +704,19 @@ def report_adapter_item_status(
 
 
 @router.post(
-    "/adapter/executions/{deployment_execution_id}/status",
-    tags=["Adapters"],
+    "/deployment-runners/{runner_id}/executions/{deployment_execution_id}/status",
+    tags=["Deployment Runners"],
     summary="Report deployment execution status",
     description="Updates the overall status of a deployment execution.",
     response_model=DeploymentExecution,
     responses=WRITE_RESPONSES,
 )
-def report_adapter_execution_status(
+def report_runner_execution_status(
+    runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     request: ReportExecutionStatusRequest,
     container: ContainerDep,
 ) -> DeploymentExecution:
-    return _handle(lambda: container.adapters.report_execution_status(deployment_execution_id, request.status))
+    return _handle(lambda: container.deployment_runners.report_execution_status(runner_id, deployment_execution_id, request.status))
 
 

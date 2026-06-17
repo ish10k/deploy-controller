@@ -7,10 +7,14 @@ from src.domain.models import (
     Component,
     ComponentSet,
     DeploymentExecution,
+    DeploymentRunner,
     DeploySet,
     Environment,
     EnvironmentState,
+    BootstrapState,
+    Principal,
     Release,
+    ReleaseSource,
 )
 
 
@@ -19,8 +23,12 @@ class MemoryRepositories:
     components: dict[str, Component] = field(default_factory=dict)
     component_sets: dict[str, ComponentSet] = field(default_factory=dict)
     releases: dict[tuple[str, str], Release] = field(default_factory=dict)
+    release_sources: dict[str, ReleaseSource] = field(default_factory=dict)
     deploysets: dict[str, DeploySet] = field(default_factory=dict)
     environments: dict[str, Environment] = field(default_factory=dict)
+    deployment_runners: dict[str, DeploymentRunner] = field(default_factory=dict)
+    principals: dict[str, Principal] = field(default_factory=dict)
+    bootstrap: BootstrapState = field(default_factory=BootstrapState)
     environment_states: dict[str, EnvironmentState] = field(default_factory=dict)
     deployment_executions: dict[str, DeploymentExecution] = field(default_factory=dict)
 
@@ -57,6 +65,15 @@ class MemoryRepositories:
             values = (item for item in values if item.component_id == component_id)
         return sorted(values, key=lambda item: (item.component_id, item.version))
 
+    def get_release_source(self, release_source_id: str) -> ReleaseSource | None:
+        return self.release_sources.get(release_source_id)
+
+    def list_release_sources(self) -> list[ReleaseSource]:
+        return sorted(self.release_sources.values(), key=lambda item: item.release_source_id)
+
+    def put_release_source(self, release_source: ReleaseSource) -> None:
+        self.release_sources[release_source.release_source_id] = release_source
+
     def get_deployset(self, deployset_id: str) -> DeploySet | None:
         return self.deploysets.get(deployset_id)
 
@@ -76,6 +93,42 @@ class MemoryRepositories:
 
     def put_environment(self, environment: Environment) -> None:
         self.environments[environment.environment_id] = environment
+
+    def get_deployment_runner(self, runner_id: str) -> DeploymentRunner | None:
+        return self.deployment_runners.get(runner_id)
+
+    def list_deployment_runners(self) -> list[DeploymentRunner]:
+        return sorted(self.deployment_runners.values(), key=lambda item: item.runner_id)
+
+    def put_deployment_runner(self, runner: DeploymentRunner) -> None:
+        self.deployment_runners[runner.runner_id] = runner
+
+    def get_principal(self, principal_id: str) -> Principal | None:
+        return self.principals.get(principal_id)
+
+    def get_principal_by_oidc(self, external_issuer: str, external_subject: str) -> Principal | None:
+        return next(
+            (
+                principal
+                for principal in self.principals.values()
+                if principal.type == "user"
+                and principal.external_issuer == external_issuer
+                and principal.external_subject == external_subject
+            ),
+            None,
+        )
+
+    def list_principals(self) -> list[Principal]:
+        return sorted(self.principals.values(), key=lambda item: item.principal_id)
+
+    def put_principal(self, principal: Principal) -> None:
+        self.principals[principal.principal_id] = principal
+
+    def get_bootstrap_state(self) -> BootstrapState:
+        return self.bootstrap
+
+    def put_bootstrap_state(self, state: BootstrapState) -> None:
+        self.bootstrap = state
 
     def get_environment_state(self, environment_id: str) -> EnvironmentState | None:
         return self.environment_states.get(environment_id)
@@ -156,6 +209,20 @@ class MemoryReleaseRepository:
         return self.store.list_releases(component_id)
 
 
+class MemoryReleaseSourceRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, release_source_id: str) -> ReleaseSource | None:
+        return self.store.get_release_source(release_source_id)
+
+    def list(self) -> list[ReleaseSource]:
+        return self.store.list_release_sources()
+
+    def put(self, release_source: ReleaseSource) -> None:
+        self.store.put_release_source(release_source)
+
+
 class MemoryDeploySetRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
@@ -182,6 +249,48 @@ class MemoryEnvironmentRepository:
 
     def put(self, environment: Environment) -> None:
         self.store.put_environment(environment)
+
+
+class MemoryDeploymentRunnerRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, runner_id: str) -> DeploymentRunner | None:
+        return self.store.get_deployment_runner(runner_id)
+
+    def list(self) -> list[DeploymentRunner]:
+        return self.store.list_deployment_runners()
+
+    def put(self, runner: DeploymentRunner) -> None:
+        self.store.put_deployment_runner(runner)
+
+
+class MemoryPrincipalRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, principal_id: str) -> Principal | None:
+        return self.store.get_principal(principal_id)
+
+    def get_by_oidc(self, external_issuer: str, external_subject: str) -> Principal | None:
+        return self.store.get_principal_by_oidc(external_issuer, external_subject)
+
+    def list(self) -> list[Principal]:
+        return self.store.list_principals()
+
+    def put(self, principal: Principal) -> None:
+        self.store.put_principal(principal)
+
+
+class MemoryBootstrapStateRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self) -> BootstrapState:
+        return self.store.get_bootstrap_state()
+
+    def put(self, state: BootstrapState) -> None:
+        self.store.put_bootstrap_state(state)
 
 
 class MemoryEnvironmentStateRepository:

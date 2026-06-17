@@ -37,6 +37,17 @@ resource "aws_dynamodb_table" "releases" {
   }
 }
 
+resource "aws_dynamodb_table" "release_sources" {
+  name         = "${var.name_prefix}-release-sources"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "releaseSourceId"
+
+  attribute {
+    name = "releaseSourceId"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "deploysets" {
   name         = "${var.name_prefix}-deploysets"
   billing_mode = "PAY_PER_REQUEST"
@@ -55,6 +66,39 @@ resource "aws_dynamodb_table" "environments" {
 
   attribute {
     name = "environmentId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "deployment_runners" {
+  name         = "${var.name_prefix}-deployment-runners"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "runnerId"
+
+  attribute {
+    name = "runnerId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "principals" {
+  name         = "${var.name_prefix}-principals"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "principalId"
+
+  attribute {
+    name = "principalId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "bootstrap" {
+  name         = "${var.name_prefix}-bootstrap"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
     type = "S"
   }
 }

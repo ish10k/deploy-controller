@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.application.use_cases.deployments import AdapterUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
+from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
 from src.application.use_cases.registry import (
     ComponentSetUseCases,
     ComponentUseCases,
@@ -8,7 +8,9 @@ from src.application.use_cases.registry import (
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
+    ReleaseSourceUseCases,
 )
+from src.application.use_cases.identity import PrincipalUseCases
 
 
 @dataclass(frozen=True)
@@ -16,11 +18,13 @@ class Container:
     components: ComponentUseCases
     component_sets: ComponentSetUseCases
     releases: ReleaseUseCases
+    release_sources: ReleaseSourceUseCases
     deploysets: DeploySetUseCases
     environments: EnvironmentUseCases
     read_only: ReadOnlyUseCases
     plan_deployment: PlanDeploymentUseCase
     create_deployment: CreateDeploymentUseCase
-    adapters: AdapterUseCases
+    deployment_runners: DeploymentRunnerUseCases
+    principals: PrincipalUseCases
 
 

@@ -1,4 +1,4 @@
-from src.application.use_cases.deployments import AdapterUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
+from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
 from src.application.use_cases.registry import (
     ComponentSetUseCases,
     ComponentUseCases,
@@ -6,7 +6,9 @@ from src.application.use_cases.registry import (
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
+    ReleaseSourceUseCases,
 )
+from src.application.use_cases.identity import PrincipalUseCases
 from src.composition.container import Container
 from src.composition.local_seed import seed_local_data
 from src.infrastructure.ids import UuidIdGenerator
@@ -14,10 +16,14 @@ from src.infrastructure.memory.repositories import (
     MemoryComponentRepository,
     MemoryComponentSetRepository,
     MemoryDeploymentExecutionRepository,
+    MemoryDeploymentRunnerRepository,
     MemoryDeploySetRepository,
     MemoryEnvironmentRepository,
     MemoryEnvironmentStateRepository,
+    MemoryBootstrapStateRepository,
+    MemoryPrincipalRepository,
     MemoryReleaseRepository,
+    MemoryReleaseSourceRepository,
     MemoryRepositories,
 )
 from src.infrastructure.time import SystemClock
@@ -31,11 +37,16 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     components = MemoryComponentRepository(store)
     component_sets = MemoryComponentSetRepository(store)
     releases = MemoryReleaseRepository(store)
+    release_sources = MemoryReleaseSourceRepository(store)
     deploysets = MemoryDeploySetRepository(store)
     environments = MemoryEnvironmentRepository(store)
+    runners = MemoryDeploymentRunnerRepository(store)
+    principals = MemoryPrincipalRepository(store)
+    bootstrap = MemoryBootstrapStateRepository(store)
     states = MemoryEnvironmentStateRepository(store)
     executions = MemoryDeploymentExecutionRepository(store)
     clock = SystemClock()
+    identity = PrincipalUseCases(principals=principals, bootstrap=bootstrap, clock=clock)
     planner = PlanDeploymentUseCase(
         deploysets=deploysets,
         releases=releases,
@@ -46,6 +57,13 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         components=ComponentUseCases(components),
         component_sets=ComponentSetUseCases(component_sets),
         releases=ReleaseUseCases(releases),
+        release_sources=ReleaseSourceUseCases(
+            release_sources=release_sources,
+            releases=releases,
+            component_sets=component_sets,
+            clock=clock,
+            principals=identity,
+        ),
         deploysets=DeploySetUseCases(
             deploysets=deploysets,
             component_sets=component_sets,
@@ -63,7 +81,15 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             clock=clock,
             id_generator=UuidIdGenerator(),
         ),
-        adapters=AdapterUseCases(executions=executions, states=states, clock=clock),
+        deployment_runners=DeploymentRunnerUseCases(
+            runners=runners,
+            executions=executions,
+            deploysets=deploysets,
+            states=states,
+            clock=clock,
+            principals=identity,
+        ),
+        principals=identity,
     )
 
 

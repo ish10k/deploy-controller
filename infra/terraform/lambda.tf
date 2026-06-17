@@ -14,8 +14,12 @@ resource "aws_lambda_function" "deploy_controller" {
       COMPONENTS_TABLE             = aws_dynamodb_table.components.name
       COMPONENT_SETS_TABLE         = aws_dynamodb_table.component_sets.name
       RELEASES_TABLE               = aws_dynamodb_table.releases.name
+      RELEASE_SOURCES_TABLE        = aws_dynamodb_table.release_sources.name
       DEPLOYSETS_TABLE             = aws_dynamodb_table.deploysets.name
       ENVIRONMENTS_TABLE           = aws_dynamodb_table.environments.name
+      DEPLOYMENT_RUNNERS_TABLE     = aws_dynamodb_table.deployment_runners.name
+      PRINCIPALS_TABLE             = aws_dynamodb_table.principals.name
+      BOOTSTRAP_TABLE              = aws_dynamodb_table.bootstrap.name
       ENVIRONMENT_STATE_TABLE      = aws_dynamodb_table.environment_state.name
       DEPLOYMENT_EXECUTIONS_TABLE  = aws_dynamodb_table.deployment_executions.name
     }

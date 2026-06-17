@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ApiRequestError } from "@/lib/api-client";
 
 export function PageHeader({
   title,
@@ -45,25 +46,33 @@ export function EmptyPanel({ label = "No records returned by the API." }: { labe
 
 export function ApiErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const message = error instanceof Error ? error.message : "Unable to reach the DeploySet API.";
+  const status = error instanceof ApiRequestError ? error.status : null;
+  const isConnectionError = status === null;
+  const title = status === 404 ? "Record not found" : status ? "API request failed" : "API connection needed";
+  const panelClass = status === 404 ? "border-slate-200 bg-slate-50" : "border-orange-200 bg-orange-50";
+  const iconClass = status === 404 ? "text-slate-600 ring-slate-200" : "text-orange-600 ring-orange-200";
+  const textClass = status === 404 ? "text-slate-900" : "text-orange-900";
 
   return (
-    <Card className="border-orange-200 bg-orange-50">
+    <Card className={panelClass}>
       <CardContent className="grid gap-4 p-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-orange-600 ring-1 ring-orange-200">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ${iconClass}`}>
             <Server className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2 text-sm font-bold text-orange-900">
+            <div className={`flex items-center gap-2 text-sm font-bold ${textClass}`}>
               <AlertCircle className="h-4 w-4" />
-              API connection needed
+              {title}
             </div>
-            <p className="mt-1 text-sm text-orange-900">{message}</p>
-            <p className="mt-3 text-sm text-orange-950">
-              Start the backend with{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">cd api; DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload</code>{" "}
-              or set <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">VITE_API_TARGET</code> to a working API.
-            </p>
+            <p className={`mt-1 text-sm ${textClass}`}>{message}</p>
+            {isConnectionError ? (
+              <p className="mt-3 text-sm text-orange-950">
+                Start the backend with{" "}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">cd api; DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload</code>{" "}
+                or set <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">VITE_API_TARGET</code> to a working API.
+              </p>
+            ) : null}
           </div>
         </div>
         {onRetry ? (

@@ -1,11 +1,12 @@
 import { createRootRoute, createRoute, createRouter, Outlet, useNavigate } from "@tanstack/react-router";
 
 import { DeploymentExecutionDetailsPage } from "@/components/deployments/deployment-execution-details-page";
+import { AuthCallbackPage, ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { DeploymentsPage } from "@/components/deployments/deployments-page";
 import { EnvironmentsPage } from "@/components/environments/environments-page";
 import { AppShell } from "@/components/layout/app-shell";
 import { UnsupportedPage } from "@/components/common/api-state";
-import { AdaptersPage } from "@/components/pages/adapters-page";
+import { DeploymentRunnerDetailsPage, DeploymentRunnersPage } from "@/components/pages/adapters-page";
 import { ComponentDetailsPage } from "@/components/pages/component-details-page";
 import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
 import { ComponentSetsPage } from "@/components/pages/component-sets-page";
@@ -63,6 +64,10 @@ const componentDetailRoute = createRoute({
     return <ComponentDetailsPage componentId={componentId} />;
   },
 });
+
+const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/callback", component: AuthCallbackPage });
+const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
+const forbiddenRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forbidden", component: ForbiddenPage });
 const componentSetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/component-sets", component: ComponentSetsPage });
 const componentSetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -100,7 +105,15 @@ const environmentDetailRoute = createRoute({
   },
 });
 const executionsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/executions", component: ExecutionsPage });
-const adaptersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/adapters", component: AdaptersPage });
+const deploymentRunnersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/deployment-runners", component: DeploymentRunnersPage });
+const deploymentRunnerDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/deployment-runners/$runnerId",
+  component: () => {
+    const { runnerId } = deploymentRunnerDetailRoute.useParams();
+    return <DeploymentRunnerDetailsPage runnerId={runnerId} />;
+  },
+});
 
 const unsupportedRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -109,6 +122,9 @@ const unsupportedRoute = createRoute({
 });
 
 export const routeTree = rootRoute.addChildren([
+  authCallbackRoute,
+  loginRoute,
+  forbiddenRoute,
   indexRoute,
   deploymentsRoute,
   deploymentExecutionDetailRoute,
@@ -124,7 +140,8 @@ export const routeTree = rootRoute.addChildren([
   environmentsRoute,
   environmentDetailRoute,
   executionsRoute,
-  adaptersRoute,
+  deploymentRunnersRoute,
+  deploymentRunnerDetailRoute,
   unsupportedRoute,
 ]);
 

@@ -3,11 +3,15 @@ from src.application.ports.repositories import (
     ComponentRepository,
     ComponentSetRepository,
     DeploymentExecutionRepository,
+    DeploymentRunnerRepository,
     DeploySetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
+    BootstrapStateRepository,
     IdGenerator,
+    PrincipalRepository,
     ReleaseRepository,
+    ReleaseSourceRepository,
 )
 
 __all__ = [
@@ -16,10 +20,14 @@ __all__ = [
     "ComponentSetRepository",
     "DeploySetRepository",
     "DeploymentExecutionRepository",
+    "DeploymentRunnerRepository",
+    "BootstrapStateRepository",
     "EnvironmentRepository",
     "EnvironmentStateRepository",
     "IdGenerator",
+    "PrincipalRepository",
     "ReleaseRepository",
+    "ReleaseSourceRepository",
 ]
 
 

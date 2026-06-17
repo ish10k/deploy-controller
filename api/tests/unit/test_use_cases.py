@@ -5,6 +5,8 @@ from src.domain.models import (
     Component,
     ComponentSet,
     DeploymentExecution,
+    DeploymentRunner,
+    DeploymentRunnerScope,
     DeploySet,
     Environment,
     Release,
@@ -65,6 +67,16 @@ def seed(store: MemoryRepositories) -> None:
         )
     )
     store.put_environment(Environment(environmentId="prod"))
+    store.put_deployment_runner(
+        DeploymentRunner(
+            runnerId="aws-prod-runner",
+            displayName="AWS Prod Runner",
+            principalId="service:aws-prod-runner",
+            scope=DeploymentRunnerScope(environmentIds=["prod"], componentSetIds=["platform"]),
+            createdAt="2026-06-16T12:00:00Z",
+            createdBy="ci",
+        )
+    )
 
 
 def test_release_create_is_idempotent_for_same_content() -> None:
@@ -175,7 +187,7 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     assert store.get_environment_state("prod").last_deployment_execution_id == execution.deployment_execution_id
 
 
-def test_adapter_report_flags_possible_drift_on_force_redeploy() -> None:
+def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     store = MemoryRepositories()
     seed(store)
     store.create_deployment_execution(
@@ -214,15 +226,22 @@ def test_adapter_report_flags_possible_drift_on_force_redeploy() -> None:
         force=True,
     )
 
-    updated = container.adapters.report_item_status(
+    claimed = container.deployment_runners.claim(
+        "aws-prod-runner",
+        execution.deployment_execution_id,
+    )
+
+    updated = container.deployment_runners.report_item_status(
+        runner_id="aws-prod-runner",
         deployment_execution_id=execution.deployment_execution_id,
         component_id="api",
         status="succeeded",
         reported_action="deploy",
-        reported_by="aws-prod-adapter",
-        adapter_reason="artifact_mismatch",
+        reported_by="aws-prod-runner",
+        runner_reason="artifact_mismatch",
     )
 
+    assert claimed.claimed_by == "aws-prod-runner"
     assert updated.items[0].drift_detected is True
     assert updated.items[0].drift_reason == "same_version_redeployed"
 

@@ -14,4 +14,12 @@ class ValidationError(DeploySetControllerError):
     status_code = 400
 
 
+class UnauthorizedError(DeploySetControllerError):
+    status_code = 401
+
+
+class ForbiddenError(DeploySetControllerError):
+    status_code = 403
+
+
 

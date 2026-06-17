@@ -60,42 +60,44 @@ class CreateDeploymentResponse(ApiSchema):
 
 
 class ClaimExecutionRequest(ApiSchema):
-    claimed_by: str = Field(
-        alias="claimedBy",
-        description="Principal claiming the execution.",
-        examples=["runner-1"],
+    lease_seconds: int | None = Field(
+        default=900,
+        alias="leaseSeconds",
+        description="Requested claim lease duration in seconds.",
+        examples=[900],
     )
 
 
 class ReportExecutionStatusRequest(ApiSchema):
     status: ExecutionStatus = Field(
-        description="Updated execution status reported by the adapter.",
+        description="Updated execution status reported by the deployment runner.",
         examples=[ExecutionStatus.RUNNING, ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED],
     )
 
 
 class ReportExecutionItemStatusRequest(ApiSchema):
     status: ItemStatus = Field(
-        description="Updated item status reported by the adapter.",
+        description="Updated item status reported by the deployment runner.",
         examples=[ItemStatus.RUNNING, ItemStatus.SUCCEEDED, ItemStatus.FAILED],
     )
     reported_action: ReportedAction = Field(
         alias="reportedAction",
-        description="Action the adapter actually performed.",
+        description="Action the deployment runner actually performed.",
         examples=[ReportedAction.DEPLOY, ReportedAction.NOOP, ReportedAction.SKIP],
     )
-    reported_by: str = Field(
+    reported_by: str | None = Field(
+        default=None,
         alias="reportedBy",
         description="Principal or runner reporting the item status.",
         examples=["runner-1"],
     )
-    adapter_reason: str | None = Field(
+    runner_reason: str | None = Field(
         default=None,
-        alias="adapterReason",
-        description="Optional adapter-specific reason or note.",
+        alias="runnerReason",
+        description="Optional deployment-runner-specific reason or note.",
         examples=["already up to date"],
     )
-    message: str | None = Field(default=None, description="Optional status message from the adapter.")
-    error: str | None = Field(default=None, description="Optional error details from the adapter.")
+    message: str | None = Field(default=None, description="Optional status message from the deployment runner.")
+    error: str | None = Field(default=None, description="Optional error details from the deployment runner.")
 
 
