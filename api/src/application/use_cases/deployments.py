@@ -109,7 +109,9 @@ class CreateDeploymentUseCase:
         environment_id: str,
         deployset_id: str,
         requested_by: str,
+        notes: str | None = None,
         force: bool = False,
+        tags: dict[str, str] | None = None,
     ) -> DeploymentExecution:
         plan = self.planner.execute(environment_id=environment_id, deployset_id=deployset_id, force=force)
         now = self.clock.now()
@@ -119,10 +121,12 @@ class CreateDeploymentUseCase:
             deployset_id=deployset_id,
             status=ExecutionStatus.PENDING,
             requested_by=requested_by,
+            notes=notes,
             force=force,
             started_at=now,
             completed_at=None,
             items=plan.items,
+            tags=tags or {},
         )
         self.executions.create(execution)
         self.states.put(

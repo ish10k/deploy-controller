@@ -15,6 +15,7 @@ export function KeyValueList({
   keyPlaceholder = "key",
   valuePlaceholder = "value",
   emptyLabel = "No key/value pairs added.",
+  hideLastRemove = false,
   onChange,
   onRemove,
 }: {
@@ -22,6 +23,7 @@ export function KeyValueList({
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   emptyLabel?: string;
+  hideLastRemove?: boolean;
   onChange: (id: string, patch: Partial<Omit<KeyValueListItem, "id">>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -33,11 +35,11 @@ export function KeyValueList({
             <TableRow>
               <TableHead>Key</TableHead>
               <TableHead>Value</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y-0">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <TableRow key={item.id}>
               <TableCell>
                 <UnderlineInput value={item.key} onChange={(event) => onChange(item.id, { key: event.target.value })} placeholder={keyPlaceholder} />
@@ -45,10 +47,12 @@ export function KeyValueList({
               <TableCell>
                 <UnderlineInput value={item.value} onChange={(event) => onChange(item.id, { value: event.target.value })} placeholder={valuePlaceholder} />
               </TableCell>
-              <TableCell>
-                <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(item.id)} aria-label="Remove key/value pair">
-                  <Trash2 className="h-4 w-4 text-slate-500" />
-                </Button>
+              <TableCell className="w-10">
+                {hideLastRemove && index === items.length - 1 ? null : (
+                  <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(item.id)} aria-label="Remove key/value pair">
+                    <Trash2 className="h-4 w-4 text-slate-500" />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}

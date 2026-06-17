@@ -1,6 +1,6 @@
 import {
   Bell,
-  Box,
+  Rocket,
   Boxes,
   ChevronDown,
   ClipboardList,
@@ -13,12 +13,17 @@ import {
   Link2,
   Menu,
   PackageCheck,
-  RadioTower,
+  Unplug,
   Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
   UserRound,
+  Server,
+  Package,
+  Puzzle,
+  Dock,
+  Shield,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -34,27 +39,26 @@ const navGroups = [
   {
     label: "Operations",
     items: [
-      { label: "Deployments", icon: Box, to: "/deployments" },
-      { label: "Adapters", icon: Boxes, to: "/adapters" },
-      { label: "Webhooks", icon: GitBranch, to: "/unsupported/webhooks" },
+      { label: "Deployments", icon: Rocket, to: "/deployments" },
+      { label: "DeploySets", icon: PackageCheck, to: "/deploysets" },
+      { label: "Environments", icon: Server, to: "/environments" },
+      { label: "Releases", icon: Package, to: "/releases" },
+      { label: "Components", icon: Puzzle, to: "/components" },
+      { label: "Component Sets", icon: Dock, to: "/component-sets" },
     ],
   },
   {
     label: "Configuration",
     items: [
-      { label: "Components", icon: SlidersHorizontal, to: "/components" },
-      { label: "Component Sets", icon: Link2, to: "/component-sets" },
-      { label: "Releases", icon: ShieldCheck, to: "/releases" },
-      { label: "DeploySets", icon: PackageCheck, to: "/deploysets" },
-      { label: "Config Sets", icon: ClipboardList, to: "/unsupported/config-sets" },
-      { label: "Environments", icon: Folder, to: "/environments" },
+      { label: "Adapters", icon: Unplug, to: "/adapters" },
+
     ],
   },
   {
     label: "Governance",
     items: [
       { label: "RBAC", icon: UserRound, to: "/unsupported/rbac" },
-      { label: "Audit", icon: KeyRound, to: "/unsupported/audit" },
+      { label: "Audit", icon: Shield, to: "/unsupported/audit" },
     ],
   },
 ];
@@ -71,17 +75,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="fixed inset-x-0 top-0 z-40 flex h-[60px] items-center border-b border-slate-900 bg-[#07111f] px-5 text-white shadow-sm">
-        <div className="flex w-[230px] shrink-0 items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600/15 ring-1 ring-blue-500/50">
-            <Component className="h-5 w-5 text-blue-400" />
+        <div className="flex w-[230px] shrink-0 items-center gap-1">
+          <div className="flex h-7 w-7 items-center justify-center">
+            <Rocket className="h-5 w-5" />
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-xl font-bold tracking-normal">DeploySet</span>
-            <span className="text-sm font-medium text-slate-300">Control Plane</span>
+            <span className="text-xl font-bold tracking-normal">Deploy Controller</span>
           </div>
         </div>
 
-        <div className="ml-8 flex h-10 w-[596px] items-center rounded-lg border border-white/10 bg-white/10 px-3 shadow-inner">
+        {/* <div className="ml-8 flex h-10 w-[596px] items-center rounded-lg border border-white/10 bg-white/10 px-3 shadow-inner">
           <Search className="h-4 w-4 text-slate-300" />
           <input
             aria-label="Search"
@@ -89,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             placeholder="Search DeploySets, components, environments..."
           />
           <kbd className="rounded border border-white/20 bg-slate-900/50 px-2 py-0.5 text-xs text-slate-300">Ctrl K</kbd>
-        </div>
+        </div> */}
 
         <div className="ml-auto flex items-center gap-4">
           <div className="flex items-center gap-1 border-r border-white/10 pr-4">

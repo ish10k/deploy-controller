@@ -34,7 +34,6 @@ export interface ApiComponent {
 
 export interface ApiComponentSetItem {
   componentId: string;
-  required: boolean;
 }
 
 export interface ApiComponentSet {
@@ -50,6 +49,7 @@ export interface ApiRelease {
   componentId: string;
   version: string;
   description: string | null;
+  notes: string | null;
   artifact: Artifact;
   source: Source | null;
   createdAt: string;
@@ -68,6 +68,7 @@ export interface ApiDeploySet {
   componentSetId: string;
   schemaVersion: number;
   description: string | null;
+  notes: string | null;
   baseEnvironmentId: string | null;
   baseDeploySetId: string | null;
   items: ApiDeploySetItem[];
@@ -86,6 +87,7 @@ export interface ApiDeploySetCreateRequest {
   componentSetId: string;
   baseEnvironmentId: string | null;
   baseDeploySetId: string | null;
+  notes: string | null;
   items: ApiDeploySetCreateItem[];
   createdBy: string;
   tags: Record<string, string>;
@@ -132,11 +134,13 @@ export interface ApiDeploymentExecution {
   deploySetId: string;
   status: ExecutionStatus;
   requestedBy: string;
+  notes: string | null;
   force: boolean;
   startedAt: string;
   completedAt: string | null;
   claimedBy: string | null;
   items: ApiDeploymentExecutionItem[];
+  tags: Record<string, string>;
 }
 
 export interface ApiDeploymentPlan {
@@ -149,7 +153,9 @@ export interface ApiCreateDeploymentRequest {
   environmentId: string;
   deploySetId: string;
   requestedBy: string;
+  notes: string | null;
   force: boolean;
+  tags: Record<string, string>;
 }
 
 export interface ApiCreateDeploymentResponse {

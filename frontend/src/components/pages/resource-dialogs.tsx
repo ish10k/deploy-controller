@@ -44,7 +44,7 @@ export function ComponentSetDialog({ open, onClose, onSubmit, pending }: DialogP
         onSubmit({
           componentSetId,
           description,
-          components: components.split(",").map((componentId) => ({ componentId: componentId.trim(), required: true })),
+          components: components.split(",").map((componentId) => ({ componentId: componentId.trim() })),
           tags: {},
           createdAt: new Date().toISOString(),
           createdBy: "amit.kumar",
@@ -63,6 +63,7 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
   const [componentId, setComponentId] = useState("");
   const [version, setVersion] = useState("");
   const [artifactKey, setArtifactKey] = useState("s3://deployset-artifacts/component/version.tar.gz");
+  const [notes, setNotes] = useState("");
   return (
     <SimpleDialog
       open={open}
@@ -73,7 +74,8 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
           componentId,
           version,
           description: `${componentId} ${version}`,
-          artifact: { key: artifactKey, digest: "sha256:pending" },
+          notes: notes || null,
+          artifact: { key: artifactKey, digest: "" },
           source: null,
           createdAt: new Date().toISOString(),
           createdBy: "amit.kumar",
@@ -85,6 +87,7 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
       <Field label="Component ID" value={componentId} onChange={setComponentId} />
       <Field label="Version" value={version} onChange={setVersion} />
       <Field label="Artifact key" value={artifactKey} onChange={setArtifactKey} />
+      <Field label="Notes" value={notes} onChange={setNotes} />
     </SimpleDialog>
   );
 }
@@ -95,6 +98,7 @@ export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProp
   const [baseEnvironmentId, setBaseEnvironmentId] = useState("");
   const [baseDeploySetId, setBaseDeploySetId] = useState("");
   const [createdBy, setCreatedBy] = useState("amit.kumar");
+  const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("track=prod");
   const [items, setItems] = useState("api=1.0.0,worker=1.0.0");
   return (
@@ -108,6 +112,7 @@ export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProp
           componentSetId,
           baseEnvironmentId: baseEnvironmentId || null,
           baseDeploySetId: baseDeploySetId || null,
+          notes: notes || null,
           items: parseDeploySetItems(items),
           createdBy,
           tags: parseKeyValueList(tags),
@@ -121,6 +126,7 @@ export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProp
       <Field label="Base DeploySet ID" value={baseDeploySetId} onChange={setBaseDeploySetId} />
       <Field label="Items" value={items} onChange={setItems} />
       <Field label="Created by" value={createdBy} onChange={setCreatedBy} />
+      <Field label="Notes" value={notes} onChange={setNotes} />
       <Field label="Tags" value={tags} onChange={setTags} />
     </SimpleDialog>
   );

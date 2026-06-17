@@ -99,7 +99,9 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             environment_id=deployment_request.environment_id,
             deployset_id=deployment_request.deployset_id,
             requested_by=deployment_request.requested_by,
+            notes=deployment_request.notes,
             force=deployment_request.force,
+            tags=deployment_request.tags,
         )
         return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "pending"})
 

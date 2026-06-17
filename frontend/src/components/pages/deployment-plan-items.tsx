@@ -17,17 +17,14 @@ export function PlanItems({
         <TableRow>
           <TableHead>Component</TableHead>
           <TableHead>Version</TableHead>
-          <TableHead>Requested</TableHead>
+          <TableHead>Requested Action</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.componentId}>
             <TableCell className="font-semibold">
-              <span className="flex items-center gap-2">
-                {item.componentId.includes("lambda") ? <Zap className="h-4 w-4 text-orange-500" /> : <Network className="h-4 w-4 text-slate-600" />}
-                {item.componentId}
-              </span>
+              {item.componentId}
             </TableCell>
             <TableCell className="font-medium text-slate-700">
               <VersionDiff currentVersion={currentVersions.get(item.componentId)} targetVersion={item.version} />

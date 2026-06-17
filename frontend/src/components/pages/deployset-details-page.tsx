@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, GitBranch, Layers3, PackageCheck, Server, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, Server, Tag, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
@@ -85,7 +85,7 @@ function DeploySetDetailsView({
       />
 
       <div className="grid shrink-0 grid-cols-4 gap-4">
-        <DeploySetFactCard icon={Layers3} label="Component Set" value={deployset.componentSetId} sublabel={`${componentCount} components required`} />
+        <DeploySetFactCard icon={Layers3} label="Component Set" value={deployset.componentSetId} sublabel={`${componentCount} components included`} />
         <DeploySetFactCard icon={Boxes} label="Items" value={deployset.items.length.toString()} sublabel={`${explicitCount} explicit, ${inferredCount} inherited`} />
         <DeploySetFactCard icon={Server} label="Active Environments" value={activeEnvironments.length.toString()} sublabel="Currently pointing here" />
         <DeploySetFactCard icon={CalendarClock} label="Created" value={formatDateTime(deployset.createdAt)} sublabel={`By ${deployset.createdBy}`} />
@@ -115,10 +115,35 @@ function DeploySetDetailsView({
             <CardContent className="grid gap-3 text-sm">
               <MetaRow icon={PackageCheck} label="DeploySet" value={deployset.deploySetId} />
               <MetaRow icon={Layers3} label="Component Set" value={deployset.componentSetId} />
-              <MetaRow icon={GitBranch} label="Base DeploySet" value={deployset.baseDeploySetId ?? "None"} />
-              <MetaRow icon={Server} label="Base Environment" value={deployset.baseEnvironmentId ?? "None"} />
+              <MetaRow
+                icon={GitBranch}
+                label="Base DeploySet"
+                value={
+                  deployset.baseDeploySetId ? (
+                    <Link to="/deploysets/$deploySetId" params={{ deploySetId: deployset.baseDeploySetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                      {deployset.baseDeploySetId}
+                    </Link>
+                  ) : (
+                    "None"
+                  )
+                }
+              />
+              <MetaRow
+                icon={Server}
+                label="Base Environment"
+                value={
+                  deployset.baseEnvironmentId ? (
+                    <Link to="/environments/$environmentId" params={{ environmentId: deployset.baseEnvironmentId }} className="font-bold text-blue-700 hover:text-blue-800">
+                      {deployset.baseEnvironmentId}
+                    </Link>
+                  ) : (
+                    "None"
+                  )
+                }
+              />
               <MetaRow icon={UserRound} label="Created by" value={deployset.createdBy} />
               <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(deployset.createdAt)} />
+              <MetaRow icon={FileText} label="Notes" value={deployset.notes ?? "None"} multiline />
               <div className="grid grid-cols-[140px_1fr] gap-3">
                 <span className="flex items-start gap-2 font-semibold text-slate-700">
                   <Tag className="mt-0.5 h-4 w-4 text-slate-500" />
@@ -182,8 +207,20 @@ function DeploySetItemsTable({ deployset }: { deployset: ApiDeploySet }) {
       <TableBody>
         {deployset.items.map((item) => (
           <TableRow key={item.componentId}>
-            <TableCell className="font-semibold text-slate-900">{item.componentId}</TableCell>
-            <TableCell>{item.version}</TableCell>
+            <TableCell>
+              <Link to="/components/$componentId" params={{ componentId: item.componentId }} className="font-semibold text-blue-700 hover:text-blue-800">
+                {item.componentId}
+              </Link>
+            </TableCell>
+            <TableCell>
+              <Link
+                to="/releases/$componentId/$version"
+                params={{ componentId: item.componentId, version: item.version }}
+                className="font-semibold text-blue-700 hover:text-blue-800"
+              >
+                {item.version}
+              </Link>
+            </TableCell>
             <TableCell>
               <Badge variant={item.source === "explicit" ? "blue" : "slate"}>{item.source}</Badge>
             </TableCell>
@@ -221,14 +258,14 @@ function DeploySetFactCard({
   );
 }
 
-function MetaRow({ icon: Icon, label, value }: { icon: typeof PackageCheck; label: string; value: string }) {
+function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof PackageCheck; label: string; value: React.ReactNode; multiline?: boolean }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] items-center gap-3">
-      <span className="flex items-center gap-2 font-semibold text-slate-700">
+    <div className={`grid grid-cols-[140px_1fr] gap-3 ${multiline ? "items-start" : "items-center"}`}>
+      <span className={`flex gap-2 font-semibold text-slate-700 ${multiline ? "items-start" : "items-center"}`}>
         <Icon className="h-4 w-4 text-slate-500" />
         {label}
       </span>
-      <span className="min-w-0 truncate text-slate-800">{value}</span>
+      <span className={`text-slate-800 ${multiline ? "whitespace-pre-wrap break-words" : "min-w-0 truncate"}`}>{value}</span>
     </div>
   );
 }

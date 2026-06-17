@@ -41,8 +41,8 @@ def seed(store: MemoryRepositories) -> None:
         ComponentSet(
             componentSetId="platform",
             components=[
-                {"componentId": "api", "required": True},
-                {"componentId": "worker", "required": True},
+                {"componentId": "api"},
+                {"componentId": "worker"},
             ],
             createdAt="2026-06-16T12:00:00Z",
             createdBy="ci",
@@ -93,6 +93,7 @@ def test_deployset_create_expands_partial_request_from_base_deployset() -> None:
             "deploySetId": "ds-2",
             "componentSetId": "platform",
             "baseDeploySetId": "ds-1",
+            "notes": "Promote API v2 while inheriting the current worker release.",
             "items": [{"componentId": "api", "version": "2.0.0"}],
             "createdBy": "ishina",
         }
@@ -102,6 +103,7 @@ def test_deployset_create_expands_partial_request_from_base_deployset() -> None:
     assert result.deployset.items[0].source == "explicit"
     assert result.deployset.items[1].version == "1.0.0"
     assert result.deployset.items[1].source == "inferred"
+    assert result.deployset.notes == "Promote API v2 while inheriting the current worker release."
     assert result.warnings
 
 
@@ -161,9 +163,15 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     seed(store)
     container = build_memory_container(store)
 
-    execution = container.create_deployment.execute(environment_id="prod", deployset_id="ds-1", requested_by="ishina")
+    execution = container.create_deployment.execute(
+        environment_id="prod",
+        deployset_id="ds-1",
+        requested_by="ishina",
+        notes="Approved for rollout after verification in staging.",
+    )
 
     assert execution.status == "pending"
+    assert execution.notes == "Approved for rollout after verification in staging."
     assert store.get_environment_state("prod").last_deployment_execution_id == execution.deployment_execution_id
 
 

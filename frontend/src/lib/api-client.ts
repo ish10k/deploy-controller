@@ -64,6 +64,10 @@ export async function listComponents() {
   return request<ApiComponent[]>("/components");
 }
 
+export async function getComponent(componentId: string) {
+  return request<ApiComponent>(`/components/${encodeURIComponent(componentId)}`);
+}
+
 export async function putComponent(componentId: string, component: ApiComponent) {
   return request<ApiComponent>(`/components/${encodeURIComponent(componentId)}`, {
     method: "PUT",
@@ -73,6 +77,10 @@ export async function putComponent(componentId: string, component: ApiComponent)
 
 export async function listComponentSets() {
   return request<ApiComponentSet[]>("/component-sets");
+}
+
+export async function getComponentSet(componentSetId: string) {
+  return request<ApiComponentSet>(`/component-sets/${encodeURIComponent(componentSetId)}`);
 }
 
 export async function putComponentSet(componentSetId: string, componentSet: ApiComponentSet) {
@@ -85,6 +93,10 @@ export async function putComponentSet(componentSetId: string, componentSet: ApiC
 export async function listReleases(componentId?: string) {
   const query = componentId ? `?componentId=${encodeURIComponent(componentId)}` : "";
   return request<ApiRelease[]>(`/releases${query}`);
+}
+
+export async function getRelease(componentId: string, version: string) {
+  return request<ApiRelease>(`/releases/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`);
 }
 
 export async function createRelease(release: ApiRelease) {

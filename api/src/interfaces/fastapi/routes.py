@@ -368,7 +368,9 @@ def create_deployment(request: CreateDeploymentRequest, container: ContainerDep)
                 environment_id=request.environment_id,
                 deployset_id=request.deployset_id,
                 requested_by=request.requested_by,
+                notes=request.notes,
                 force=request.force,
+                tags=request.tags,
             ).deployment_execution_id,
             "status": "pending",
         }

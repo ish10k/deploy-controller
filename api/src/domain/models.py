@@ -29,7 +29,6 @@ class Component(ApiModel):
 
 class ComponentSetItem(ApiModel):
     component_id: str = Field(alias="componentId")
-    required: bool = True
 
 
 class ComponentSet(ApiModel):
@@ -61,6 +60,7 @@ class Release(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
     description: str | None = None
+    notes: str | None = None
     artifact: Artifact
     source: Source | None = Field(
         default=None,
@@ -82,6 +82,7 @@ class DeploySet(ApiModel):
     component_set_id: str = Field(alias="componentSetId")
     schema_version: int = Field(alias="schemaVersion")
     description: str | None = None
+    notes: str | None = None
     base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
     base_deployset_id: str | None = Field(default=None, alias="baseDeploySetId")
     items: list[DeploySetItem]
@@ -100,6 +101,7 @@ class DeploySetCreateRequest(ApiModel):
     component_set_id: str = Field(alias="componentSetId")
     base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
     base_deployset_id: str | None = Field(default=None, alias="baseDeploySetId")
+    notes: str | None = None
     items: list[DeploySetCreateItem]
     created_by: str = Field(alias="createdBy")
     tags: dict[str, str] = Field(default_factory=dict)
@@ -188,11 +190,13 @@ class DeploymentExecution(ApiModel):
     deployset_id: str = Field(alias="deploySetId")
     status: ExecutionStatus
     requested_by: str = Field(alias="requestedBy")
+    notes: str | None = None
     force: bool = False
     started_at: str = Field(alias="startedAt")
     completed_at: str | None = Field(default=None, alias="completedAt")
     claimed_by: str | None = Field(default=None, alias="claimedBy")
     items: list[DeploymentExecutionItem]
+    tags: dict[str, str] = Field(default_factory=dict)
 
 
 class DeploymentPlan(ApiModel):

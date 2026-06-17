@@ -7,7 +7,10 @@ import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/component
 import { PlanItems } from "@/components/pages/deployment-plan-items";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NotesCard } from "@/components/ui/notes-card";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { Select } from "@/components/ui/select";
+import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import {
   createDeployment,
   listComponentSets,
@@ -35,6 +38,8 @@ export function DeploymentWorkflowPage({
   const [componentSetId, setComponentSetId] = useState("");
   const [deploySetId, setDeploySetId] = useState("");
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(defaultEnvironmentId);
+  const [notes, setNotes] = useState("");
+  const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const [force, setForce] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -108,14 +113,28 @@ export function DeploymentWorkflowPage({
   }, [executionsQuery.data]);
 
   const planPreview = planQuery.data ?? null;
-  const deployDisabled = !activeDeploySetId || planQuery.isFetching || createMutation.isPending;
+  const tagsError = validateTagDrafts(tags);
+  const parsedTags = tagsToRecord(tags);
+  const deployDisabled = !activeDeploySetId || planQuery.isFetching || createMutation.isPending || Boolean(tagsError);
+  const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
+    setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
+  };
   const deployButton = (
     <div ref={actionsRef} className="relative flex justify-end">
       <div className="inline-flex">
         <Button
           disabled={deployDisabled}
           className="rounded-r-none"
-          onClick={() => createMutation.mutate({ environmentId: selectedEnvironmentId, deploySetId: activeDeploySetId, requestedBy, force })}
+          onClick={() =>
+            createMutation.mutate({
+              environmentId: selectedEnvironmentId,
+              deploySetId: activeDeploySetId,
+              requestedBy,
+              notes: notes.trim() || null,
+              force,
+              tags: parsedTags,
+            })
+          }
         >
           <CheckCheck className="h-4 w-4" />
           Deploy
@@ -155,7 +174,10 @@ export function DeploymentWorkflowPage({
       <Card>
         <CardContent className="grid gap-3 p-4 md:grid-cols-3">
           <label className="grid gap-1 text-sm font-semibold">
-            Component Set
+            <span>
+              Component Set
+              <RequiredMark />
+            </span>
             <Select
               variant="light"
               value={activeComponentSetId}
@@ -178,7 +200,10 @@ export function DeploymentWorkflowPage({
             </Select>
           </label>
           <label className="grid gap-1 text-sm font-semibold">
-            DeploySet
+            <span>
+              DeploySet
+              <RequiredMark />
+            </span>
             <Select variant="light" value={activeDeploySetId} onChange={(event) => setDeploySetId(event.target.value)}>
               {!filteredDeploysets.length ? (
                 <option value="" disabled>
@@ -193,7 +218,10 @@ export function DeploymentWorkflowPage({
             </Select>
           </label>
           <label className="grid gap-1 text-sm font-semibold">
-            Environment
+            <span>
+              Environment
+              <RequiredMark />
+            </span>
             <Select
               variant="light"
               value={selectedEnvironmentId}
@@ -234,6 +262,27 @@ export function DeploymentWorkflowPage({
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-4">
+        <TagsCard
+          tags={tags}
+          error={tagsError}
+          description="Attach metadata to the deployment execution for audit, filtering, and reporting."
+          onAdd={() => setTags((current) => [...current, createTagDraft()])}
+          onChange={updateTag}
+          onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}
+        />
+      </div>
+
+      <div className="mt-4">
+        <NotesCard
+          value={notes}
+          onChange={setNotes}
+          title="Deployment notes"
+          description="Add optional rollout notes, approvals, or operator context."
+          placeholder="Optional rollout notes, approvals, or operator context."
+        />
+      </div>
     </>
   );
   const footer = (

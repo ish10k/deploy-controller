@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   ExternalLink,
   Filter,
@@ -25,9 +24,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Modal } from "@/components/ui/modal";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Select } from "@/components/ui/select";
+import { SideDrawer } from "@/components/ui/side-drawer";
+import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   fetchEnvironmentCenterData,
@@ -127,15 +128,10 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
         title="Environments"
         subtitle="Manage runtime targets and current desired state across environments."
         action={
-          <div className="inline-flex">
-            <Button className="rounded-r-none" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create environment
-            </Button>
-            <Button className="rounded-l-none border-l border-white/15 px-2" title="More environment actions">
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button className="h-10 px-4" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Create environment
+          </Button>
         }
       />
 
@@ -189,7 +185,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
       <div className="mt-3 text-xs font-medium text-slate-500">
         Showing {filteredRows.length} of {rows.length} environments
       </div>
-      <EnvironmentDialog open={open} onClose={() => setOpen(false)} onSubmit={(value) => mutation.mutate(value)} pending={mutation.isPending} />
+      <EnvironmentDrawer open={open} onClose={() => setOpen(false)} onSubmit={(value) => mutation.mutate(value)} pending={mutation.isPending} />
     </>
   );
 }
@@ -218,7 +214,23 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
 
       <div className="grid grid-cols-4 gap-4">
         <EnvironmentFactCard icon={Globe2} label="Status" value={<EnvironmentStatusBadge status={row.status} />} sublabel={row.environment.active ? "Active target" : "Inactive target"} />
-        <EnvironmentFactCard icon={Server} label="Current DeploySet" value={row.currentDeploySet?.deploySetId ?? "None"} sublabel={row.currentDeploySet ? `Version ${row.currentDeploySet.schemaVersion}` : "No environment state"} />
+        {row.currentDeploySet ? (
+          <Link
+            to="/deploysets/$deploySetId"
+            params={{ deploySetId: row.currentDeploySet.deploySetId }}
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <EnvironmentFactCard
+              icon={Server}
+              label="Current DeploySet"
+              value={row.currentDeploySet.deploySetId}
+              sublabel={`Version ${row.currentDeploySet.schemaVersion}`}
+              interactive
+            />
+          </Link>
+        ) : (
+          <EnvironmentFactCard icon={Server} label="Current DeploySet" value="None" sublabel="No environment state" />
+        )}
         <EnvironmentFactCard icon={Hourglass} label="Pending Executions" value={String(row.pendingExecutions.length)} sublabel="Awaiting adapter work" />
         <EnvironmentFactCard icon={AlertTriangle} label="Drift Signals" value={String(driftCount)} sublabel="From latest execution" />
       </div>
@@ -394,11 +406,19 @@ function EnvironmentDetailsPanel({ row, focused = false }: { row: EnvironmentRow
         <div>
           <div className="grid grid-cols-[180px_1fr_auto] gap-x-3 gap-y-3 text-sm">
             <DetailLabel icon={Server} label="Current DeploySet" />
-            <ResourceLink label={row.currentDeploySet?.deploySetId} to="/deploysets" />
+            <ResourceLink label={row.currentDeploySet?.deploySetId} to="/deploysets/$deploySetId" params={row.currentDeploySet ? { deploySetId: row.currentDeploySet.deploySetId } : undefined} />
             <SmallLink to="/deploysets" label="View details" />
             <DetailLabel icon={SlidersHorizontal} label="Current ConfigSet" />
-            <ResourceLink label={row.currentComponentSet?.componentSetId} to="/component-sets" />
-            <SmallLink to="/component-sets" label="View details" />
+            <ResourceLink
+              label={row.currentComponentSet?.componentSetId}
+              to="/component-sets/$componentSetId"
+              params={row.currentComponentSet ? { componentSetId: row.currentComponentSet.componentSetId } : undefined}
+            />
+            {row.currentComponentSet ? (
+              <SmallLink to="/component-sets/$componentSetId" params={{ componentSetId: row.currentComponentSet.componentSetId }} label="View details" />
+            ) : (
+              <SmallLink to="/component-sets" label="View sets" />
+            )}
             <DetailLabel icon={Activity} label="Last Deployment" />
             <span className="flex items-center gap-2">
               {latest ? <EnvironmentStatusBadge status={executionToEnvironmentStatus(latest.status)} /> : <Badge>No execution</Badge>}
@@ -453,14 +473,16 @@ function EnvironmentFactCard({
   label,
   value,
   sublabel,
+  interactive = false,
 }: {
   icon: typeof Globe2;
   label: string;
   value: ReactNode;
   sublabel: string;
+  interactive?: boolean;
 }) {
   return (
-    <Card className="h-[116px]">
+    <Card className={`h-[116px] ${interactive ? "transition-colors hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md" : ""}`}>
       <CardContent className="flex h-full items-center gap-4 p-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
           <Icon className="h-6 w-6" />
@@ -542,20 +564,36 @@ function EnvironmentStatusBadge({ status }: { status: EnvironmentStatusKind }) {
   return <Badge variant="slate">Idle</Badge>;
 }
 
-function ResourceLink({ label, to }: { label?: string | null; to: "/deploysets" | "/component-sets" }) {
+function ResourceLink({
+  label,
+  to,
+  params,
+}: {
+  label?: string | null;
+  to: "/deploysets" | "/component-sets" | "/deploysets/$deploySetId" | "/component-sets/$componentSetId";
+  params?: { deploySetId: string } | { componentSetId: string };
+}) {
   if (!label) {
     return <span className="text-slate-500">-</span>;
   }
   return (
-    <Link to={to} className="font-bold text-blue-700 hover:text-blue-800">
+    <Link to={to} params={params} className="font-bold text-blue-700 hover:text-blue-800">
       {label}
     </Link>
   );
 }
 
-function SmallLink({ to, label }: { to: "/deploysets" | "/component-sets" | "/executions" | "/adapters"; label: string }) {
+function SmallLink({
+  to,
+  params,
+  label,
+}: {
+  to: "/deploysets" | "/component-sets" | "/component-sets/$componentSetId" | "/executions" | "/adapters";
+  params?: { componentSetId: string };
+  label: string;
+}) {
   return (
-    <Link to={to} className="text-xs font-bold text-blue-600">
+    <Link to={to} params={params} className="text-xs font-bold text-blue-600">
       {label}
     </Link>
   );
@@ -590,7 +628,7 @@ function TagList({ tags, limit }: { tags?: Record<string, string>; limit?: numbe
   );
 }
 
-function EnvironmentDialog({
+function EnvironmentDrawer({
   open,
   onClose,
   onSubmit,
@@ -602,23 +640,69 @@ function EnvironmentDialog({
   pending: boolean;
 }) {
   const [environmentId, setEnvironmentId] = useState("");
+  const [active, setActive] = useState(true);
+  const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
+  const trimmedEnvironmentId = environmentId.trim();
+  const tagsError = validateTagDrafts(tags);
+
+  const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
+    setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
+  };
+
   return (
-    <Modal open={open} title="Create or update environment" onClose={onClose}>
-      <div className="space-y-3 p-4">
-        <label className="grid gap-1 text-sm font-semibold text-slate-800">
-          Environment ID
-          <Input value={environmentId} onChange={(event) => setEnvironmentId(event.target.value)} />
-        </label>
-        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button disabled={pending || !environmentId.trim()} onClick={() => onSubmit({ environmentId: environmentId.trim(), active: true, tags: {} })}>
-            Create environment
-          </Button>
-        </div>
+    <SideDrawer
+      open={open}
+      title="Create environment"
+      description="Add a runtime target that can receive deploy sets and report desired-state progress."
+      onClose={onClose}
+      footer={
+        <>
+          <p className="text-xs text-slate-500">New environments start without a current deploy set until one is applied.</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button disabled={pending || !trimmedEnvironmentId || Boolean(tagsError)} onClick={() => onSubmit({ environmentId: trimmedEnvironmentId, active, tags: tagsToRecord(tags) })}>
+              {pending ? "Creating..." : "Create environment"}
+            </Button>
+          </div>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-900">Environment identity</h3>
+          <p className="mt-1 text-sm text-slate-500">Use a short, stable ID such as prod, staging, qa, or a regional target.</p>
+          <label className="mt-4 block text-sm font-medium text-slate-700">
+            Environment ID
+            <RequiredMark />
+            <Input className="mt-1" value={environmentId} onChange={(event) => setEnvironmentId(event.target.value)} placeholder="staging" />
+          </label>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <label className="flex items-start gap-3 text-sm text-slate-600">
+            <input className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
+            <span>
+              <span className="block font-medium text-slate-800">Active deployment target</span>
+              <span>Active environments can receive new deployment executions.</span>
+            </span>
+          </label>
+        </section>
+        <TagsCard
+          tags={tags}
+          error={tagsError}
+          onAdd={() => setTags((current) => [...current, createTagDraft()])}
+          onChange={updateTag}
+          onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}
+        />
+        <section className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
+          <h3 className="text-sm font-semibold text-blue-950">What happens next?</h3>
+          <p className="mt-1 text-sm text-blue-800">
+            Once created, the environment appears in the environment center. Applying a deploy set will populate current desired state and recent deployment activity.
+          </p>
+        </section>
       </div>
-    </Modal>
+    </SideDrawer>
   );
 }
 

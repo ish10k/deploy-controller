@@ -34,6 +34,16 @@ class CreateDeploymentRequest(PlanDeploymentRequest):
         description="Principal requesting the deployment.",
         examples=["ops@company.com"],
     )
+    notes: str | None = Field(
+        default=None,
+        description="Optional operator notes for the deployment execution.",
+        examples=["Approved under CAB-1421 after staging validation."],
+    )
+    tags: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional deployment execution metadata tags.",
+        examples=[{"track": "prod"}],
+    )
 
 
 class CreateDeploymentResponse(ApiSchema):

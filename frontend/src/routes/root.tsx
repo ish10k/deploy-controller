@@ -6,11 +6,14 @@ import { EnvironmentsPage } from "@/components/environments/environments-page";
 import { AppShell } from "@/components/layout/app-shell";
 import { UnsupportedPage } from "@/components/common/api-state";
 import { AdaptersPage } from "@/components/pages/adapters-page";
+import { ComponentDetailsPage } from "@/components/pages/component-details-page";
+import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
 import { ComponentSetsPage } from "@/components/pages/component-sets-page";
 import { ComponentsPage } from "@/components/pages/components-page";
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
 import { DeploysetsPage } from "@/components/pages/deploysets-page";
 import { ExecutionsPage } from "@/components/pages/executions-page";
+import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
 import { ReleasesPage } from "@/components/pages/releases-page";
 
 const rootRoute = createRootRoute({
@@ -52,8 +55,32 @@ const planRoute = createRoute({
 });
 
 const componentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/components", component: ComponentsPage });
+const componentDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/components/$componentId",
+  component: () => {
+    const { componentId } = componentDetailRoute.useParams();
+    return <ComponentDetailsPage componentId={componentId} />;
+  },
+});
 const componentSetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/component-sets", component: ComponentSetsPage });
+const componentSetDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/component-sets/$componentSetId",
+  component: () => {
+    const { componentSetId } = componentSetDetailRoute.useParams();
+    return <ComponentSetDetailsPage componentSetId={componentSetId} />;
+  },
+});
 const releasesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/releases", component: ReleasesPage });
+const releaseDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/releases/$componentId/$version",
+  component: () => {
+    const { componentId, version } = releaseDetailRoute.useParams();
+    return <ReleaseDetailsPage componentId={componentId} version={version} />;
+  },
+});
 const deploysetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/deploysets", component: DeploysetsPage });
 const deploysetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -87,8 +114,11 @@ export const routeTree = rootRoute.addChildren([
   deploymentExecutionDetailRoute,
   planRoute,
   componentsRoute,
+  componentDetailRoute,
   componentSetsRoute,
+  componentSetDetailRoute,
   releasesRoute,
+  releaseDetailRoute,
   deploysetsRoute,
   deploysetDetailRoute,
   environmentsRoute,

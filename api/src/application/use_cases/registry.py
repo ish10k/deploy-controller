@@ -128,19 +128,16 @@ class DeploySetUseCases:
 
         component_ids = [item.component_id for item in component_set.components]
         component_id_set = set(component_ids)
-        required_component_ids = [item.component_id for item in component_set.components if item.required]
         explicit_versions = {item.component_id: item.version for item in request.items}
         unknown = sorted(set(explicit_versions) - component_id_set)
         if unknown:
             raise ValidationError(f"DeploySet contains components outside ComponentSet: {', '.join(unknown)}")
-        missing = [component_id for component_id in required_component_ids if component_id not in explicit_versions]
+        missing = [component_id for component_id in component_ids if component_id not in explicit_versions]
         inferred_versions: dict[str, str] = {}
 
         if missing:
             if request.base_deployset_id is None and request.base_environment_id is None:
-                raise ValidationError(
-                    "baseEnvironmentId or baseDeploySetId is required when required components are missing"
-                )
+                raise ValidationError("baseEnvironmentId or baseDeploySetId is required when ComponentSet components are missing")
             inferred_versions = self._infer_versions(
                 missing=missing,
                 base_deployset_id=request.base_deployset_id,
@@ -182,6 +179,7 @@ class DeploySetUseCases:
                 deployset_id=request.deployset_id,
                 component_set_id=request.component_set_id,
                 schema_version=1,
+                notes=request.notes,
                 base_environment_id=request.base_environment_id,
                 base_deployset_id=request.base_deployset_id,
                 items=items,
@@ -222,7 +220,7 @@ class DeploySetUseCases:
         for component_id in missing:
             version = base_versions.get(component_id)
             if version is None:
-                raise ValidationError(f"Could not infer version for required component: {component_id}")
+                raise ValidationError(f"Could not infer version for component: {component_id}")
             inferred[component_id] = version
         return inferred
 
@@ -230,11 +228,11 @@ class DeploySetUseCases:
         component_set = self.component_sets.get(deployset.component_set_id)
         if component_set is None:
             raise NotFoundError(f"ComponentSet not found: {deployset.component_set_id}")
-        required = {item.component_id for item in component_set.components if item.required}
+        expected = {item.component_id for item in component_set.components}
         present = {item.component_id for item in deployset.items}
-        missing = sorted(required - present)
+        missing = sorted(expected - present)
         if missing:
-            raise ValidationError(f"DeploySet is missing required components: {', '.join(missing)}")
+            raise ValidationError(f"DeploySet is missing ComponentSet components: {', '.join(missing)}")
         self._validate_releases(deployset.items)
 
     def _validate_releases(self, items: list[DeploySetItem]) -> None:

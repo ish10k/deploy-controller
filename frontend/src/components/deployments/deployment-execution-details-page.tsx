@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { ArrowLeft, Box, Clock3, ExternalLink, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, Box, Clock3, ExternalLink, FileText, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollFade } from "@/components/ui/scroll-fade";
+import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getDeploymentExecution,
@@ -118,10 +119,28 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
               <CardTitle>Execution metadata</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
-              <MetaRow icon={Box} label="DeploySet" value={execution.deploySetId} />
-              <MetaRow icon={Package} label="Environment" value={execution.environmentId} />
+              <MetaRow
+                icon={Box}
+                label="DeploySet"
+                value={
+                  <Link to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                    {execution.deploySetId}
+                  </Link>
+                }
+              />
+              <MetaRow
+                icon={Package}
+                label="Environment"
+                value={
+                  <Link to="/environments/$environmentId" params={{ environmentId: execution.environmentId }} className="font-bold text-blue-700 hover:text-blue-800">
+                    {execution.environmentId}
+                  </Link>
+                }
+              />
               <MetaRow icon={UserRound} label="Requested by" value={execution.requestedBy} />
+              <MetaRow icon={FileText} label="Notes" value={execution.notes ?? "None"} />
               <MetaRow icon={Server} label="Claimed by" value={execution.claimedBy ?? "unclaimed"} />
+              <MetaRow icon={FileText} label="Tags" value={<TagList tags={execution.tags} emptyLabel="No tags" />} />
               <MetaRow icon={Clock3} label="Started" value={formatDateTime(execution.startedAt)} />
               <MetaRow icon={Clock3} label="Completed" value={formatDateTime(execution.completedAt)} />
             </CardContent>
@@ -250,7 +269,7 @@ function ExecutionFactCard({
   );
 }
 
-function MetaRow({ icon: Icon, label, value }: { icon: typeof Box; label: string; value: string }) {
+function MetaRow({ icon: Icon, label, value }: { icon: typeof Box; label: string; value: ReactNode }) {
   return (
     <div className="grid grid-cols-[130px_1fr] items-center gap-3">
       <span className="flex items-center gap-2 font-semibold text-slate-700">

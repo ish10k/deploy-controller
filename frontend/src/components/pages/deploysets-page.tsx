@@ -7,9 +7,12 @@ import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { KeyValueList, type KeyValueListItem } from "@/components/ui/key-value-list";
+import { NotesCard } from "@/components/ui/notes-card";
 import { ScrollFade } from "@/components/ui/scroll-fade";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { Select } from "@/components/ui/select";
+import { TagList } from "@/components/ui/tag-list";
+import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -33,13 +36,12 @@ type DeploySetItemDraft = {
   version: string;
 };
 
-type TagDraft = KeyValueListItem;
-
 type DeploySetFormState = {
   deploySetId: string;
   componentSetId: string;
   baseEnvironmentId: string;
   baseDeploySetId: string;
+  notes: string;
   tags: TagDraft[];
   items: DeploySetItemDraft[];
 };
@@ -52,18 +54,13 @@ const draftItem = (componentId = "", version = ""): DeploySetItemDraft => ({
   version,
 });
 
-const emptyTag = (): TagDraft => ({
-  id: draftId(),
-  key: "",
-  value: "",
-});
-
 const defaultForm = (): DeploySetFormState => ({
   deploySetId: "",
   componentSetId: "",
   baseEnvironmentId: "",
   baseDeploySetId: "",
-  tags: [{ ...emptyTag(), key: "track", value: "prod" }],
+  notes: "",
+  tags: [createTagDraft("track", "prod")],
   items: [],
 });
 
@@ -279,7 +276,7 @@ function DeploysetsTable({ rows }: { rows: ApiDeploySet[] }) {
             <TableCell>{deployset.createdBy}</TableCell>
             <TableCell>{formatDateTime(deployset.createdAt)}</TableCell>
             <TableCell>
-              <TagList tags={deployset.tags} />
+              <TagList tags={deployset.tags} limit={3} />
             </TableCell>
           </TableRow>
         ))}
@@ -346,7 +343,7 @@ function CreateDeploySetDrawer({
   const baseSourceLabel = form.baseDeploySetId || (form.baseEnvironmentId ? `${form.baseEnvironmentId} current state` : "");
 
   const errors = validateForm(form);
-  const canSubmit = Object.keys(errors).length === 0 && !pending;
+  const canSubmit = Boolean(form.deploySetId.trim()) && Object.keys(errors).length === 0 && !pending;
   const parsedTags = tagsToRecord(form.tags);
 
   useEffect(() => {
@@ -421,6 +418,7 @@ function CreateDeploySetDrawer({
       componentSetId: form.componentSetId,
       baseEnvironmentId: form.baseEnvironmentId || null,
       baseDeploySetId: form.baseDeploySetId || null,
+      notes: form.notes.trim() || null,
       items: form.items.map((item) => ({ componentId: item.componentId.trim(), version: item.version.trim() })),
       createdBy: "amit.kumar",
       tags: parsedTags,
@@ -454,11 +452,11 @@ function CreateDeploySetDrawer({
         <div className="min-h-0 flex-1 overflow-hidden p-5">
           <ScrollFade className="h-full rounded-lg" contentClassName="space-y-4 pr-1">
             <SectionCard title="Identity" description="Name the DeploySet and attach it to the component set it satisfies.">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="DeploySet ID" error={errors.deploySetId}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <Field label="DeploySet ID" required>
                   <Input value={form.deploySetId} onChange={(event) => setForm({ ...form, deploySetId: event.target.value })} placeholder="webstack-prod-v6" />
                 </Field>
-                <Field label="Component Set" error={errors.componentSetId}>
+                <Field label="Component Set" required error={errors.componentSetId}>
                   <Select variant="light" value={form.componentSetId} onChange={(event) => setForm({ ...form, componentSetId: event.target.value })}>
                     <option value="">Select component set</option>
                     {componentSets.map((componentSet) => (
@@ -473,6 +471,7 @@ function CreateDeploySetDrawer({
 
             <SectionCard
               title="Components"
+              required
               description="Choose one source to derive context from, then set the desired versions for this component set."
               action={
                 <Button type="button" variant="outline" disabled={!resolvedBaseDeploySet} onClick={useBaseForItems}>
@@ -519,7 +518,10 @@ function CreateDeploySetDrawer({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Component</TableHead>
-                      <TableHead>Version</TableHead>
+                      <TableHead>
+                        Version
+                        <RequiredMark />
+                      </TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
@@ -552,33 +554,20 @@ function CreateDeploySetDrawer({
               {errors.items ? <InlineFormError message={errors.items} /> : null}
             </SectionCard>
 
-            <SectionCard
-              title="Tags"
-              description="Add metadata as structured key/value pairs."
-              action={
-                <Button type="button" variant="outline" onClick={() => setForm((current) => ({ ...current, tags: [...current.tags, emptyTag()] }))}>
-                  <Plus className="h-4 w-4" />
-                  Add tag
-                </Button>
-              }
-            >
-              <KeyValueList
-                items={form.tags}
-                keyPlaceholder="track"
-                valuePlaceholder="prod"
-                emptyLabel="No tags added."
-                onChange={updateTag}
-                onRemove={removeTag}
-              />
-              {Object.entries(parsedTags).length ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {Object.entries(parsedTags).map(([key, value]) => (
-                    <Tag key={key} label={`${key}:${value}`} />
-                  ))}
-                </div>
-              ) : null}
-              {errors.tags ? <InlineFormError message={errors.tags} /> : null}
-            </SectionCard>
+            <TagsCard
+              tags={form.tags}
+              error={errors.tags}
+              onAdd={() => setForm((current) => ({ ...current, tags: [...current.tags, createTagDraft()] }))}
+              onChange={updateTag}
+              onRemove={removeTag}
+            />
+
+            <NotesCard
+              value={form.notes}
+              onChange={(notes) => setForm((current) => ({ ...current, notes }))}
+              description="Capture why this DeploySet was created, approval context, or rollout intent."
+              placeholder="Why this DeploySet was created, approval context, rollout intent..."
+            />
 
             {error ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-normal text-red-800">
@@ -608,13 +597,28 @@ function CreateDeploySetDrawer({
   );
 }
 
-function SectionCard({ title, description, action, children }: { title: string; description: string; action?: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  description,
+  action,
+  required = false,
+  children,
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <Card>
       <CardContent className="p-4">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-bold text-slate-950">{title}</div>
+            <div className="text-sm font-bold text-slate-950">
+              {title}
+              {required ? <RequiredMark /> : null}
+            </div>
             <div className="mt-1 text-xs font-medium text-slate-500">{description}</div>
           </div>
           {action}
@@ -625,11 +629,24 @@ function SectionCard({ title, description, action, children }: { title: string; 
   );
 }
 
-function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  hint,
+  required = false,
+  children,
+}: {
+  label: string;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="grid gap-1">
       <label className="text-sm font-semibold text-slate-800">
         {label}
+        {required ? <RequiredMark /> : null}
         {children}
       </label>
       {hint ? <span className="text-xs font-medium text-slate-500">{hint}</span> : null}
@@ -690,54 +707,22 @@ function versionOptionsForComponent(componentId: string, currentVersion: string,
   return Array.from(new Set([currentVersion, ...versions].filter(Boolean)));
 }
 
-function TagList({ tags }: { tags?: Record<string, string> }) {
-  const entries = Object.entries(tags ?? {});
-
-  if (!entries.length) {
-    return <span className="text-slate-400">-</span>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {entries.slice(0, 3).map(([key, value]) => (
-        <Tag key={key} label={`${key}:${value}`} />
-      ))}
-      {entries.length > 3 ? <Tag label={`+${entries.length - 3}`} /> : null}
-    </div>
-  );
-}
-
-function Tag({ label }: { label: string }) {
-  return <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">{label}</span>;
-}
-
-function tagsToRecord(tags: TagDraft[]) {
-  return Object.fromEntries(
-    tags
-      .map((tag) => [tag.key.trim(), tag.value.trim()] as const)
-      .filter(([key, value]) => key && value),
-  );
-}
-
 function validateForm(form: DeploySetFormState) {
   const errors: Partial<Record<keyof DeploySetFormState, string>> = {};
-
-  if (!form.deploySetId.trim()) {
-    errors.deploySetId = "DeploySet ID is required.";
-  }
 
   if (!form.componentSetId) {
     errors.componentSetId = "Choose a component set.";
   }
 
-  if (form.tags.some((tag) => (tag.key.trim() && !tag.value.trim()) || (!tag.key.trim() && tag.value.trim()))) {
-    errors.tags = "Every tag row needs both a key and a value.";
+  const tagError = validateTagDrafts(form.tags);
+  if (tagError) {
+    errors.tags = tagError;
   }
 
   if (!form.items.length) {
     errors.items = "Add at least one component version.";
   } else if (form.items.some((item) => !item.componentId.trim() || !item.version.trim())) {
-    errors.items = "Every item needs a component and version.";
+    errors.items = "Every component needs a selected version.";
   }
 
   return errors;
