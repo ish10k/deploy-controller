@@ -2,7 +2,6 @@ import {
   Bell,
   Rocket,
   Boxes,
-  ChevronDown,
   ClipboardList,
   Component,
   Folder,
@@ -24,18 +23,22 @@ import {
   Puzzle,
   Dock,
   Shield,
+  Mail,
+  CircleFadingArrowUp,
+  Play,
+  Webhook,
+  LogOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
+import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
+import { LoadingPanel } from "@/components/common/api-state";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
-  {
-    label: "",
-    items: [{ label: "Dashboard", icon: Home, to: "/" }],
-  },
   {
     label: "Operations",
     items: [
@@ -48,16 +51,17 @@ const navGroups = [
     ],
   },
   {
-    label: "Configuration",
+    label: "Integrations",
     items: [
-      { label: "Adapters", icon: Unplug, to: "/adapters" },
-
+      { label: "Release Sources", icon: CircleFadingArrowUp, to: "/unsupported/release-sources" },
+      { label: "Runners", icon: Play, to: "/deployment-runners" },
+      { label: "Wehbooks", icon: Webhook, to: "/webhooks" },
     ],
   },
   {
     label: "Governance",
     items: [
-      { label: "RBAC", icon: UserRound, to: "/unsupported/rbac" },
+      { label: "Auth", icon: UserRound, to: "/unsupported/auth" },
       { label: "Audit", icon: Shield, to: "/unsupported/audit" },
     ],
   },
@@ -71,6 +75,35 @@ const headerActions = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const auth = useAuth();
+  const isAuthRoute = pathname === "/login" || pathname === "/auth/callback" || pathname === "/forbidden";
+
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
+  if (auth.status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-md">
+          <LoadingPanel label="Checking your Settle session..." />
+        </div>
+      </div>
+    );
+  }
+  if (auth.status === "anonymous") {
+    return <LoginPage />;
+  }
+  if (auth.status === "forbidden") {
+    return <ForbiddenPage />;
+  }
+
+  const initials = auth.user?.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "U";
+  const primaryRole = auth.user?.roles[0] ?? "user";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -103,12 +136,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold">AK</div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold">{initials}</div>
             <div className="leading-tight">
-              <div className="text-sm font-bold">Amit Kumar</div>
-              <div className="text-xs text-slate-400">Platform Admin</div>
+              <div className="text-sm font-bold">{auth.user?.displayName}</div>
+              <div className="text-xs text-slate-400">{primaryRole}</div>
             </div>
-            <ChevronDown className="h-4 w-4 text-slate-300" />
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={() => void auth.logout()} aria-label="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>
