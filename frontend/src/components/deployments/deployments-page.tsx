@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Filter, MoreHorizontal, Rocket, Search, TimerReset, XCircle, X } from "lucide-react";
+import { MoreHorizontal, Plus, RefreshCw, Rocket, Search, X } from "lucide-react";
 import { flexRender, getCoreRowModel, type ColumnDef, useReactTable } from "@tanstack/react-table";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
+import { DeploysetsPage } from "@/components/pages/deploysets-page";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
+import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchDashboardData, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
@@ -17,17 +18,26 @@ import { formatRelativeTime } from "@/lib/format";
 import { Link } from "@tanstack/react-router";
 
 type DeploymentsPageProps = {
+  initialView?: DeploymentWorkspaceView;
   initialPlanOpen?: boolean;
   onPlanClose?: () => void;
 };
 
-export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: DeploymentsPageProps = {}) {
+type DeploymentWorkspaceView = "executions" | "deploysets";
+
+export function DeploymentsPage({ initialView = "executions", initialPlanOpen = false, onPlanClose }: DeploymentsPageProps = {}) {
   const { environmentId } = useAppContext();
+  const [view, setView] = useState<DeploymentWorkspaceView>(initialView);
   const [planOpen, setPlanOpen] = useState(initialPlanOpen);
   const [planMounted, setPlanMounted] = useState(initialPlanOpen);
   const [planEntered, setPlanEntered] = useState(false);
+  const [deploysetCreateSignal, setDeploysetCreateSignal] = useState(0);
+  const [refreshSignal, setRefreshSignal] = useState(0);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "running" | "failed">("all");
+  const options: SwitchableCardOption<DeploymentWorkspaceView>[] = [
+    { value: "executions", label: "Deployments" },
+    { value: "deploysets", label: "DeploySets" },
+  ];
   const query = useQuery({
     queryKey: queryKeys.dashboard(environmentId),
     queryFn: () => fetchDashboardData(environmentId),
@@ -84,28 +94,28 @@ export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: Deploy
     setPlanOpen(false);
     onPlanClose?.();
   };
+  const openPlan = () => {
+    setView("executions");
+    setPlanMounted(true);
+    setPlanOpen(true);
+    setPlanEntered(false);
+  };
+  const openDeploysetDrawer = () => {
+    setView("deploysets");
+    setDeploysetCreateSignal((value) => value + 1);
+  };
+  const changeView = (nextView: DeploymentWorkspaceView) => {
+    if (nextView === "deploysets") {
+      setDeploysetCreateSignal(0);
+    }
+    setView(nextView);
+  };
 
   const executions = query.data?.executions ?? [];
-  const pendingCount = executions.filter((execution) => execution.status === "pending").length;
-  const runningCount = executions.filter((execution) => execution.status === "claimed" || execution.status === "running").length;
-  const failedCount = executions.filter((execution) => execution.status === "failed").length;
   const filteredExecutions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
     return executions.filter((execution) => {
-      const matchesStatus =
-        statusFilter === "all"
-          ? true
-          : statusFilter === "pending"
-            ? execution.status === "pending"
-            : statusFilter === "running"
-              ? execution.status === "claimed" || execution.status === "running"
-              : execution.status === "failed";
-
-      if (!matchesStatus) {
-        return false;
-      }
-
       if (!normalizedSearch) {
         return true;
       }
@@ -121,7 +131,7 @@ export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: Deploy
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [executions, search, statusFilter]);
+  }, [executions, search]);
 
   if (query.isLoading) return <LoadingPanel label="Loading deployment dashboard..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
@@ -129,66 +139,47 @@ export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: Deploy
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-[28px] font-bold tracking-normal text-slate-950">Deployments</h1>
-            <span className="text-sm font-bold text-blue-600">Info</span>
+      <PageHeader
+        title="Deployments"
+        subtitle="Plan deployments and track execution state across environments."
+        action={
+          <div className="flex gap-2">
+            <Button className="px-4" onClick={openPlan}>
+              <Rocket className="h-5 w-5" />
+              Deploy
+            </Button>
+            <Button className="px-4" onClick={openDeploysetDrawer}>
+              <Plus className="h-5 w-5" />
+              Create DeploySet
+            </Button>
           </div>
-        </div>
-        <Button
-          className="h-10 px-4"
-          onClick={() => {
-            setPlanMounted(true);
-            setPlanOpen(true);
-            setPlanEntered(false);
-          }}
-        >
-          <Rocket className="h-5 w-5" />
-          Deploy
-        </Button>
-      </div>
+        }
+      />
 
-      <div className="grid shrink-0 grid-cols-3 gap-4">
-        <MetricCard icon={TimerReset} label="Pending" value={pendingCount} tone="orange" />
-        <MetricCard icon={AlertTriangle} label="Running" value={runningCount} tone="blue" />
-        <MetricCard icon={XCircle} label="Failed" value={failedCount} tone="red" />
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="flex h-10 w-[290px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search executions..."
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none"
-          >
-            <option value="all">Status: All</option>
-            <option value="pending">Pending</option>
-            <option value="running">Running</option>
-            <option value="failed">Failed</option>
-          </select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex h-10 w-[310px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
+          <Search className="h-4 w-4 text-slate-400" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
         </div>
-        <Button variant="outline" onClick={() => query.refetch()}>
+        <Button variant="outline" onClick={() => {
+          setRefreshSignal((value) => value + 1);
+          void query.refetch();
+        }}>
+          <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
       </div>
 
-      <Card className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
-          {filteredExecutions.length ? (
+      <SwitchableCard
+        ariaLabel="Select deployment workspace view"
+        value={view}
+        options={options}
+        onChange={changeView}
+        className="mt-5 min-h-0 flex-1"
+        contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
+      >
+        {view === "executions" ? (
+          filteredExecutions.length ? (
             <ScrollFade className="flex-1 rounded-t-lg">
               <ExecutionTable rows={filteredExecutions} />
             </ScrollFade>
@@ -196,9 +187,11 @@ export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: Deploy
             <div className="flex flex-1 items-center justify-center p-4">
               <EmptyPanel label="No executions match the current filters." />
             </div>
-          )}
-        </CardContent>
-      </Card>
+          )
+        ) : (
+          <DeploysetsPage embedded createSignal={deploysetCreateSignal} search={search} refreshSignal={refreshSignal} />
+        )}
+      </SwitchableCard>
 
       {planMounted ? (
         <div className="fixed inset-0 z-50">
@@ -224,50 +217,15 @@ export function DeploymentsPage({ initialPlanOpen = false, onPlanClose }: Deploy
               </Button>
             </div>
             <div className="min-h-0 flex-1">
-              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} />
+              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} onCreateDeploySet={() => {
+                closePlan();
+                openDeploysetDrawer();
+              }} />
             </div>
           </aside>
         </div>
       ) : null}
     </div>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof TimerReset;
-  label: string;
-  value: number;
-  tone: "orange" | "blue" | "red";
-}) {
-  const tones = {
-    orange: "bg-orange-50 text-orange-500",
-    blue: "bg-blue-50 text-blue-600",
-    red: "bg-red-50 text-red-600",
-  } as const;
-
-  const values = {
-    orange: "text-orange-600",
-    blue: "text-blue-700",
-    red: "text-red-700",
-  } as const;
-
-  return (
-    <Card className="h-[116px]">
-      <CardContent className="flex h-full items-center gap-4 p-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <div>
-          <div className="text-sm font-bold text-slate-950">{label}</div>
-          <div className={`mt-1 text-2xl font-bold ${values[tone]}`}>{value}</div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

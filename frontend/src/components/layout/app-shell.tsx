@@ -2,11 +2,10 @@ import {
   Bell,
   HatGlasses,
   HelpCircle,
+  LibraryBig,
   Menu,
   Settings,
-  ShieldCheck,
   Play,
-  Rocket,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +27,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   to: string;
+  aliases?: string[];
   hidden?: boolean;
 };
 
@@ -36,12 +36,9 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
     {
       label: "Operations",
       items: [
-        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments" },
-        { label: "DeploySets", icon: ENTITY_ICONS.deployset, to: "/deploysets" },
+        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments", aliases: ["/deploysets", "/executions"] },
         { label: "Environments", icon: ENTITY_ICONS.environment, to: "/environments" },
-        { label: "Releases", icon: ENTITY_ICONS.release, to: "/releases" },
-        { label: "Components", icon: ENTITY_ICONS.component, to: "/components" },
-        { label: "Component Sets", icon: ENTITY_ICONS.componentSet, to: "/component-sets" },
+        { label: "Registry", icon: LibraryBig, to: "/registry", aliases: ["/components", "/component-sets", "/releases"] },
       ],
     },
     {
@@ -55,8 +52,7 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
     {
       label: "Governance",
       items: [
-        { label: "Users", icon: ENTITY_ICONS.user, to: "/users", hidden: !showUsers },
-        { label: "Roles", icon: ShieldCheck, to: "/roles", hidden: !showRoles },
+        { label: "Auth", icon: ENTITY_ICONS.user, to: "/auth", aliases: ["/users", "/roles"], hidden: !showUsers && !showRoles },
         { label: "Audit", icon: HatGlasses, to: "/audit" },
       ],
     },
@@ -154,7 +150,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : null}
               <div className="space-y-1">
                 {group.items.filter((item) => !item.hidden).map((item) => {
-                  const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+                  const active =
+                    item.to === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.to) || (item.aliases ?? []).some((alias) => pathname.startsWith(alias));
                   return (
                     <Link
                       key={item.label}

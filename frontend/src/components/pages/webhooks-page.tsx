@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, Plus, RefreshCw, Search, Send, Tag, Webhook } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -49,6 +49,7 @@ export function WebhooksPage() {
   const canView = canViewWebhooks(auth.user);
   const canManage = canManageWebhooks(auth.user);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -56,10 +57,11 @@ export function WebhooksPage() {
   const deliveriesQuery = useQuery({ queryKey: queryKeys.webhookDeliveries(), queryFn: () => listWebhookDeliveries(), enabled: canViewWebhookDeliveries(auth.user) });
   const mutation = useMutation({
     mutationFn: createWebhook,
-    onSuccess: async () => {
+    onSuccess: async (webhook) => {
       setOpen(false);
       toast({ title: "Webhook created", variant: "success" });
       await queryClient.invalidateQueries({ queryKey: queryKeys.webhooks });
+      await navigate({ to: "/webhooks/$webhookId", params: { webhookId: webhook.webhookId } });
     },
   });
 
@@ -84,7 +86,7 @@ export function WebhooksPage() {
         subtitle="Subscriber destinations for core entity and audit events."
         action={
           canManage ? (
-            <Button className="h-10 px-4" onClick={() => setOpen(true)}>
+            <Button className="px-4" onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" />
               Webhook
             </Button>

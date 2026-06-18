@@ -6,6 +6,13 @@ describe("router", () => {
   it("registers the governance routes", () => {
     const routesByPath = (router as unknown as { routesByPath?: Record<string, unknown> }).routesByPath;
 
+    expect(routesByPath?.["/registry"]).toBeDefined();
+    expect(routesByPath?.["/auth"]).toBeDefined();
+    expect(routesByPath?.["/deployments"]).toBeDefined();
+    expect(routesByPath?.["/deploysets"]).toBeDefined();
+    expect(routesByPath?.["/components"]).toBeDefined();
+    expect(routesByPath?.["/component-sets"]).toBeDefined();
+    expect(routesByPath?.["/releases"]).toBeDefined();
     expect(routesByPath?.["/users"]).toBeDefined();
     expect(routesByPath?.["/users/$principalId"]).toBeDefined();
     expect(routesByPath?.["/roles"]).toBeDefined();

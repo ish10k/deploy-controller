@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Save, ShieldCheck } from "lucide-react";
 
@@ -54,9 +54,20 @@ const PERMISSION_GROUPS = [
   { label: "Webhooks", prefix: ["webhooks:", "webhook_deliveries:"] },
 ];
 
-export function RolesPage() {
+export function RolesPage({
+  embedded = false,
+  createSignal = 0,
+  search = "",
+  refreshSignal = 0,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+} = {}) {
   const auth = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const canView = canViewRoles(auth.user);
@@ -64,71 +75,112 @@ export function RolesPage() {
   const query = useQuery({ queryKey: queryKeys.roles, queryFn: listRoles, enabled: canView });
   const mutation = useMutation({
     mutationFn: (role: ApiRole) => putRole(role.roleId, role),
-    onSuccess: async () => {
+    onSuccess: async (role) => {
       setOpen(false);
       toast({ title: "Role created", variant: "success" });
       await queryClient.invalidateQueries({ queryKey: queryKeys.roles });
+      await navigate({ to: "/roles/$roleId", params: { roleId: role.roleId } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0 && canChange) {
+      setOpen(true);
+    }
+  }, [canChange, createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void query.refetch();
+    }
+  }, [refreshSignal]);
 
   if (!canView) return <RolesAccessPanel />;
   if (query.isLoading) return <LoadingPanel label="Loading roles..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
 
-  const roles = query.data ?? [];
+  const normalizedSearch = search.trim().toLowerCase();
+  const roles = (query.data ?? []).filter((role) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+    return [role.roleId, role.description ?? "", role.permissions.join(" ")]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch);
+  });
 
   return (
     <>
-      <PageHeader
-        title="Roles"
-        subtitle="RBAC role definitions and permission sets."
-        action={
-          canChange ? (
-            <Button className="h-10 px-4" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create role
-            </Button>
-          ) : null
-        }
-      />
+      {!embedded ? (
+        <PageHeader
+          title="Roles"
+          subtitle="RBAC role definitions and permission sets."
+          action={
+            canChange ? (
+              <Button className="px-4" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create role
+              </Button>
+            ) : null
+          }
+        />
+      ) : null}
 
-      <Card>
-        <CardContent className="p-3">
-          {roles.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Permissions</TableHead>
-                  <TableHead>Type</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.map((role) => (
-                  <TableRow key={role.roleId} className="hover:bg-slate-50">
-                    <TableCell>
-                      <Link to="/roles/$roleId" params={{ roleId: role.roleId }} className="inline-flex items-center gap-2 font-semibold text-blue-700 hover:text-blue-900">
-                        <ShieldCheck className="h-4 w-4" />
-                        {role.roleId}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="max-w-[460px] whitespace-normal">{role.description ?? "-"}</TableCell>
-                    <TableCell>{role.permissions.length}</TableCell>
-                    <TableCell>
-                      <Badge variant={role.system ? "blue" : "slate"}>{role.system ? "System" : "Custom"}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <EmptyPanel label="No roles found." />
-          )}
-        </CardContent>
-      </Card>
+      {embedded ? (
+        roles.length ? (
+          <Table>
+            <RolesTableContent roles={roles} />
+          </Table>
+        ) : (
+          <EmptyPanel label="No roles found." />
+        )
+      ) : (
+        <Card>
+          <CardContent className="p-3">
+            {roles.length ? (
+              <Table>
+                <RolesTableContent roles={roles} />
+              </Table>
+            ) : (
+              <EmptyPanel label="No roles found." />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <RoleDrawer open={open} pending={mutation.isPending} onClose={() => setOpen(false)} onSubmit={(role) => mutation.mutate(role)} />
+    </>
+  );
+}
+
+function RolesTableContent({ roles }: { roles: ApiRole[] }) {
+  return (
+    <>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Role</TableHead>
+          <TableHead>Description</TableHead>
+          <TableHead>Permissions</TableHead>
+          <TableHead>Type</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {roles.map((role) => (
+          <TableRow key={role.roleId} className="hover:bg-slate-50">
+            <TableCell>
+              <Link to="/roles/$roleId" params={{ roleId: role.roleId }} className="inline-flex items-center gap-2 font-semibold text-blue-700 hover:text-blue-900">
+                <ShieldCheck className="h-4 w-4" />
+                {role.roleId}
+              </Link>
+            </TableCell>
+            <TableCell className="max-w-[460px] whitespace-normal">{role.description ?? "-"}</TableCell>
+            <TableCell>{role.permissions.length}</TableCell>
+            <TableCell>
+              <Badge variant={role.system ? "blue" : "slate"}>{role.system ? "System" : "Custom"}</Badge>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
     </>
   );
 }

@@ -11,6 +11,7 @@ let loginCompletion: Promise<string> | null = null;
 
 export function LoginPage() {
   const auth = useAuth();
+  const returnTo = new URLSearchParams(window.location.search).get("returnTo") ?? undefined;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-6 text-white">
@@ -22,7 +23,7 @@ export function LoginPage() {
           <h1 className="mt-5 text-2xl font-bold">Sign in to Settle</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">Human users authenticate with OIDC. Machine actors use PATs and do not sign in here.</p>
           {auth.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{auth.error}</p> : null}
-          <Button className="mt-6 w-full" onClick={() => void auth.login()}>
+          <Button className="mt-6 w-full" onClick={() => void auth.login(returnTo)}>
             Continue with OIDC
           </Button>
         </CardContent>

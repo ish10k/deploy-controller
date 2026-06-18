@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, KeyRound, Plus, RefreshCw, Search, Tag, UserRound, Webhook } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -45,6 +45,7 @@ export function ReleaseSourcesPage() {
   const auth = useAuth();
   const canManage = canManageReleaseSources(auth.user);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -62,6 +63,7 @@ export function ReleaseSourcesPage() {
         durationMs: 0,
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.releaseSources });
+      await navigate({ to: "/release-sources/$releaseSourceId", params: { releaseSourceId: result.releaseSource.releaseSourceId } });
     },
   });
 
@@ -85,7 +87,7 @@ export function ReleaseSourcesPage() {
         subtitle="External publishers that can create component releases within an explicit scope."
         action={
           canManage ? (
-            <Button className="h-10 px-4" onClick={() => setOpen(true)}>
+            <Button className="px-4" onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" />
               Release Source
             </Button>

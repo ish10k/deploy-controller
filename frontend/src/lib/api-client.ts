@@ -47,6 +47,14 @@ export class ApiRequestError extends Error {
   }
 }
 
+type AuthFailureHandler = (error: ApiRequestError) => void;
+
+let authFailureHandler: AuthFailureHandler | null = null;
+
+export function setAuthFailureHandler(handler: AuthFailureHandler | null) {
+  authFailureHandler = handler;
+}
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
@@ -65,7 +73,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new ApiRequestError(payload?.detail ?? `Request failed with status ${response.status}`, response.status);
+    const error = new ApiRequestError(payload?.detail ?? `Request failed with status ${response.status}`, response.status);
+    if (response.status === 401) {
+      authFailureHandler?.(error);
+    }
+    throw error;
   }
 
   if (response.status === 204) {

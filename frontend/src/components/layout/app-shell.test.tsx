@@ -55,12 +55,17 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Auth" })).toHaveAttribute("href", "/auth");
     expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/audit");
     expect(screen.getByRole("link", { name: "Release Sources" })).toHaveAttribute("href", "/release-sources");
     expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/webhooks");
-    expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/deployments");
+    expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/registry");
+    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Roles" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Components" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Component Sets" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "DeploySets" })).not.toBeInTheDocument();
   });
 
   it("hides users navigation without user view permission", () => {
@@ -75,7 +80,7 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Auth" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
   });
 });

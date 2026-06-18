@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   AlertTriangle,
@@ -13,11 +13,13 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCcw,
+  Rocket,
   Server,
   SlidersHorizontal,
 } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +72,7 @@ type EnvironmentRow = {
 
 export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: string }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | EnvironmentStatusKind>("all");
   const [open, setOpen] = useState(false);
@@ -86,6 +89,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
         queryClient.invalidateQueries({ queryKey: queryKeys.environments }),
         queryClient.invalidateQueries({ queryKey: queryKeys.environmentCenter }),
       ]);
+      await navigate({ to: "/environments/$environmentId", params: { environmentId: environment.environmentId } });
     },
   });
 
@@ -139,7 +143,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
         title="Environments"
         subtitle="Manage runtime targets and current desired state across environments."
         action={
-          <Button className="h-10 px-4" onClick={() => setOpen(true)}>
+          <Button className="px-4" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Create environment
           </Button>
@@ -204,6 +208,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
 function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
   const auth = useAuth();
   const [detailView, setDetailView] = useState<EnvironmentDetailView>("deployments");
+  const [deployOpen, setDeployOpen] = useState(false);
   const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
   const eventQuery = useQuery({
     queryKey: queryKeys.events({ resourceType: "environment", resourceId: row.environment.environmentId, limit: 50 }),
@@ -226,6 +231,10 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
         subtitle="Environment details, current desired state, and recent activity."
         action={
           <div className="flex gap-2">
+            <Button className="px-4" onClick={() => setDeployOpen(true)}>
+              <Rocket className="h-4 w-4" />
+              Deploy
+            </Button>
             <Link to="/environments">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />
@@ -291,6 +300,24 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
           </Card>
         </div>
       </div>
+
+      <SideDrawer
+        open={deployOpen}
+        title="Deploy to Environment"
+        description="Create a deployment execution for this environment."
+        maxWidth="max-w-[860px]"
+        onClose={() => setDeployOpen(false)}
+      >
+        <DeploymentWorkflowPage
+          showHeader={false}
+          initialEnvironmentId={row.environment.environmentId}
+          lockEnvironment
+          initialComponentSetId={row.currentComponentSet?.componentSetId ?? ""}
+          initialDeploySetId={row.currentDeploySet?.deploySetId ?? ""}
+          onCancel={() => setDeployOpen(false)}
+          onCreated={() => setDeployOpen(false)}
+        />
+      </SideDrawer>
     </div>
   );
 }

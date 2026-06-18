@@ -1,14 +1,17 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, Server, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, Rocket, Server, Tag, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
+import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
+import { SideDrawer } from "@/components/ui/side-drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   listComponentSets,
@@ -65,6 +68,7 @@ function DeploySetDetailsView({
   activeEnvironments: Awaited<ReturnType<typeof listEnvironmentState>>;
   relatedExecutions: Awaited<ReturnType<typeof listDeploymentExecutions>>;
 }) {
+  const [deployOpen, setDeployOpen] = useState(false);
   const explicitCount = deployset.items.filter((item) => item.source === "explicit").length;
   const inferredCount = deployset.items.filter((item) => item.source === "inferred").length;
 
@@ -75,6 +79,10 @@ function DeploySetDetailsView({
         subtitle="Desired component-version state, lineage, and current runtime usage."
         action={
           <div className="flex gap-2">
+            <Button className="px-4" onClick={() => setDeployOpen(true)}>
+              <Rocket className="h-4 w-4" />
+              Deploy
+            </Button>
             <Link to="/deploysets">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />
@@ -198,6 +206,23 @@ function DeploySetDetailsView({
           </Card>
         </div>
       </div>
+
+      <SideDrawer
+        open={deployOpen}
+        title="Deploy DeploySet"
+        description="Create a deployment execution from this DeploySet."
+        maxWidth="max-w-[860px]"
+        onClose={() => setDeployOpen(false)}
+      >
+        <DeploymentWorkflowPage
+          showHeader={false}
+          initialComponentSetId={deployset.componentSetId}
+          initialDeploySetId={deployset.deploySetId}
+          lockTarget
+          onCancel={() => setDeployOpen(false)}
+          onCreated={() => setDeployOpen(false)}
+        />
+      </SideDrawer>
     </div>
   );
 }

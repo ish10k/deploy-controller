@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -82,9 +82,20 @@ type UserDetailData = {
 
 type UserDetailView = "event-log" | "deployments" | "releases" | "deploysets";
 
-export function UsersPage() {
+export function UsersPage({
+  embedded = false,
+  createSignal = 0,
+  search = "",
+  refreshSignal = 0,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+} = {}) {
   const auth = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const canView = canViewUsers(auth.user);
@@ -101,12 +112,25 @@ export function UsersPage() {
   });
   const mutation = useMutation({
     mutationFn: createPrincipal,
-    onSuccess: async () => {
+    onSuccess: async (principal) => {
       setOpen(false);
       toast({ title: "User created", variant: "success" });
       await queryClient.invalidateQueries({ queryKey: queryKeys.principals });
+      await navigate({ to: "/users/$principalId", params: { principalId: principal.principalId } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0 && canCreate) {
+      setOpen(true);
+    }
+  }, [canCreate, createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void query.refetch();
+      void rolesQuery.refetch();
+    }
+  }, [refreshSignal]);
 
   if (!canView) {
     return <UsersAccessPanel />;
@@ -114,65 +138,58 @@ export function UsersPage() {
   if (query.isLoading) return <LoadingPanel label="Loading users..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
 
-  const users = (query.data ?? []).filter((principal) => principal.type === "user");
+  const normalizedSearch = search.trim().toLowerCase();
+  const users = (query.data ?? []).filter((principal) => {
+    if (principal.type !== "user") {
+      return false;
+    }
+    if (!normalizedSearch) {
+      return true;
+    }
+    return [principal.principalId, principal.displayName, principal.email ?? "", principal.roles.join(" ")]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch);
+  });
 
   return (
     <>
-      <PageHeader
-        title="Users"
-        subtitle="Human principals registered for OIDC access."
-        action={
-          canCreate ? (
-            <Button className="h-10 px-4" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create user
-            </Button>
-          ) : null
-        }
-      />
+      {!embedded ? (
+        <PageHeader
+          title="Users"
+          subtitle="Human principals registered for OIDC access."
+          action={
+            canCreate ? (
+              <Button className="px-4" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create user
+              </Button>
+            ) : null
+          }
+        />
+      ) : null}
 
-      <Card>
-        <CardContent className="p-3">
-          {users.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last seen</TableHead>
-                  <TableHead>Tags</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.principalId} className="hover:bg-slate-50">
-                    <TableCell>
-                      <EntityLink kind="user" to="/users/$principalId" params={{ principalId: user.principalId }}>
-                        {user.displayName}
-                      </EntityLink>
-                    </TableCell>
-                    <TableCell>{user.email ?? "-"}</TableCell>
-                    <TableCell>
-                      <TagList tags={rolesToTags(user.roles)} limit={3} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.active ? "green" : "slate"}>{user.active ? "Active" : "Inactive"}</Badge>
-                    </TableCell>
-                    <TableCell>{formatRelativeTime(user.lastSeenAt, { mode: "short" })}</TableCell>
-                    <TableCell>
-                      <TagList tags={user.tags} limit={3} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="px-3 py-10 text-center text-sm text-slate-500">No users found.</div>
-          )}
-        </CardContent>
-      </Card>
+      {embedded ? (
+        users.length ? (
+          <Table>
+            <UsersTableContent users={users} />
+          </Table>
+        ) : (
+          <div className="px-3 py-10 text-center text-sm text-slate-500">No users found.</div>
+        )
+      ) : (
+        <Card>
+          <CardContent className="p-3">
+            {users.length ? (
+              <Table>
+                <UsersTableContent users={users} />
+              </Table>
+            ) : (
+              <div className="px-3 py-10 text-center text-sm text-slate-500">No users found.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <UserDrawer
         open={open}
@@ -182,6 +199,45 @@ export function UsersPage() {
         createdBy={auth.user?.principalId ?? "user:unknown"}
         roleOptions={rolesQuery.data?.map((role) => role.roleId) ?? [...USER_ROLE_OPTIONS]}
       />
+    </>
+  );
+}
+
+function UsersTableContent({ users }: { users: ApiPrincipal[] }) {
+  return (
+    <>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead>Roles</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Last seen</TableHead>
+          <TableHead>Tags</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {users.map((user) => (
+          <TableRow key={user.principalId} className="hover:bg-slate-50">
+            <TableCell>
+              <EntityLink kind="user" to="/users/$principalId" params={{ principalId: user.principalId }}>
+                {user.displayName}
+              </EntityLink>
+            </TableCell>
+            <TableCell>{user.email ?? "-"}</TableCell>
+            <TableCell>
+              <TagList tags={rolesToTags(user.roles)} limit={3} />
+            </TableCell>
+            <TableCell>
+              <Badge variant={user.active ? "green" : "slate"}>{user.active ? "Active" : "Inactive"}</Badge>
+            </TableCell>
+            <TableCell>{formatRelativeTime(user.lastSeenAt, { mode: "short" })}</TableCell>
+            <TableCell>
+              <TagList tags={user.tags} limit={3} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
     </>
   );
 }

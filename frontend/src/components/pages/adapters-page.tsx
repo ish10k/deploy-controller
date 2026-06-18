@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, Clock3, KeyRound, Plus, Radio, RefreshCw, Server, Tag, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
@@ -39,6 +39,7 @@ import { formatDateTime, formatRelativeTime } from "@/lib/format";
 
 export function DeploymentRunnersPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const query = useQuery({ queryKey: queryKeys.deploymentRunners, queryFn: listDeploymentRunners });
@@ -55,6 +56,7 @@ export function DeploymentRunnersPage() {
         durationMs: 0,
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.deploymentRunners });
+      await navigate({ to: "/deployment-runners/$runnerId", params: { runnerId: result.runner.runnerId } });
     },
   });
 

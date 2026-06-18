@@ -7,19 +7,16 @@ import { EnvironmentsPage } from "@/components/environments/environments-page";
 import { AppShell } from "@/components/layout/app-shell";
 import { UnsupportedPage } from "@/components/common/api-state";
 import { DeploymentRunnerDetailsPage, DeploymentRunnersPage } from "@/components/pages/adapters-page";
+import { AuthPage } from "@/components/pages/auth-page";
 import { ComponentDetailsPage } from "@/components/pages/component-details-page";
 import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
-import { ComponentSetsPage } from "@/components/pages/component-sets-page";
-import { ComponentsPage } from "@/components/pages/components-page";
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
-import { DeploysetsPage } from "@/components/pages/deploysets-page";
 import { EventLogPage } from "@/components/pages/event-log-page";
-import { ExecutionsPage } from "@/components/pages/executions-page";
 import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
 import { ReleaseSourceDetailsPage, ReleaseSourcesPage } from "@/components/pages/release-sources-page";
-import { ReleasesPage } from "@/components/pages/releases-page";
-import { RoleDetailsPage, RolesPage } from "@/components/pages/roles-page";
-import { UserDetailsPage, UsersPage } from "@/components/pages/users-page";
+import { RegistryPage } from "@/components/pages/registry-page";
+import { RoleDetailsPage } from "@/components/pages/roles-page";
+import { UserDetailsPage } from "@/components/pages/users-page";
 import { WebhookDeliveryDetailsPage, WebhookDetailsPage, WebhooksPage } from "@/components/pages/webhooks-page";
 
 const rootRoute = createRootRoute({
@@ -60,7 +57,13 @@ const planRoute = createRoute({
   },
 });
 
-const componentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/components", component: ComponentsPage });
+const registryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/registry", component: RegistryPage });
+const authRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth", component: AuthPage });
+const componentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/components",
+  component: () => <RegistryPage initialView="components" />,
+});
 const componentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/components/$componentId",
@@ -73,7 +76,11 @@ const componentDetailRoute = createRoute({
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/callback", component: AuthCallbackPage });
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
 const forbiddenRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forbidden", component: ForbiddenPage });
-const componentSetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/component-sets", component: ComponentSetsPage });
+const componentSetsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/component-sets",
+  component: () => <RegistryPage initialView="component-sets" />,
+});
 const componentSetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/component-sets/$componentSetId",
@@ -82,7 +89,11 @@ const componentSetDetailRoute = createRoute({
     return <ComponentSetDetailsPage componentSetId={componentSetId} />;
   },
 });
-const releasesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/releases", component: ReleasesPage });
+const releasesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/releases",
+  component: () => <RegistryPage initialView="releases" />,
+});
 const releaseSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/release-sources", component: ReleaseSourcesPage });
 const releaseSourceDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -100,7 +111,11 @@ const releaseDetailRoute = createRoute({
     return <ReleaseDetailsPage componentId={componentId} version={version} />;
   },
 });
-const deploysetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/deploysets", component: DeploysetsPage });
+const deploysetsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/deploysets",
+  component: () => <DeploymentsPage initialView="deploysets" />,
+});
 const deploysetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/deploysets/$deploySetId",
@@ -110,8 +125,8 @@ const deploysetDetailRoute = createRoute({
   },
 });
 const environmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/environments", component: EnvironmentsPage });
-const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/users", component: UsersPage });
-const rolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/roles", component: RolesPage });
+const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/users", component: () => <AuthPage initialView="users" /> });
+const rolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/roles", component: () => <AuthPage initialView="roles" /> });
 const roleDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/roles/$roleId",
@@ -154,7 +169,11 @@ const environmentDetailRoute = createRoute({
     return <EnvironmentsPage routeEnvironmentId={environmentId} />;
   },
 });
-const executionsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/executions", component: ExecutionsPage });
+const executionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/executions",
+  component: () => <DeploymentsPage initialView="executions" />,
+});
 const deploymentRunnersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/deployment-runners", component: DeploymentRunnersPage });
 const deploymentRunnerDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -176,6 +195,8 @@ export const routeTree = rootRoute.addChildren([
   loginRoute,
   forbiddenRoute,
   indexRoute,
+  registryRoute,
+  authRoute,
   usersRoute,
   rolesRoute,
   roleDetailRoute,

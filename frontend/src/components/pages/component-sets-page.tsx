@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Filter, Plus, Search, Trash2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Plus, Search, Trash2 } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listComponents, listComponentSets, putComponentSet, queryKeys, type ApiComponentSet } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
 
-export function ComponentSetsPage() {
+export function ComponentSetsPage({
+  embedded = false,
+  createSignal = 0,
+  search: externalSearch,
+  refreshSignal = 0,
+  onCreateComponent,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+  onCreateComponent?: () => void;
+} = {}) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [componentFilter, setComponentFilter] = useState("all");
@@ -25,11 +39,24 @@ export function ComponentSetsPage() {
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const mutation = useMutation({
     mutationFn: (componentSet: ApiComponentSet) => putComponentSet(componentSet.componentSetId, componentSet),
-    onSuccess: async () => {
+    onSuccess: async (componentSet) => {
       setOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.componentSets });
+      await navigate({ to: "/component-sets/$componentSetId", params: { componentSetId: componentSet.componentSetId } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0) {
+      setOpen(true);
+    }
+  }, [createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void query.refetch();
+      void componentsQuery.refetch();
+    }
+  }, [refreshSignal]);
   const componentSets = query.data ?? [];
   const componentOptions = useMemo(() => {
     const registered = (componentsQuery.data ?? []).map((component) => component.componentId);
@@ -37,7 +64,7 @@ export function ComponentSetsPage() {
     return Array.from(new Set([...registered, ...referenced])).sort();
   }, [componentSets, componentsQuery.data]);
   const filteredComponentSets = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return componentSets.filter((componentSet) => {
       if (componentFilter !== "all" && !componentSet.components.some((component) => component.componentId === componentFilter)) {
@@ -59,7 +86,7 @@ export function ComponentSetsPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [componentFilter, componentSets, search]);
+  }, [componentFilter, componentSets, externalSearch, search]);
 
   if (query.isLoading) return <LoadingPanel label="Loading component sets..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
@@ -67,25 +94,27 @@ export function ComponentSetsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Component Sets"
-        subtitle="Required component groups used by DeploySets."
-        action={
-          <Button className="h-10 px-4" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Component Set
-          </Button>
-        }
-      />
+      {!embedded ? (
+        <PageHeader
+          title="Component Sets"
+          subtitle="Required component groups used by DeploySets."
+          action={
+            <Button className="px-4" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Component Set
+            </Button>
+          }
+        />
+      ) : null}
 
-      <div className="mt-4 flex items-center justify-between gap-3">
+      {!embedded ? <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-[310px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search component sets..."
+              placeholder="Search..."
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
@@ -97,20 +126,48 @@ export function ComponentSetsPage() {
               </option>
             ))}
           </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
         </div>
         <Button variant="outline" onClick={() => query.refetch()}>
           Refresh
         </Button>
-      </div>
+      </div> : null}
 
-      <Card className="mt-4">
-        <CardContent className="p-3">
-          {filteredComponentSets.length ? (
-            <Table>
+      {embedded ? (
+        filteredComponentSets.length ? (
+          <Table>
+            <ComponentSetsTableContent rows={filteredComponentSets} />
+          </Table>
+        ) : (
+          <EmptyPanel label="No component sets match the current filters." />
+        )
+      ) : (
+        <Card className="mt-4">
+          <CardContent className="p-3">
+            {filteredComponentSets.length ? (
+              <Table>
+                <ComponentSetsTableContent rows={filteredComponentSets} />
+              </Table>
+            ) : (
+              <EmptyPanel label="No component sets match the current filters." />
+            )}
+          </CardContent>
+        </Card>
+      )}
+      <ComponentSetDrawer
+        componentOptions={componentOptions}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSubmit={(value) => mutation.mutate(value)}
+        pending={mutation.isPending}
+        onCreateComponent={onCreateComponent}
+      />
+    </>
+  );
+}
+
+function ComponentSetsTableContent({ rows }: { rows: ApiComponentSet[] }) {
+  return (
+    <>
               <TableHeader>
                 <TableRow>
                   <TableHead>Component Set</TableHead>
@@ -120,7 +177,7 @@ export function ComponentSetsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredComponentSets.map((componentSet) => (
+                {rows.map((componentSet) => (
                   <TableRow key={componentSet.componentSetId} className="hover:bg-slate-50">
                     <TableCell>
                       <EntityLink
@@ -139,19 +196,6 @@ export function ComponentSetsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          ) : (
-            <EmptyPanel label="No component sets match the current filters." />
-          )}
-        </CardContent>
-      </Card>
-      <ComponentSetDrawer
-        componentOptions={componentOptions}
-        open={open}
-        onClose={() => setOpen(false)}
-        onSubmit={(value) => mutation.mutate(value)}
-        pending={mutation.isPending}
-      />
     </>
   );
 }
@@ -162,12 +206,14 @@ function ComponentSetDrawer({
   onClose,
   onSubmit,
   pending,
+  onCreateComponent,
 }: {
   componentOptions: string[];
   open: boolean;
   onClose: () => void;
   onSubmit: (componentSet: ApiComponentSet) => void;
   pending: boolean;
+  onCreateComponent?: () => void;
 }) {
   const [componentSetId, setComponentSetId] = useState("");
   const [description, setDescription] = useState("");
@@ -279,6 +325,11 @@ function ComponentSetDrawer({
                       </option>
                     ))}
                   </Select>
+                  {onCreateComponent && index === componentRows.length - 1 ? (
+                    <button type="button" className="mt-1 text-left text-xs font-bold text-blue-600" onClick={onCreateComponent}>
+                      Create new component
+                    </button>
+                  ) : null}
                 </div>
                 <div className="flex justify-end">
                   {index < componentRows.length - 1 ? (

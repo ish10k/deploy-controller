@@ -1,15 +1,17 @@
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, FileText, Package, Server, Tag } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Boxes, CalendarClock, FileText, GitCommitHorizontal, Package, Server, Tag } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ReleaseDrawer } from "@/components/pages/releases-page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getComponent, listReleases, type ApiComponent, type ApiRelease } from "@/lib/api-client";
+import { createRelease, getComponent, listReleases, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 export function ComponentDetailsPage({ componentId }: { componentId: string }) {
@@ -33,7 +35,26 @@ export function ComponentDetailsPage({ componentId }: { componentId: string }) {
 }
 
 function ComponentDetailsView({ component, releases }: { component: ApiComponent; releases: ApiRelease[] }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const latestRelease = releases[0];
+  const latestReleaseByComponent = useMemo(() => {
+    const latest = new Map<string, ApiRelease>();
+    if (latestRelease) {
+      latest.set(component.componentId, latestRelease);
+    }
+    return latest;
+  }, [component.componentId, latestRelease]);
+  const mutation = useMutation({
+    mutationFn: createRelease,
+    onSuccess: async (release) => {
+      setReleaseOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.releases(component.componentId) });
+      await queryClient.invalidateQueries({ queryKey: ["components", "detail", component.componentId] });
+      await navigate({ to: "/releases/$componentId/$version", params: { componentId: release.componentId, version: release.version } });
+    },
+  });
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -41,12 +62,18 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
         title={component.componentId}
         subtitle="Component metadata, release history, and delivery context."
         action={
-          <Link to="/components">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to components
+          <div className="flex gap-2">
+            <Button className="px-4" onClick={() => setReleaseOpen(true)}>
+              <GitCommitHorizontal className="h-4 w-4" />
+              Release
             </Button>
-          </Link>
+            <Link to="/components">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to components
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -146,6 +173,16 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
           </CardContent>
         </Card>
       </div>
+      <ReleaseDrawer
+        componentOptions={[component.componentId]}
+        latestReleaseByComponent={latestReleaseByComponent}
+        open={releaseOpen}
+        onClose={() => setReleaseOpen(false)}
+        onSubmit={(release) => mutation.mutate(release)}
+        pending={mutation.isPending}
+        initialComponentId={component.componentId}
+        lockComponent
+      />
     </div>
   );
 }

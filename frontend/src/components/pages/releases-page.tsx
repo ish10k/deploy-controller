@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Filter, Plus, Search } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Plus, Search } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
@@ -16,21 +17,48 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { createRelease, listComponents, listReleases, queryKeys, type ApiRelease } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
-export function ReleasesPage() {
+export function ReleasesPage({
+  embedded = false,
+  createSignal = 0,
+  search: externalSearch,
+  refreshSignal = 0,
+  onCreateComponent,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+  onCreateComponent?: () => void;
+} = {}) {
   const [search, setSearch] = useState("");
   const [componentFilter, setComponentFilter] = useState("");
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const query = useQuery({ queryKey: queryKeys.releases(componentFilter || undefined), queryFn: () => listReleases(componentFilter || undefined) });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const allReleasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
   const mutation = useMutation({
     mutationFn: createRelease,
-    onSuccess: async () => {
+    onSuccess: async (release) => {
       setOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["releases"] });
+      await navigate({ to: "/releases/$componentId/$version", params: { componentId: release.componentId, version: release.version } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0) {
+      setOpen(true);
+    }
+  }, [createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void query.refetch();
+      void componentsQuery.refetch();
+      void allReleasesQuery.refetch();
+    }
+  }, [refreshSignal]);
   const releases = query.data ?? [];
   const componentOptions = useMemo(() => {
     const registered = (componentsQuery.data ?? []).map((component) => component.componentId);
@@ -39,7 +67,7 @@ export function ReleasesPage() {
   }, [allReleasesQuery.data, componentsQuery.data, releases]);
   const latestReleaseByComponent = useMemo(() => latestReleasesByComponent(allReleasesQuery.data ?? releases), [allReleasesQuery.data, releases]);
   const filteredReleases = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return releases.filter((release) => {
       if (componentFilter && release.componentId !== componentFilter) {
@@ -55,28 +83,30 @@ export function ReleasesPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [componentFilter, releases, search]);
+  }, [componentFilter, externalSearch, releases, search]);
 
   return (
     <>
-      <PageHeader
-        title="Releases"
-        subtitle="Component artifact versions available to DeploySets."
-        action={
-          <Button className="h-10 px-4" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Release
-          </Button>
-        }
-      />
-      <div className="mt-4 flex items-center justify-between gap-3">
+      {!embedded ? (
+        <PageHeader
+          title="Releases"
+          subtitle="Component artifact versions available to DeploySets."
+          action={
+            <Button className="px-4" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Release
+            </Button>
+          }
+        />
+      ) : null}
+      {!embedded ? <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-[310px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search releases..."
+              placeholder="Search..."
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
@@ -93,24 +123,56 @@ export function ReleasesPage() {
               </option>
             ))}
           </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
         </div>
         <Button variant="outline" onClick={() => query.refetch()}>
           Refresh
         </Button>
-      </div>
+      </div> : null}
       {query.isLoading ? (
         <LoadingPanel label="Loading releases..." />
       ) : query.error ? (
         <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />
       ) : releases.length ? (
-        <Card className="mt-4">
-          <CardContent className="p-3">
-            {filteredReleases.length ? (
-              <Table>
+        embedded ? (
+          filteredReleases.length ? (
+            <Table>
+              <ReleasesTableContent rows={filteredReleases} />
+            </Table>
+          ) : (
+            <EmptyPanel label="No releases match the current filters." />
+          )
+        ) : (
+          <Card className="mt-4">
+            <CardContent className="p-3">
+              {filteredReleases.length ? (
+                <Table>
+                  <ReleasesTableContent rows={filteredReleases} />
+                </Table>
+              ) : (
+                <EmptyPanel label="No releases match the current filters." />
+              )}
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <EmptyPanel label="No releases found." />
+      )}
+      <ReleaseDrawer
+        componentOptions={componentOptions}
+        latestReleaseByComponent={latestReleaseByComponent}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSubmit={(value) => mutation.mutate(value)}
+        pending={mutation.isPending}
+        onCreateComponent={onCreateComponent}
+      />
+    </>
+  );
+}
+
+function ReleasesTableContent({ rows }: { rows: ApiRelease[] }) {
+  return (
+    <>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Component</TableHead>
@@ -120,7 +182,7 @@ export function ReleasesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReleases.map((release) => (
+                  {rows.map((release) => (
                     <TableRow key={`${release.componentId}:${release.version}`} className="hover:bg-slate-50">
                       <TableCell>
                         <EntityLink
@@ -145,34 +207,20 @@ export function ReleasesPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            ) : (
-              <EmptyPanel label="No releases match the current filters." />
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <EmptyPanel label="No releases found." />
-      )}
-      <ReleaseDrawer
-        componentOptions={componentOptions}
-        latestReleaseByComponent={latestReleaseByComponent}
-        open={open}
-        onClose={() => setOpen(false)}
-        onSubmit={(value) => mutation.mutate(value)}
-        pending={mutation.isPending}
-      />
     </>
   );
 }
 
-function ReleaseDrawer({
+export function ReleaseDrawer({
   componentOptions,
   latestReleaseByComponent,
   open,
   onClose,
   onSubmit,
   pending,
+  onCreateComponent,
+  initialComponentId = "",
+  lockComponent = false,
 }: {
   componentOptions: string[];
   latestReleaseByComponent: Map<string, ApiRelease>;
@@ -180,8 +228,11 @@ function ReleaseDrawer({
   onClose: () => void;
   onSubmit: (release: ApiRelease) => void;
   pending: boolean;
+  onCreateComponent?: () => void;
+  initialComponentId?: string;
+  lockComponent?: boolean;
 }) {
-  const [componentId, setComponentId] = useState("");
+  const [componentId, setComponentId] = useState(initialComponentId);
   const [version, setVersion] = useState("");
   const [artifactKey, setArtifactKey] = useState("");
   const [artifactDigest, setArtifactDigest] = useState("");
@@ -192,6 +243,12 @@ function ReleaseDrawer({
   const trimmedArtifactKey = artifactKey.trim();
   const tagsError = validateTagDrafts(tags);
   const latestRelease = latestReleaseByComponent.get(componentId);
+
+  useEffect(() => {
+    if (lockComponent) {
+      setComponentId(initialComponentId);
+    }
+  }, [initialComponentId, lockComponent]);
 
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
     setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
@@ -243,14 +300,22 @@ function ReleaseDrawer({
             <label className="block text-sm font-medium text-slate-700">
               Component ID
               <RequiredMark />
-              <Select variant="light" className="mt-1" value={componentId} onChange={(event) => setComponentId(event.target.value)}>
-                <option value="">Select component</option>
+              <Select variant="light" className="mt-1" value={componentId} onChange={(event) => setComponentId(event.target.value)} disabled={lockComponent}>
+                {!componentId ? <option value="">Select component</option> : null}
+                {componentId && !componentOptions.includes(componentId) ? (
+                  <option value={componentId}>{componentId}</option>
+                ) : null}
                 {componentOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </Select>
+              {onCreateComponent && !lockComponent ? (
+                <button type="button" className="mt-2 text-xs font-bold text-blue-600" onClick={onCreateComponent}>
+                  Create new component
+                </button>
+              ) : null}
               {componentId ? (
                 <span className="mt-1 block text-xs font-medium text-slate-500">
                   {latestRelease ? `Latest version: ${latestRelease.version}` : "No releases yet for this component."}

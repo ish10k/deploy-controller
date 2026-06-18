@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,21 @@ import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraf
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listComponents, listReleases, putComponent, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
 import { tagSummary } from "@/lib/format";
-import { Filter, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
-export function ComponentsPage() {
+export function ComponentsPage({
+  embedded = false,
+  createSignal = 0,
+  search: externalSearch,
+  refreshSignal = 0,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+} = {}) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -25,18 +37,31 @@ export function ComponentsPage() {
   const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
   const mutation = useMutation({
     mutationFn: (component: ApiComponent) => putComponent(component.componentId, component),
-    onSuccess: async () => {
+    onSuccess: async (component) => {
       setOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.components });
+      await navigate({ to: "/components/$componentId", params: { componentId: component.componentId } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0) {
+      setOpen(true);
+    }
+  }, [createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void componentsQuery.refetch();
+      void releasesQuery.refetch();
+    }
+  }, [refreshSignal]);
   const latestReleaseByComponent = useMemo(() => latestReleasesByComponent(releasesQuery.data ?? []), [releasesQuery.data]);
   const components = componentsQuery.data ?? [];
   const componentTypes = useMemo(() => {
     return Array.from(new Set(components.map((component) => component.type).filter(Boolean))).sort() as string[];
   }, [components]);
   const filteredComponents = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return components.filter((component) => {
       const latestRelease = latestReleaseByComponent.get(component.componentId);
@@ -53,7 +78,7 @@ export function ComponentsPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [components, latestReleaseByComponent, search, typeFilter]);
+  }, [components, externalSearch, latestReleaseByComponent, search, typeFilter]);
 
   if (componentsQuery.isLoading) return <LoadingPanel label="Loading components..." />;
   if (componentsQuery.error) return <ApiErrorPanel error={componentsQuery.error} onRetry={() => componentsQuery.refetch()} />;
@@ -61,24 +86,26 @@ export function ComponentsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Components"
-        subtitle="Deployable units registered in the control plane."
-        action={
-          <Button className="h-10 px-4" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Component
-          </Button>
-        }
-      />
-      <div className="mt-4 flex items-center justify-between gap-3">
+      {!embedded ? (
+        <PageHeader
+          title="Components"
+          subtitle="Deployable units registered in the control plane."
+          action={
+            <Button className="px-4" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Component
+            </Button>
+          }
+        />
+      ) : null}
+      {!embedded ? <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-[310px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search components..."
+              placeholder="Search..."
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
@@ -90,19 +117,46 @@ export function ComponentsPage() {
               </option>
             ))}
           </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
         </div>
         <Button variant="outline" onClick={() => componentsQuery.refetch()}>
           Refresh
         </Button>
-      </div>
-      <Card className="mt-4">
-        <CardContent className="p-3">
-          {filteredComponents.length ? (
-            <Table>
+      </div> : null}
+      {embedded ? (
+        filteredComponents.length ? (
+          <Table>
+            <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
+          </Table>
+        ) : (
+          <EmptyPanel label="No components match the current filters." />
+        )
+      ) : (
+        <Card className="mt-4">
+          <CardContent className="p-3">
+            {filteredComponents.length ? (
+              <Table>
+                <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
+              </Table>
+            ) : (
+              <EmptyPanel label="No components match the current filters." />
+            )}
+          </CardContent>
+        </Card>
+      )}
+      <ComponentDrawer
+        typeOptions={componentTypes}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSubmit={(value) => mutation.mutate(value)}
+        pending={mutation.isPending}
+      />
+    </>
+  );
+}
+
+function ComponentsTableContent({ rows, latestReleaseByComponent }: { rows: ApiComponent[]; latestReleaseByComponent: Map<string, ApiRelease> }) {
+  return (
+    <>
               <TableHeader>
                 <TableRow>
                   <TableHead>Component</TableHead>
@@ -112,7 +166,7 @@ export function ComponentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredComponents.map((component) => {
+                {rows.map((component) => {
                   const latestRelease = latestReleaseByComponent.get(component.componentId);
                   return (
                     <TableRow key={component.componentId} className="hover:bg-slate-50">
@@ -146,19 +200,6 @@ export function ComponentsPage() {
                   );
                 })}
               </TableBody>
-            </Table>
-          ) : (
-            <EmptyPanel label="No components match the current filters." />
-          )}
-        </CardContent>
-      </Card>
-      <ComponentDrawer
-        typeOptions={componentTypes}
-        open={open}
-        onClose={() => setOpen(false)}
-        onSubmit={(value) => mutation.mutate(value)}
-        pending={mutation.isPending}
-      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCheck, Copy, Filter, Plus, Search, X } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, CheckCheck, Copy, Plus, Search, X } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
@@ -64,8 +65,19 @@ const defaultForm = (): DeploySetFormState => ({
   items: [],
 });
 
-export function DeploysetsPage() {
+export function DeploysetsPage({
+  embedded = false,
+  createSignal = 0,
+  search: externalSearch,
+  refreshSignal = 0,
+}: {
+  embedded?: boolean;
+  createSignal?: number;
+  search?: string;
+  refreshSignal?: number;
+} = {}) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
@@ -89,8 +101,24 @@ export function DeploysetsPage() {
         description: `${result.deployset.deploySetId} is ready with ${result.deployset.items.length} component versions.`,
         variant: "success",
       });
+      await navigate({ to: "/deploysets/$deploySetId", params: { deploySetId: result.deployset.deploySetId } });
     },
   });
+
+  useEffect(() => {
+    if (createSignal > 0) {
+      openDrawer();
+    }
+  }, [createSignal]);
+  useEffect(() => {
+    if (refreshSignal > 0) {
+      void deploysetsQuery.refetch();
+      void componentSetsQuery.refetch();
+      void environmentsQuery.refetch();
+      void environmentStateQuery.refetch();
+      void releasesQuery.refetch();
+    }
+  }, [refreshSignal]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -149,7 +177,7 @@ export function DeploysetsPage() {
 
   const deploysets = deploysetsQuery.data ?? [];
   const filteredDeploysets = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return deploysets.filter((deployset) => {
       if (componentSetFilter !== "all" && deployset.componentSetId !== componentSetFilter) {
@@ -165,7 +193,7 @@ export function DeploysetsPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [componentSetFilter, deploysets, search]);
+  }, [componentSetFilter, deploysets, externalSearch, search]);
 
   if (deploysetsQuery.isLoading) {
     return <LoadingPanel label="Loading deploysets..." />;
@@ -176,25 +204,27 @@ export function DeploysetsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-bold tracking-normal text-slate-950">DeploySets</h1>
-          <p className="mt-1 text-sm font-medium text-slate-600">Immutable desired component-version sets ready for deployment.</p>
+    <div className={embedded ? "flex min-h-0 flex-col overflow-hidden" : "flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden"}>
+      {!embedded ? (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-normal text-slate-950">DeploySets</h1>
+            <p className="mt-1 text-sm font-medium text-slate-600">Immutable desired component-version sets ready for deployment.</p>
+          </div>
+          <Button className="px-4" onClick={openDrawer}>
+            <Plus className="h-5 w-5" />
+            Create DeploySet
+          </Button>
         </div>
-        <Button className="h-10 px-4" onClick={openDrawer}>
-          <Plus className="h-5 w-5" />
-          Create DeploySet
-        </Button>
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
+      ) : null}
+      {!embedded ? <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-[310px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search deploysets..."
+              placeholder="Search..."
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
@@ -206,29 +236,37 @@ export function DeploysetsPage() {
               </option>
             ))}
           </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
         </div>
         <Button variant="outline" onClick={() => deploysetsQuery.refetch()}>
           Refresh
         </Button>
-      </div>
+      </div> : null}
 
-      <Card className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
-          {filteredDeploysets.length ? (
-            <ScrollFade className="flex-1 rounded-t-lg">
-              <DeploysetsTable rows={filteredDeploysets} />
-            </ScrollFade>
-          ) : (
-            <div className="flex flex-1 items-center justify-center p-4">
-              <EmptyPanel label="No DeploySets match the current filters." />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {embedded ? (
+        filteredDeploysets.length ? (
+          <ScrollFade className="flex-1 rounded-t-lg">
+            <DeploysetsTable rows={filteredDeploysets} />
+          </ScrollFade>
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-4">
+            <EmptyPanel label="No DeploySets match the current filters." />
+          </div>
+        )
+      ) : (
+        <Card className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
+            {filteredDeploysets.length ? (
+              <ScrollFade className="flex-1 rounded-t-lg">
+                <DeploysetsTable rows={filteredDeploysets} />
+              </ScrollFade>
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-4">
+                <EmptyPanel label="No DeploySets match the current filters." />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {drawerMounted ? (
         <CreateDeploySetDrawer

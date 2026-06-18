@@ -25,19 +25,31 @@ import { useToast } from "@/components/ui/toast";
 export function DeploymentWorkflowPage({
   onCreated,
   onCancel,
+  onCreateDeploySet,
+  initialEnvironmentId = "",
+  lockEnvironment = false,
+  initialComponentSetId = "",
+  initialDeploySetId = "",
+  lockTarget = false,
   showHeader = true,
 }: {
   onCreated?: () => void;
   onCancel?: () => void;
+  onCreateDeploySet?: () => void;
+  initialEnvironmentId?: string;
+  lockEnvironment?: boolean;
+  initialComponentSetId?: string;
+  initialDeploySetId?: string;
+  lockTarget?: boolean;
   showHeader?: boolean;
 } = {}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
   const { environmentId: defaultEnvironmentId, environments, environmentsLoading } = useAppContext();
-  const [componentSetId, setComponentSetId] = useState("");
-  const [deploySetId, setDeploySetId] = useState("");
-  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(defaultEnvironmentId);
+  const [componentSetId, setComponentSetId] = useState(initialComponentSetId);
+  const [deploySetId, setDeploySetId] = useState(initialDeploySetId);
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(initialEnvironmentId || defaultEnvironmentId);
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const [force, setForce] = useState(false);
@@ -51,7 +63,7 @@ export function DeploymentWorkflowPage({
     enabled: Boolean(selectedEnvironmentId),
   });
   const requestedBy = "amit.kumar";
-  const activeComponentSetId = componentSetId || componentSetsQuery.data?.[0]?.componentSetId || "";
+  const activeComponentSetId = componentSetId || initialComponentSetId || componentSetsQuery.data?.[0]?.componentSetId || "";
   const filteredDeploysets = useMemo(() => {
     const deploysets = deploysetsQuery.data ?? [];
     if (!activeComponentSetId) {
@@ -59,7 +71,14 @@ export function DeploymentWorkflowPage({
     }
     return deploysets.filter((deployset) => deployset.componentSetId === activeComponentSetId);
   }, [activeComponentSetId, deploysetsQuery.data]);
-  const activeDeploySetId = deploySetId || filteredDeploysets[0]?.deploySetId || "";
+  const activeDeploySetId = deploySetId || initialDeploySetId || filteredDeploysets[0]?.deploySetId || "";
+  const deploysetOptions = useMemo(() => {
+    if (!activeDeploySetId || filteredDeploysets.some((deployset) => deployset.deploySetId === activeDeploySetId)) {
+      return filteredDeploysets;
+    }
+    const current = (deploysetsQuery.data ?? []).find((deployset) => deployset.deploySetId === activeDeploySetId);
+    return current ? [current, ...filteredDeploysets] : filteredDeploysets;
+  }, [activeDeploySetId, deploysetsQuery.data, filteredDeploysets]);
   const selectedDeployset = useMemo(
     () => filteredDeploysets.find((deployset) => deployset.deploySetId === activeDeploySetId) ?? null,
     [activeDeploySetId, filteredDeploysets],
@@ -92,6 +111,23 @@ export function DeploymentWorkflowPage({
   });
 
   useEffect(() => {
+    if (lockEnvironment) {
+      setSelectedEnvironmentId(initialEnvironmentId || defaultEnvironmentId);
+    }
+  }, [defaultEnvironmentId, initialEnvironmentId, lockEnvironment]);
+
+  useEffect(() => {
+    if (lockTarget) {
+      setComponentSetId(initialComponentSetId);
+      setDeploySetId(initialDeploySetId);
+    }
+  }, [initialComponentSetId, initialDeploySetId, lockTarget]);
+
+  useEffect(() => {
+    if (lockTarget || !deploysetsQuery.data) {
+      return;
+    }
+
     if (!deploySetId) {
       return;
     }
@@ -99,7 +135,7 @@ export function DeploymentWorkflowPage({
     if (!filteredDeploysets.some((deployset) => deployset.deploySetId === deploySetId)) {
       setDeploySetId("");
     }
-  }, [deploySetId, filteredDeploysets]);
+  }, [deploySetId, deploysetsQuery.data, filteredDeploysets, lockTarget]);
   const createMutation = useMutation({
     mutationFn: createDeployment,
     onSuccess: async (execution) => {
@@ -114,7 +150,7 @@ export function DeploymentWorkflowPage({
         queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
       ]);
       onCreated?.();
-      await navigate({ to: "/deployments" });
+      await navigate({ to: "/deployments/$deploymentExecutionId", params: { deploymentExecutionId: execution.deploymentExecutionId } });
     },
   });
 
@@ -146,6 +182,13 @@ export function DeploymentWorkflowPage({
     Boolean(tagsError) ||
     executionsQuery.isFetching ||
     Boolean(activeExecution);
+  const componentSetOptions = componentSetsQuery.data ?? [];
+  const showLockedComponentSetOption =
+    Boolean(activeComponentSetId) && !componentSetOptions.some((componentSet) => componentSet.componentSetId === activeComponentSetId);
+  const showLockedDeploySetOption =
+    Boolean(activeDeploySetId) && !deploysetOptions.some((deployset) => deployset.deploySetId === activeDeploySetId);
+  const showLockedEnvironmentOption =
+    Boolean(selectedEnvironmentId) && !environments.some((environment) => environment.environmentId === selectedEnvironmentId);
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
     setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
   };
@@ -202,74 +245,93 @@ export function DeploymentWorkflowPage({
     <>
       {showHeader ? <PageHeader title="Plan Deployment" subtitle="Plan and create a deployment execution using the current API." /> : null}
       <Card>
-        <CardContent className="grid gap-3 p-4 md:grid-cols-3">
-          <label className="grid gap-1 text-sm font-semibold">
-            <span>
-              Component Set
-              <RequiredMark />
-            </span>
-            <Select
-              variant="light"
-              value={activeComponentSetId}
-              onChange={(event) => {
-                setComponentSetId(event.target.value);
-                setDeploySetId("");
-              }}
-              disabled={componentSetsQuery.isLoading || !componentSetsQuery.data?.length}
-            >
-              {!componentSetsQuery.data?.length ? (
-                <option value="" disabled>
-                  {componentSetsQuery.isLoading ? "Loading component sets..." : "No component sets available"}
-                </option>
-              ) : null}
-              {(componentSetsQuery.data ?? []).map((componentSet) => (
-                <option key={componentSet.componentSetId} value={componentSet.componentSetId}>
-                  {componentSet.componentSetId}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="grid gap-1 text-sm font-semibold">
-            <span>
-              DeploySet
-              <RequiredMark />
-            </span>
-            <Select variant="light" value={activeDeploySetId} onChange={(event) => setDeploySetId(event.target.value)}>
-              {!filteredDeploysets.length ? (
-                <option value="" disabled>
-                  {deploysetsQuery.isLoading ? "Loading deploysets..." : "No deploysets for this component set"}
-                </option>
-              ) : null}
-              {filteredDeploysets.map((deployset) => (
-                <option key={deployset.deploySetId} value={deployset.deploySetId}>
-                  {deployset.deploySetId}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="grid gap-1 text-sm font-semibold">
-            <span>
-              Environment
-              <RequiredMark />
-            </span>
-            <Select
-              variant="light"
-              value={selectedEnvironmentId}
-              onChange={(event) => setSelectedEnvironmentId(event.target.value)}
-              disabled={environmentsLoading || !environments.length}
-            >
-              {!environments.length ? (
-                <option value="" disabled>
-                  {environmentsLoading ? "Loading environments..." : "No environments available"}
-                </option>
-              ) : null}
-              {environments.map((environment) => (
-                <option key={environment.environmentId} value={environment.environmentId}>
-                  {environment.environmentId}
-                </option>
-              ))}
-            </Select>
-          </label>
+        <CardHeader>
+          <CardTitle>Target</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-4 pt-0">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1 text-sm font-semibold">
+              <span>
+                Component Set
+                <RequiredMark />
+              </span>
+              <Select
+                variant="light"
+                value={activeComponentSetId}
+                onChange={(event) => {
+                  setComponentSetId(event.target.value);
+                  setDeploySetId("");
+                }}
+                disabled={lockTarget || componentSetsQuery.isLoading || !componentSetsQuery.data?.length}
+              >
+                {showLockedComponentSetOption ? (
+                  <option value={activeComponentSetId}>{activeComponentSetId}</option>
+                ) : null}
+                {!componentSetOptions.length && !showLockedComponentSetOption ? (
+                  <option value="" disabled>
+                    {componentSetsQuery.isLoading ? "Loading component sets..." : "No component sets available"}
+                  </option>
+                ) : null}
+                {componentSetOptions.map((componentSet) => (
+                  <option key={componentSet.componentSetId} value={componentSet.componentSetId}>
+                    {componentSet.componentSetId}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold">
+              <span>
+                DeploySet
+                <RequiredMark />
+              </span>
+              <Select variant="light" value={activeDeploySetId} onChange={(event) => setDeploySetId(event.target.value)} disabled={lockTarget}>
+                {showLockedDeploySetOption ? (
+                  <option value={activeDeploySetId}>{activeDeploySetId}</option>
+                ) : null}
+                {!deploysetOptions.length && !showLockedDeploySetOption ? (
+                  <option value="" disabled>
+                    {deploysetsQuery.isLoading ? "Loading deploysets..." : "No deploysets for this component set"}
+                  </option>
+                ) : null}
+                {deploysetOptions.map((deployset) => (
+                  <option key={deployset.deploySetId} value={deployset.deploySetId}>
+                    {deployset.deploySetId}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold">
+              <span>
+                Environment
+                <RequiredMark />
+              </span>
+              <Select
+                variant="light"
+                value={selectedEnvironmentId}
+                onChange={(event) => setSelectedEnvironmentId(event.target.value)}
+                disabled={lockEnvironment || environmentsLoading || !environments.length}
+              >
+                {showLockedEnvironmentOption ? <option value={selectedEnvironmentId}>{selectedEnvironmentId}</option> : null}
+                {!environments.length ? (
+                  <option value="" disabled>
+                    {environmentsLoading ? "Loading environments..." : "No environments available"}
+                  </option>
+                ) : null}
+                {environments.map((environment) => (
+                  <option key={environment.environmentId} value={environment.environmentId}>
+                    {environment.environmentId}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </div>
+          {onCreateDeploySet && !lockTarget ? (
+            <div className="flex justify-start">
+              <button type="button" className="text-left text-xs font-bold text-blue-600" onClick={onCreateDeploySet}>
+                Create new DeploySet
+              </button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
