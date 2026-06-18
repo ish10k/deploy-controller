@@ -75,7 +75,7 @@ function DeploySetDetailsView({
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={deployset.deploySetId}
+        title={`DeploySet: ${deployset.deploySetId}`}
         subtitle="Desired component-version state, lineage, and current runtime usage."
         action={
           <div className="flex gap-2">

@@ -38,7 +38,7 @@ function ComponentSetDetailsView({ componentSet, relatedDeploysets }: { componen
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={componentSet.componentSetId}
+        title={`Component Set: ${componentSet.componentSetId}`}
         subtitle="Component membership, metadata, and DeploySet usage."
         action={
           <Link to="/component-sets">

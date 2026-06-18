@@ -225,7 +225,7 @@ function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; can
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={role.roleId}
+        title={`Role: ${role.roleId}`}
         subtitle={role.system ? "System role definition." : "Custom role definition."}
         action={
           <Link to="/roles">

@@ -266,7 +266,17 @@ function ExecutionTable({
         ),
       },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
-      { header: "Claimed By", cell: ({ row }) => row.original.claimedBy ?? "-" },
+      {
+        header: "Claimed By",
+        cell: ({ row }) =>
+          row.original.claimedBy ? (
+            <EntityLink kind="runner" to="/deployment-runners/$runnerId" params={{ runnerId: row.original.claimedBy }}>
+              {row.original.claimedBy}
+            </EntityLink>
+          ) : (
+            "-"
+          ),
+      },
       { header: "Started", cell: ({ row }) => formatRelativeTime(row.original.startedAt, { mode: "short" }) },
       { header: "Updated", cell: ({ row }) => formatRelativeTime(row.original.completedAt ?? row.original.startedAt, { mode: "short" }) },
       {

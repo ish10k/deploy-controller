@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -227,7 +228,7 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={row.environment.environmentId}
+        title={`Environment: ${row.environment.environmentId}`}
         subtitle="Environment details, current desired state, and recent activity."
         action={
           <div className="flex gap-2">
@@ -380,7 +381,7 @@ function RecentDeploymentsPanel({ executions }: { executions: ApiDeploymentExecu
                 </EntityLink>
               </TableCell>
               <TableCell>
-                <Badge variant={execution.status === "failed" ? "red" : execution.status === "succeeded" ? "green" : "slate"}>{execution.status}</Badge>
+                <StatusBadge status={execution.status} />
               </TableCell>
               <TableCell>{formatRelativeTime(execution.startedAt, { mode: "short" })}</TableCell>
               <TableCell>{execution.items.length}</TableCell>
@@ -461,7 +462,7 @@ function EnvironmentNotFound({ environmentId }: { environmentId: string }) {
   return (
     <>
       <PageHeader
-        title="Environment not found"
+        title={`Environment: ${environmentId}`}
         subtitle={`No environment was returned by the API for ${environmentId}.`}
         action={
           <Link to="/environments">
@@ -571,7 +572,11 @@ function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
               </span>
             }
           />
-          <MetaRow icon={Server} label="Deployment Runner" value={<span className="font-medium text-blue-700">{latest?.claimedBy ?? "unclaimed"}</span>} />
+          <MetaRow
+            icon={Server}
+            label="Deployment Runner"
+            value={<span className={latest?.claimedBy ? "font-medium text-blue-700" : "font-medium text-slate-400"}>{latest?.claimedBy ?? "unclaimed"}</span>}
+          />
           <MetaRow icon={Clock3} label="Updated" value={<span className="text-slate-700">{formatRelativeTime(row.updatedAt, { mode: "short" })}</span>} />
           <MetaRow icon={Filter} label="Tags" value={<TagList tags={row.environment.tags} />} />
         </ScrollFade>

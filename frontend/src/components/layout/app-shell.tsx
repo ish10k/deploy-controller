@@ -14,6 +14,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { CardTitle } from "@/components/ui/card";
 import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { LoadingPanel } from "@/components/common/api-state";
 import { listEvents, queryKeys, type ApiEventLogEntry } from "@/lib/api-client";
@@ -265,7 +266,13 @@ function EventNotificationBell({ principalId }: { principalId: string | undefine
       </Button>
       {open ? (
         <div className="absolute right-0 top-11 z-50 w-[420px] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl">
-          <div className="max-h-[480px] overflow-y-auto">
+          <div className="border-b border-slate-200 px-4 py-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Bell className="h-4 w-4 text-slate-500" />
+              Notifications
+            </CardTitle>
+          </div>
+          <div className="max-h-[480px] overflow-y-auto shadow-[inset_0_6px_10px_-10px_rgba(15,23,42,0.18)]">
             {query.isLoading ? (
               <div className="px-4 py-8 text-center text-sm font-semibold text-slate-500">Loading notifications...</div>
             ) : query.error ? (
@@ -310,7 +317,7 @@ function NotificationEntry({ event, unread, onNavigate }: { event: ApiEventLogEn
             {unread ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" /> : null}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold text-slate-950">{event.summary}</div>
-              <div className="mt-1 truncate font-mono text-xs text-slate-500">{event.resourceId}</div>
+              <div className="mt-1 truncate font-mono text-xs text-slate-500">{event.actorPrincipalId}</div>
             </div>
           </div>
         </div>

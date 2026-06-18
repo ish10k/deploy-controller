@@ -263,7 +263,7 @@ function ReleaseSourceDetailsView({
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={releaseSource.releaseSourceId}
+        title={`Release Source: ${releaseSource.displayName || releaseSource.releaseSourceId}`}
         subtitle="Release source identity, publishing scope, token state, and scoped releases."
         action={
           <div className="flex items-center gap-2">

@@ -328,7 +328,7 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={principal.displayName}
+        title={`User: ${principal.displayName}`}
         subtitle="User identity, permissions, and related control-plane activity."
         action={
           <Link to="/users">

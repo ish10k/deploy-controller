@@ -1,16 +1,18 @@
 import { EntityLink } from "@/components/ui/entity-link";
-import { Network, Zap } from "lucide-react";
+import { MoveRight } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { RequestedActionBadge } from "@/components/deployments/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { components } from "@/lib/api-types";
 
 export function PlanItems({
   items,
   currentVersions,
+  releaseCreatedAtByKey,
 }: {
   items: components["schemas"]["DeploymentExecutionItem"][];
   currentVersions: Map<string, string>;
+  releaseCreatedAtByKey: Map<string, string>;
 }) {
   return (
     <Table>
@@ -28,12 +30,15 @@ export function PlanItems({
               {item.componentId}
             </TableCell>
             <TableCell className="font-medium text-slate-700">
-              <VersionCell componentId={item.componentId} currentVersion={currentVersions.get(item.componentId)} targetVersion={item.version} />
+              <VersionCell
+                componentId={item.componentId}
+                currentVersion={currentVersions.get(item.componentId)}
+                targetVersion={item.version}
+                releaseCreatedAtByKey={releaseCreatedAtByKey}
+              />
             </TableCell>
             <TableCell>
-              <Badge variant={item.requestedAction === "skip" ? "slate" : "blue"}>
-                {item.requestedAction === "skip" ? "No change" : "Deploy"}
-              </Badge>
+              <RequestedActionBadge action={item.requestedAction} />
             </TableCell>
           </TableRow>
         ))}
@@ -46,10 +51,12 @@ function VersionCell({
   componentId,
   currentVersion,
   targetVersion,
+  releaseCreatedAtByKey,
 }: {
   componentId: string;
   currentVersion: string | undefined;
   targetVersion: string;
+  releaseCreatedAtByKey: Map<string, string>;
 }) {
   if (!currentVersion || currentVersion === targetVersion) {
     return (
@@ -68,7 +75,10 @@ function VersionCell({
       >
         {currentVersion}
       </EntityLink>
-      <span className="shrink-0 text-slate-400">-&gt;</span>
+      <ArrowIndicator
+        currentCreatedAt={releaseCreatedAtByKey.get(`${componentId}:${currentVersion}`)}
+        targetCreatedAt={releaseCreatedAtByKey.get(`${componentId}:${targetVersion}`)}
+      />
       <EntityLink
         kind="release"
         to="/releases/$componentId/$version"
@@ -78,4 +88,25 @@ function VersionCell({
       </EntityLink>
     </div>
   );
+}
+
+function ArrowIndicator({
+  currentCreatedAt,
+  targetCreatedAt,
+}: {
+  currentCreatedAt: string | undefined;
+  targetCreatedAt: string | undefined;
+}) {
+  const currentTime = currentCreatedAt ? new Date(currentCreatedAt).getTime() : null;
+  const targetTime = targetCreatedAt ? new Date(targetCreatedAt).getTime() : null;
+  const className =
+    currentTime !== null && targetTime !== null
+      ? targetTime > currentTime
+        ? "text-emerald-600"
+        : targetTime < currentTime
+          ? "text-red-600"
+          : "text-slate-400"
+      : "text-slate-400";
+
+  return <MoveRight className={`h-4 w-4 shrink-0 ${className}`} />;
 }

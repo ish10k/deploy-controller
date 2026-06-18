@@ -18,12 +18,15 @@ import { RegistryPage } from "@/components/pages/registry-page";
 import { RoleDetailsPage } from "@/components/pages/roles-page";
 import { UserDetailsPage } from "@/components/pages/users-page";
 import { WebhookDeliveryDetailsPage, WebhookDetailsPage, WebhooksPage } from "@/components/pages/webhooks-page";
+import { ModalProvider } from "@/components/ui/modal";
 
 const rootRoute = createRootRoute({
   component: () => (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <ModalProvider>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </ModalProvider>
   ),
 });
 

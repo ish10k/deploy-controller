@@ -369,7 +369,7 @@ function DeploymentRunnerDetailsView({
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={runner.runnerId}
+        title={`Deployment Runner: ${runner.runnerId}`}
         subtitle="Deployment runner identity, scope, heartbeat, and pending execution queue."
         action={
           <div className="flex items-center gap-2">

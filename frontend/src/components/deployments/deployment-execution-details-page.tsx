@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
-import { StatusBadge } from "@/components/deployments/status-badge";
+import { ReportedActionBadge, RequestedActionBadge, StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,7 +94,7 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={execution.deploymentExecutionId}
+        title={`Deployment: ${execution.deploymentExecutionId}`}
         subtitle="Deployment execution details, component actions, and event history."
         action={
           <div className="flex gap-2">
@@ -312,10 +312,10 @@ export function ComponentActionsTable({
               <VersionCell componentId={row.componentId} currentVersion={currentVersions.get(row.componentId)} targetVersion={row.version} />
             </TableCell>
             <TableCell>
-              <ActionBadge action={row.requestedAction} />
+              <RequestedActionBadge action={row.requestedAction} />
             </TableCell>
             <TableCell>
-              <ActionBadge action={row.reportedAction ?? "noop"} failed={row.status === "failed"} />
+              <ReportedActionBadge action={row.reportedAction ?? "noop"} failed={row.status === "failed"} />
             </TableCell>
             <TableCell>
               <StatusBadge status={row.status} />
@@ -401,13 +401,6 @@ function EventLogItem({
       </div>
     </div>
   );
-}
-
-function ActionBadge({ action, failed = false }: { action: string; failed?: boolean }) {
-  if (action === "skip" || action === "noop") {
-    return <Badge variant="slate">No change</Badge>;
-  }
-  return <Badge variant={failed ? "red" : "blue"}>{failed ? "Update failed" : "Update"}</Badge>;
 }
 
 function VersionCell({

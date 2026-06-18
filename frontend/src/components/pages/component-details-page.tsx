@@ -59,7 +59,7 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={component.componentId}
+        title={`Component: ${component.componentId}`}
         subtitle="Component metadata, release history, and delivery context."
         action={
           <div className="flex gap-2">

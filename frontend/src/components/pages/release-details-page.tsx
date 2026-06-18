@@ -1,13 +1,17 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, FileText, GitBranch, Package, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, Copy, FileText, GitBranch, Package, Server, Tag, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { StatusBadge } from "@/components/deployments/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
+import { ScrollFade } from "@/components/ui/scroll-fade";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TagList } from "@/components/ui/tag-list";
-import { getRelease, type ApiRelease } from "@/lib/api-client";
+import { getRelease, listDeploymentExecutions, type ApiRelease } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 
 export function ReleaseDetailsPage({ componentId, version }: { componentId: string; version: string }) {
@@ -25,10 +29,33 @@ export function ReleaseDetailsPage({ componentId, version }: { componentId: stri
 }
 
 function ReleaseDetailsView({ release }: { release: ApiRelease }) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const deploymentsQuery = useQuery({
+    queryKey: ["deployment-executions", "for-release", release.componentId, release.version],
+    queryFn: () => listDeploymentExecutions(),
+    retry: 1,
+  });
+
+  const relatedDeployments = useMemo(() => {
+    const executions = deploymentsQuery.data ?? [];
+
+    return executions
+      .filter((execution) => execution.items.some((item) => item.componentId === release.componentId && item.version === release.version))
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }, [deploymentsQuery.data, release.componentId, release.version]);
+
+  useEffect(() => {
+    if (!copiedField) return undefined;
+
+    const timer = window.setTimeout(() => setCopiedField(null), 1200);
+    return () => window.clearTimeout(timer);
+  }, [copiedField]);
+
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={`${release.componentId} ${release.version}`}
+        title={`Release: ${release.componentId} ${release.version}`}
         subtitle="Release artifact, source, and delivery notes."
         action={
           <div className="flex gap-2">
@@ -45,7 +72,7 @@ function ReleaseDetailsView({ release }: { release: ApiRelease }) {
         }
       />
 
-      <div className="grid shrink-0 grid-cols-3 gap-4">
+      <div className="mt-4 grid shrink-0 grid-cols-3 gap-4">
         <Link
           to="/components/$componentId"
           params={{ componentId: release.componentId }}
@@ -54,11 +81,70 @@ function ReleaseDetailsView({ release }: { release: ApiRelease }) {
           <FactCard icon={Package} label="Component" value={release.componentId} sublabel={`Version ${release.version}`} interactive />
         </Link>
         <FactCard icon={CalendarClock} label="Created" value={formatDateTime(release.createdAt)} sublabel={`By ${release.createdBy}`} />
-        <FactCard icon={GitBranch} label="Artifact" value={release.artifact.key} sublabel={release.source?.digest ?? "No source digest"} />
+        <FactCard
+          icon={Server}
+          label="Deploys"
+          value={relatedDeployments.length.toString()}
+          sublabel="Executions including this release"
+        />
       </div>
 
-      <div className="mt-4">
-        <Card>
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4">
+        <Card className="flex min-h-0 flex-col overflow-hidden">
+          <CardHeader>
+            <CardTitle>Recent deployments</CardTitle>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+            <ScrollFade className="h-full" contentClassName="px-4 pb-4">
+              {deploymentsQuery.isLoading ? (
+                <LoadingPanel label="Loading deployments..." />
+              ) : deploymentsQuery.error ? (
+                <ApiErrorPanel error={deploymentsQuery.error} onRetry={() => deploymentsQuery.refetch()} />
+              ) : relatedDeployments.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Deployment</TableHead>
+                      <TableHead>DeploySet</TableHead>
+                      <TableHead>Environment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Started</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {relatedDeployments.map((execution) => (
+                      <TableRow key={execution.deploymentExecutionId}>
+                        <TableCell>
+                          <EntityLink kind="deployment" to="/deployments/$deploymentExecutionId" params={{ deploymentExecutionId: execution.deploymentExecutionId }}>
+                            {execution.deploymentExecutionId}
+                          </EntityLink>
+                        </TableCell>
+                        <TableCell>
+                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
+                            {execution.deploySetId}
+                          </EntityLink>
+                        </TableCell>
+                        <TableCell>
+                          <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: execution.environmentId }}>
+                            {execution.environmentId}
+                          </EntityLink>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={execution.status} />
+                        </TableCell>
+                        <TableCell>{formatDateTime(execution.startedAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyPanel label="No deployments include this release yet." />
+              )}
+            </ScrollFade>
+          </CardContent>
+        </Card>
+
+        <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>Release metadata</CardTitle>
           </CardHeader>
@@ -89,10 +175,11 @@ function ReleaseDetailsView({ release }: { release: ApiRelease }) {
             <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(release.createdAt)} />
             <MetaRow icon={FileText} label="Description" value={release.description ?? "None"} multiline />
             <MetaRow icon={FileText} label="Notes" value={release.notes ?? "None"} multiline />
-            <MetaRow icon={Package} label="Artifact key" value={release.artifact.key} multiline />
-            <MetaRow icon={FileText} label="Artifact digest" value={release.artifact.digest} multiline />
-            <MetaRow icon={GitBranch} label="Source key" value={release.source?.key ?? "None"} multiline />
-            <MetaRow icon={FileText} label="Source digest" value={release.source?.digest ?? "None"} multiline />
+            <CopyableMetaRow icon={Package} label="Artifact key" value={release.artifact.key} copiedField={copiedField} onCopy={setCopiedField} />
+            <CopyableMetaRow icon={FileText} label="Artifact digest" value={release.artifact.digest} copiedField={copiedField} onCopy={setCopiedField} />
+            <CopyableMetaRow icon={GitBranch} label="Source key" value={release.source?.key ?? "None"} copiedField={copiedField} onCopy={setCopiedField} />
+            <CopyableMetaRow icon={FileText} label="Source digest" value={release.source?.digest ?? "None"} copiedField={copiedField} onCopy={setCopiedField} />
+            <MetaRow icon={Server} label="In deployments" value={relatedDeployments.length.toString()} />
             <div className="grid grid-cols-[120px_1fr] gap-3">
               <span className="flex items-start gap-2 font-semibold text-slate-700">
                 <Tag className="mt-0.5 h-4 w-4 text-slate-500" />
@@ -143,7 +230,54 @@ function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof
         <Icon className="h-4 w-4 text-slate-500" />
         {label}
       </span>
-      <span className={`text-slate-800 ${multiline ? "whitespace-pre-wrap break-words" : "min-w-0 truncate"}`}>{value}</span>
+      <span className={`min-w-0 text-slate-800 ${multiline ? "whitespace-pre-wrap break-words" : "whitespace-normal break-words"}`}>{value}</span>
+    </div>
+  );
+}
+
+function CopyableMetaRow({
+  icon: Icon,
+  label,
+  value,
+  copiedField,
+  onCopy,
+}: {
+  icon: typeof Package;
+  label: string;
+  value: string;
+  copiedField: string | null;
+  onCopy: (field: string | null) => void;
+}) {
+  const fieldKey = label.toLowerCase();
+  const copied = copiedField === fieldKey;
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  const copyValue = async () => {
+    await navigator.clipboard.writeText(value);
+    onCopy(fieldKey);
+    window.setTimeout(() => buttonRef.current?.blur(), 0);
+  };
+
+  return (
+    <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
+      <span className="flex items-start gap-2 font-semibold text-slate-700">
+        <Icon className="mt-0.5 h-4 w-4 text-slate-500" />
+        {label}
+      </span>
+      <div className="group flex min-w-0 items-start gap-2">
+        <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-slate-800">{value}</span>
+        <Button
+          ref={buttonRef}
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={copyValue}
+          className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+          title={`Copy ${label.toLowerCase()}`}
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </Button>
+      </div>
     </div>
   );
 }

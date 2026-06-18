@@ -61,7 +61,7 @@ export function KeyValueList({
           </TableBody>
         </Table>
       ) : (
-        <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm font-medium text-slate-500">{emptyLabel}</div>
+        <div className="rounded-lg bg-slate-50 px-3 py-4 text-sm font-medium text-slate-500">{emptyLabel}</div>
       )}
     </div>
   );

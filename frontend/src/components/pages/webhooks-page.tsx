@@ -190,7 +190,7 @@ function WebhookDetailsView({ webhook, deliveries }: { webhook: ApiWebhook; deli
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={webhook.displayName || webhook.webhookId}
+        title={`Webhook: ${webhook.displayName || webhook.webhookId}`}
         subtitle="Destination, subscription rules, retry policy, and delivery history."
         action={
           <Link to="/webhooks">
@@ -255,7 +255,7 @@ export function WebhookDeliveryDetailsPage({ deliveryId }: { deliveryId: string 
   return (
     <>
       <PageHeader
-        title={delivery.webhookDeliveryId}
+        title={`Webhook Delivery: ${delivery.webhookDeliveryId}`}
         subtitle="Webhook envelope, attempt state, and response metadata."
         action={
           <div className="flex gap-2">

@@ -38,9 +38,7 @@ export function LoadingPanel({ label = "Loading API data..." }: { label?: string
 
 export function EmptyPanel({ label = "No records returned by the API." }: { label?: string }) {
   return (
-    <Card>
-      <CardContent className="flex h-36 items-center justify-center text-sm font-semibold text-slate-500">{label}</CardContent>
-    </Card>
+    <div className="flex h-36 items-center justify-center rounded-lg bg-slate-50 px-4 text-sm font-semibold text-slate-500">{label}</div>
   );
 }
 

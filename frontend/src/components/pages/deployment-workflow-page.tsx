@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCheck, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
@@ -16,10 +16,13 @@ import {
   listComponentSets,
   listDeploymentExecutions,
   listDeploysets,
+  listReleases,
   planDeployment,
   queryKeys,
 } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
+import { ENTITY_ICONS } from "@/lib/entity-icons";
+import { useModal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 
 export function DeploymentWorkflowPage({
@@ -46,6 +49,7 @@ export function DeploymentWorkflowPage({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
+  const { openModal, closeModal } = useModal();
   const { environmentId: defaultEnvironmentId, environments, environmentsLoading } = useAppContext();
   const [componentSetId, setComponentSetId] = useState(initialComponentSetId);
   const [deploySetId, setDeploySetId] = useState(initialDeploySetId);
@@ -57,6 +61,7 @@ export function DeploymentWorkflowPage({
   const actionsRef = useRef<HTMLDivElement>(null);
   const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
   const deploysetsQuery = useQuery({ queryKey: queryKeys.deploysets, queryFn: listDeploysets });
+  const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
   const executionsQuery = useQuery({
     queryKey: queryKeys.executions(selectedEnvironmentId),
     queryFn: () => listDeploymentExecutions(selectedEnvironmentId),
@@ -139,6 +144,7 @@ export function DeploymentWorkflowPage({
   const createMutation = useMutation({
     mutationFn: createDeployment,
     onSuccess: async (execution) => {
+      closeModal();
       toast({
         variant: "success",
         title: "Deployment created",
@@ -151,6 +157,13 @@ export function DeploymentWorkflowPage({
       ]);
       onCreated?.();
       await navigate({ to: "/deployments/$deploymentExecutionId", params: { deploymentExecutionId: execution.deploymentExecutionId } });
+    },
+    onError: (error) => {
+      toast({
+        variant: "error",
+        title: "Deployment failed",
+        description: error instanceof Error ? error.message : "Unable to create deployment.",
+      });
     },
   });
 
@@ -171,8 +184,16 @@ export function DeploymentWorkflowPage({
     )[0];
     return new Map(latestExecution?.items.map((item) => [item.componentId, item.version]));
   }, [executionsQuery.data]);
+  const releaseCreatedAtByKey = useMemo(
+    () => new Map((releasesQuery.data ?? []).map((release) => [`${release.componentId}:${release.version}`, release.createdAt])),
+    [releasesQuery.data],
+  );
 
   const planPreview = planQuery.data ?? null;
+  const changedPlanItems = useMemo(
+    () => planPreview?.items.filter((item) => item.requestedAction !== "skip") ?? [],
+    [planPreview],
+  );
   const tagsError = validateTagDrafts(tags);
   const parsedTags = tagsToRecord(tags);
   const deployDisabled =
@@ -199,17 +220,44 @@ export function DeploymentWorkflowPage({
           disabled={deployDisabled}
           className="rounded-r-none"
           onClick={() =>
-            createMutation.mutate({
-              environmentId: selectedEnvironmentId,
-              deploySetId: activeDeploySetId,
-              requestedBy,
-              notes: notes.trim() || null,
-              force,
-              tags: parsedTags,
+            openModal({
+              title: "Confirm deployment",
+              description: "Review the changed deploys before creating the execution.",
+              maxWidth: "max-w-4xl",
+              footer: (
+                <DeploymentConfirmFooter
+                  changedCount={changedPlanItems.length}
+                  onCancel={closeModal}
+                  onConfirm={() =>
+                    createMutation.mutateAsync({
+                      environmentId: selectedEnvironmentId,
+                      deploySetId: activeDeploySetId,
+                      requestedBy,
+                      notes: notes.trim() || null,
+                      force,
+                      tags: parsedTags,
+                    })
+                  }
+                  confirmDisabled={!planPreview}
+                />
+              ),
+              render: () => (
+                <div className="grid gap-4">
+                  {planQuery.isLoading ? (
+                    <LoadingPanel label="Loading plan preview..." />
+                  ) : planQuery.error ? (
+                    <ApiErrorPanel error={planQuery.error} onRetry={() => planQuery.refetch()} />
+                  ) : changedPlanItems.length > 0 ? (
+                    <PlanItems items={changedPlanItems} currentVersions={currentVersions} releaseCreatedAtByKey={releaseCreatedAtByKey} />
+                  ) : (
+                    <EmptyPanel label="No components need to change for this deployment." />
+                  )}
+                </div>
+              ),
             })
           }
-        >
-          <CheckCheck className="h-4 w-4" />
+          >
+          <Check className="h-4 w-4" />
           Deploy
         </Button>
         <Button
@@ -251,7 +299,8 @@ export function DeploymentWorkflowPage({
         <CardContent className="grid gap-3 p-4 pt-0">
           <div className="grid gap-3 md:grid-cols-3">
             <label className="grid gap-1 text-sm font-semibold">
-              <span>
+              <span className="flex items-center gap-2">
+                <ENTITY_ICONS.componentSet className="h-4 w-4 text-slate-500" />
                 Component Set
                 <RequiredMark />
               </span>
@@ -280,7 +329,8 @@ export function DeploymentWorkflowPage({
               </Select>
             </label>
             <label className="grid gap-1 text-sm font-semibold">
-              <span>
+              <span className="flex items-center gap-2">
+                <ENTITY_ICONS.deployset className="h-4 w-4 text-slate-500" />
                 DeploySet
                 <RequiredMark />
               </span>
@@ -301,7 +351,8 @@ export function DeploymentWorkflowPage({
               </Select>
             </label>
             <label className="grid gap-1 text-sm font-semibold">
-              <span>
+              <span className="flex items-center gap-2">
+                <ENTITY_ICONS.environment className="h-4 w-4 text-slate-500" />
                 Environment
                 <RequiredMark />
               </span>
@@ -327,7 +378,8 @@ export function DeploymentWorkflowPage({
           </div>
           {onCreateDeploySet && !lockTarget ? (
             <div className="flex justify-start">
-              <button type="button" className="text-left text-xs font-bold text-blue-600" onClick={onCreateDeploySet}>
+              <button type="button" className="flex items-center gap-1 text-left text-xs font-bold text-blue-600" onClick={onCreateDeploySet}>
+                <Plus className="h-3.5 w-3.5" />
                 Create new DeploySet
               </button>
             </div>
@@ -348,7 +400,7 @@ export function DeploymentWorkflowPage({
           ) : planQuery.error ? (
             <ApiErrorPanel error={planQuery.error} onRetry={() => planQuery.refetch()} />
           ) : planPreview ? (
-            <PlanItems items={planPreview.items} currentVersions={currentVersions} />
+            <PlanItems items={planPreview.items} currentVersions={currentVersions} releaseCreatedAtByKey={releaseCreatedAtByKey} />
           ) : (
             <EmptyPanel label="Select a DeploySet and environment to preview the deployment." />
           )}
@@ -397,7 +449,6 @@ export function DeploymentWorkflowPage({
       </div>
     </div>
   );
-
   if (!showHeader) {
     return (
       <div className="flex h-full min-h-0 flex-col">
@@ -412,5 +463,52 @@ export function DeploymentWorkflowPage({
       {content}
       <div className="mt-4 rounded-lg border border-slate-200">{footer}</div>
     </>
+  );
+}
+
+function DeploymentConfirmFooter({
+  changedCount,
+  onCancel,
+  onConfirm,
+  confirmDisabled,
+}: {
+  changedCount: number;
+  onCancel: () => void;
+  onConfirm: () => Promise<unknown>;
+  confirmDisabled: boolean;
+}) {
+  const [pending, setPending] = useState(false);
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="grid gap-0.5">
+        <p className="text-xs font-medium text-slate-500">
+          {changedCount > 0
+            ? `${changedCount} changed deploy${changedCount === 1 ? "" : "s"} will be created.`
+            : "No changed deploys were found in the current plan."}
+        </p>
+        <p className="text-xs text-slate-500">The confirmation view only shows items that will actually deploy.</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          onClick={async () => {
+            setPending(true);
+            try {
+              await onConfirm();
+            } finally {
+              setPending(false);
+            }
+          }}
+          disabled={pending || confirmDisabled}
+        >
+          <Check className="h-4 w-4" />
+          Create deployment
+        </Button>
+      </div>
+    </div>
   );
 }

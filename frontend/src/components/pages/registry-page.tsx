@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Box, GitCommitHorizontal, Layers3, Plus, RefreshCw, Search } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/common/api-state";
 import { ComponentSetsPage } from "@/components/pages/component-sets-page";
 import { ComponentsPage } from "@/components/pages/components-page";
 import { ReleasesPage } from "@/components/pages/releases-page";
 import { Button } from "@/components/ui/button";
+import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 
 type RegistryView = "components" | "component-sets" | "releases";
@@ -63,7 +64,7 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
                   className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left hover:bg-slate-50"
                   onClick={() => openCreate("releases")}
                 >
-                  <GitCommitHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                  <ENTITY_ICONS.release className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                   <span className="grid min-w-0 gap-0.5">
                     <span className="text-sm font-semibold text-slate-700">Release</span>
                     <span className="text-xs font-medium leading-4 text-slate-500">Publish a new immutable version.</span>
@@ -75,7 +76,7 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
                   className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left hover:bg-slate-50"
                   onClick={() => openCreate("components")}
                 >
-                  <Box className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                  <ENTITY_ICONS.component className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                   <span className="grid min-w-0 gap-0.5">
                     <span className="text-sm font-semibold text-slate-700">Component</span>
                     <span className="text-xs font-medium leading-4 text-slate-500">Register a deployable unit.</span>
@@ -87,7 +88,7 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
                   className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left hover:bg-slate-50"
                   onClick={() => openCreate("component-sets")}
                 >
-                  <Layers3 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                  <ENTITY_ICONS.componentSet className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                   <span className="grid min-w-0 gap-0.5">
                     <span className="text-sm font-semibold text-slate-700">Component set</span>
                     <span className="text-xs font-medium leading-4 text-slate-500">Group components for releases and deploys.</span>
