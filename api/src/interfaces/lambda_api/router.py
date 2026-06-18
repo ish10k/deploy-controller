@@ -176,6 +176,8 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         return response(200, container.read_only.list_deployment_executions(_query(event, "environmentId")))
     if method == "GET" and len(parts) == 2 and parts[0] == "deployment-executions":
         return response(200, container.read_only.get_deployment_execution(parts[1]))
+    if method == "POST" and len(parts) == 3 and parts[0] == "deployment-executions" and parts[2] == "cancel":
+        return response(200, container.create_deployment.cancel(parts[1], _auth_context(event, container)))
 
     if method == "POST" and parts == ["deployments", "plan"]:
         _auth_context(event, container)

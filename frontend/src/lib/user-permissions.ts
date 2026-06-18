@@ -6,11 +6,13 @@ export const USER_PERMISSIONS = {
   changeUserPermissions: "principals:write",
   viewRoles: "roles:read",
   changeRoles: "roles:write",
+  cancelDeployments: "deployments:cancel",
   manageReleaseSources: "release_sources:write",
   viewWebhooks: "webhooks:read",
   manageWebhooks: "webhooks:write",
   viewWebhookDeliveries: "webhook_deliveries:read",
   retryWebhookDeliveries: "webhook_deliveries:retry",
+  viewEvents: "events:read",
 } as const;
 
 export function canViewUsers(user: ApiWhoAmI | null | undefined) {
@@ -33,6 +35,10 @@ export function canChangeRoles(user: ApiWhoAmI | null | undefined) {
   return hasPermission(user, USER_PERMISSIONS.changeRoles);
 }
 
+export function canCancelDeployments(user: ApiWhoAmI | null | undefined) {
+  return hasPermission(user, USER_PERMISSIONS.cancelDeployments);
+}
+
 export function canManageReleaseSources(user: ApiWhoAmI | null | undefined) {
   return hasPermission(user, USER_PERMISSIONS.manageReleaseSources);
 }
@@ -51,6 +57,10 @@ export function canViewWebhookDeliveries(user: ApiWhoAmI | null | undefined) {
 
 export function canRetryWebhookDeliveries(user: ApiWhoAmI | null | undefined) {
   return hasPermission(user, USER_PERMISSIONS.retryWebhookDeliveries);
+}
+
+export function canViewEvents(user: ApiWhoAmI | null | undefined) {
+  return hasPermission(user, USER_PERMISSIONS.viewEvents);
 }
 
 function hasPermission(user: ApiWhoAmI | null | undefined, permission: string) {

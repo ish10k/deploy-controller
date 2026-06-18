@@ -33,7 +33,7 @@ import {
   type ApiWebhookFilter,
   type ApiWebhookSubscription,
 } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { canManageWebhooks, canRetryWebhookDeliveries, canViewWebhookDeliveries, canViewWebhooks } from "@/lib/user-permissions";
 
 const EVENT_GROUPS = [
@@ -477,7 +477,7 @@ function DeliveryTable({ deliveries }: { deliveries: ApiWebhookDelivery[] }) {
             <TableCell>{delivery.eventType}</TableCell>
             <TableCell><DeliveryStatusBadge status={delivery.status} /></TableCell>
             <TableCell>{delivery.attempts}</TableCell>
-            <TableCell>{formatDateTime(delivery.updatedAt)}</TableCell>
+            <TableCell>{formatRelativeTime(delivery.updatedAt, { mode: "short" })}</TableCell>
           </TableRow>
         ))}
       </TableBody>

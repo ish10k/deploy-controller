@@ -1,6 +1,8 @@
+import re
+
 import pytest
 from src.composition.memory_container import build_memory_container
-from src.domain.enums import Permission, PrincipalType
+from src.domain.enums import ExecutionStatus, Permission, PrincipalType
 from src.domain.errors import ConflictError
 from src.domain.models import (
     AuthContext,
@@ -225,7 +227,7 @@ def test_plan_deployment_skips_from_latest_success() -> None:
     seed(store)
     store.create_deployment_execution(
         DeploymentExecution(
-            deploymentExecutionId="dep-exec-1",
+            deploymentExecutionId="abc123ef",
             environmentId="prod",
             deploySetId="ds-1",
             status="succeeded",
@@ -272,8 +274,57 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     )
 
     assert execution.status == "pending"
+    assert re.fullmatch(r"[0-9a-f]{8}", execution.deployment_execution_id)
     assert execution.notes == "Approved for rollout after verification in staging."
     assert store.get_environment_state("prod").last_deployment_execution_id == execution.deployment_execution_id
+
+
+def test_create_deployment_rejects_active_execution_for_same_environment_and_component_set() -> None:
+    store = MemoryRepositories()
+    seed(store)
+    store.create_deployment_execution(
+        DeploymentExecution(
+            deploymentExecutionId="busy1234",
+            environmentId="prod",
+            deploySetId="ds-1",
+            status=ExecutionStatus.RUNNING,
+            requestedBy="operator",
+            startedAt="2026-06-16T12:03:00Z",
+            items=[
+                {
+                    "componentId": "api",
+                    "version": "1.0.0",
+                    "artifact": artifact("api", "1.0.0", "sha-api-a"),
+                    "requestedAction": "deploy",
+                    "reportedAction": "deploy",
+                    "status": "running",
+                }
+            ],
+        )
+    )
+    container = build_memory_container(store)
+
+    with pytest.raises(ConflictError, match="Deployment already in progress"):
+        container.create_deployment.execute(environment_id="prod", deployset_id="ds-1", context=admin_context())
+
+
+def test_cancel_deployment_marks_execution_cancelled() -> None:
+    store = MemoryRepositories()
+    seed(store)
+    container = build_memory_container(store)
+
+    execution = container.create_deployment.execute(
+        environment_id="prod",
+        deployset_id="ds-1",
+        context=admin_context(),
+        notes="Cancel me.",
+    )
+
+    cancelled = container.create_deployment.cancel(execution.deployment_execution_id, admin_context())
+
+    assert cancelled.status == ExecutionStatus.CANCELLED
+    assert cancelled.completed_at is not None
+    assert store.get_environment_state("prod").status == ExecutionStatus.CANCELLED
 
 
 def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
@@ -281,7 +332,7 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     seed(store)
     store.create_deployment_execution(
         DeploymentExecution(
-            deploymentExecutionId="dep-exec-1",
+            deploymentExecutionId="abc123ef",
             environmentId="prod",
             deploySetId="ds-1",
             status="succeeded",

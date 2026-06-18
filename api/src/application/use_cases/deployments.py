@@ -13,7 +13,6 @@ from src.application.ports import (
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
 from src.domain.enums import (
-    EXECUTION_STATUSES,
     ITEM_STATUSES,
     REPORTED_ACTIONS,
     EnvironmentStatus,
@@ -131,6 +130,15 @@ class CreateDeploymentUseCase:
         tags: dict[str, str] | None = None,
     ) -> DeploymentExecution:
         require_permission(context, Permission.DEPLOYMENTS_CREATE)
+        deployset = self.planner.deploysets.get(deployset_id)
+        if deployset is None:
+            raise NotFoundError(f"DeploySet not found: {deployset_id}")
+        environment = self.planner.environments.get(environment_id)
+        if environment is None:
+            raise NotFoundError(f"Environment not found: {environment_id}")
+        if not environment.active:
+            raise ValidationError(f"Environment is inactive: {environment_id}")
+        self._require_no_active_execution(environment_id, deployset.component_set_id)
         plan = self.planner.execute(environment_id=environment_id, deployset_id=deployset_id, force=force)
         now = self.clock.now()
         execution = DeploymentExecution(
@@ -172,6 +180,61 @@ class CreateDeploymentUseCase:
                 metadata={"environmentId": environment_id, "deploysetId": deployset_id, "force": force},
             )
         return execution
+
+    def cancel(self, deployment_execution_id: str, context: AuthContext) -> DeploymentExecution:
+        require_permission(context, Permission.DEPLOYMENTS_CANCEL)
+        execution = self._get(deployment_execution_id)
+        if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
+            raise ValidationError(f"Execution cannot be cancelled: {deployment_execution_id}")
+        now = self.clock.now()
+        updated = execution.model_copy(
+            update={
+                "status": ExecutionStatus.CANCELLED,
+                "completed_at": now,
+            }
+        )
+        self.executions.put(updated)
+        self._update_state(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment.status_changed",
+                category="deployment",
+                summary=f"Cancelled deployment execution {deployment_execution_id}",
+                resource_type="deploymentExecution",
+                resource_id=deployment_execution_id,
+                before=execution,
+                after=updated,
+                metadata={"status": str(ExecutionStatus.CANCELLED)},
+            )
+        return updated
+
+    def _get(self, deployment_execution_id: str) -> DeploymentExecution:
+        execution = self.executions.get(deployment_execution_id)
+        if execution is None:
+            raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
+        return execution
+
+    def _require_no_active_execution(self, environment_id: str, component_set_id: str) -> None:
+        for execution in self.executions.list_by_environment(environment_id):
+            if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
+                continue
+            deployset = self.planner.deploysets.get(execution.deployset_id)
+            if deployset and deployset.component_set_id == component_set_id:
+                raise ConflictError(
+                    f"Deployment already in progress for environment and component set: {environment_id}/{component_set_id}"
+                )
+
+    def _update_state(self, execution: DeploymentExecution) -> None:
+        self.states.put(
+            EnvironmentState(
+                environment_id=execution.environment_id,
+                deployset_id=execution.deployset_id,
+                status=execution.status,
+                last_deployment_execution_id=execution.deployment_execution_id,
+                updated_at=self.clock.now(),
+            )
+        )
 
 
 class DeploymentRunnerUseCases:
@@ -368,6 +431,7 @@ class DeploymentRunnerUseCases:
         runner = self._active_runner(runner_id)
         self._require_scope(runner, execution)
         self._require_claimed_by_runner(runner_id, execution)
+        self._require_execution_active(execution)
         previous_latest = self._previous_latest_item(execution, component_id)
         updated_items = []
         found = False
@@ -422,13 +486,14 @@ class DeploymentRunnerUseCases:
 
     def report_execution_status(self, runner_id: str, deployment_execution_id: str, status: str, context: AuthContext) -> DeploymentExecution:
         self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
-        if status not in EXECUTION_STATUSES:
+        if status not in {ExecutionStatus.RUNNING, ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED}:
             raise ValidationError(f"Unsupported execution status: {status}")
         status = ExecutionStatus(status)
         execution = self._get(deployment_execution_id)
         runner = self._active_runner(runner_id)
         self._require_scope(runner, execution)
         self._require_claimed_by_runner(runner_id, execution)
+        self._require_execution_active(execution)
         completed_at = (
             self.clock.now()
             if status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED}
@@ -484,6 +549,20 @@ class DeploymentRunnerUseCases:
         if execution is None:
             raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
         return execution
+
+    def _require_no_active_execution(self, environment_id: str, component_set_id: str) -> None:
+        for execution in self.executions.list_by_environment(environment_id):
+            if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
+                continue
+            deployset = self.planner.deploysets.get(execution.deployset_id)
+            if deployset and deployset.component_set_id == component_set_id:
+                raise ConflictError(
+                    f"Deployment already in progress for environment and component set: {environment_id}/{component_set_id}"
+                )
+
+    def _require_execution_active(self, execution: DeploymentExecution) -> None:
+        if execution.status not in {ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
+            raise ValidationError(f"Execution is not active: {execution.deployment_execution_id}")
 
     def _previous_latest_item(
         self,

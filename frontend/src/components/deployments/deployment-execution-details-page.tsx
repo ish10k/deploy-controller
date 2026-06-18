@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { ArrowLeft, Box, Clock3, ExternalLink, FileText, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
@@ -14,14 +14,19 @@ import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getDeploymentExecution,
+  listDeploymentExecutions,
   listEvents,
+  cancelDeploymentExecution,
   queryKeys,
   type ApiDeploymentExecution,
   type ApiDeploymentExecutionItem,
   type ApiEventLogEntry,
+  ApiRequestError,
 } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateTime } from "@/lib/format";
+import { useToast } from "@/components/ui/toast";
+import { canCancelDeployments } from "@/lib/user-permissions";
 
 export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { deploymentExecutionId: string }) {
   const query = useQuery({
@@ -38,16 +43,52 @@ export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { depl
 }
 
 function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution }) {
+  const queryClient = useQueryClient();
   const auth = useAuth();
+  const toast = useToast();
   const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
+  const canCancel = canCancelDeployments(auth.user) && ["pending", "claimed", "running"].includes(execution.status);
   const eventQuery = useQuery({
     queryKey: queryKeys.events({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
     enabled: canReadEvents,
     queryFn: () => listEvents({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
   });
+  const executionsQuery = useQuery({
+    queryKey: queryKeys.executions(execution.environmentId),
+    queryFn: () => listDeploymentExecutions(execution.environmentId),
+  });
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelDeploymentExecution(execution.deploymentExecutionId),
+    onSuccess: async () => {
+      toast({
+        variant: "success",
+        title: "Deployment cancelled",
+        description: `Execution ${execution.deploymentExecutionId} is now cancelled.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.execution(execution.deploymentExecutionId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.executions(execution.environmentId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(execution.environmentId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
+        queryClient.invalidateQueries({ queryKey: ["events"] }),
+      ]);
+    },
+    onError: (error) => {
+      toast({
+        variant: "error",
+        title: "Unable to cancel deployment",
+        description: error instanceof ApiRequestError ? error.message : "The deployment could not be cancelled.",
+      });
+    },
+  });
   const driftCount = execution.items.filter((item) => item.driftDetected).length;
   const failedCount = execution.items.filter((item) => item.status === "failed").length;
   const succeededCount = execution.items.filter((item) => item.status === "succeeded").length;
+  const currentVersions = new Map(
+    executionsQuery.data
+      ?.find((candidate) => candidate.deploymentExecutionId !== execution.deploymentExecutionId)
+      ?.items.map((item) => [item.componentId, item.version]) ?? [],
+  );
   const events = eventQuery.data?.events ?? [];
 
   return (
@@ -63,12 +104,18 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
                 Back to deployments
               </Button>
             </Link>
-            <Link to="/environments/$environmentId" params={{ environmentId: execution.environmentId }}>
-              <Button variant="outline">
-                Environment
-                <ExternalLink className="h-4 w-4" />
+            {canCancel ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-red-600 bg-red-600 text-white hover:border-red-700 hover:bg-red-700 hover:text-white"
+                disabled={cancelMutation.isPending}
+                onClick={() => cancelMutation.mutate()}
+              >
+                <CircleSlash className="h-4 w-4" />
+                {cancelMutation.isPending ? "Cancelling..." : "Cancel deployment"}
               </Button>
-            </Link>
+            ) : null}
           </div>
         }
       />
@@ -120,7 +167,7 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
             <ScrollFade className="h-full" contentClassName="px-4 pb-4">
-              <ComponentActionsTable rows={execution.items} />
+        <ComponentActionsTable rows={execution.items} currentVersions={currentVersions} />
             </ScrollFade>
           </CardContent>
         </Card>
@@ -179,8 +226,8 @@ function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
         <EventLogItem
           key={event.eventId}
           icon={Radio}
-          title={event.action}
-          subtitle={`${event.summary} | ${event.actorPrincipalId}`}
+          title={event.summary}
+          subtitle={event.actorPrincipalId}
           time={formatDateTime(event.occurredAt)}
         />
       ))}
@@ -233,7 +280,13 @@ function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecu
   );
 }
 
-export function ComponentActionsTable({ rows }: { rows: ApiDeploymentExecutionItem[] }) {
+export function ComponentActionsTable({
+  rows,
+  currentVersions,
+}: {
+  rows: ApiDeploymentExecutionItem[];
+  currentVersions: Map<string, string>;
+}) {
   if (!rows.length) return <EmptyPanel label="This execution has no item records." />;
   return (
     <Table>
@@ -256,15 +309,13 @@ export function ComponentActionsTable({ rows }: { rows: ApiDeploymentExecutionIt
               </EntityLink>
             </TableCell>
             <TableCell>
-              <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: row.componentId, version: row.version }}>
-                {row.version}
-              </EntityLink>
+              <VersionCell componentId={row.componentId} currentVersion={currentVersions.get(row.componentId)} targetVersion={row.version} />
             </TableCell>
             <TableCell>
-              <ActionBadge action={row.requestedAction} version={row.version} />
+              <ActionBadge action={row.requestedAction} />
             </TableCell>
             <TableCell>
-              <ActionBadge action={row.reportedAction ?? "noop"} version={row.version} failed={row.status === "failed"} />
+              <ActionBadge action={row.reportedAction ?? "noop"} failed={row.status === "failed"} />
             </TableCell>
             <TableCell>
               <StatusBadge status={row.status} />
@@ -352,9 +403,47 @@ function EventLogItem({
   );
 }
 
-function ActionBadge({ action, version, failed = false }: { action: string; version: string; failed?: boolean }) {
+function ActionBadge({ action, failed = false }: { action: string; failed?: boolean }) {
   if (action === "skip" || action === "noop") {
     return <Badge variant="slate">No change</Badge>;
   }
-  return <Badge variant={failed ? "red" : "blue"}>{failed ? `Update failed (${version})` : `Update (${version})`}</Badge>;
+  return <Badge variant={failed ? "red" : "blue"}>{failed ? "Update failed" : "Update"}</Badge>;
+}
+
+function VersionCell({
+  componentId,
+  currentVersion,
+  targetVersion,
+}: {
+  componentId: string;
+  currentVersion: string | undefined;
+  targetVersion: string;
+}) {
+  if (!currentVersion || currentVersion === targetVersion) {
+    return (
+      <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId, version: targetVersion }}>
+        {targetVersion}
+      </EntityLink>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <EntityLink
+        kind="release"
+        to="/releases/$componentId/$version"
+        params={{ componentId, version: currentVersion }}
+      >
+        {currentVersion}
+      </EntityLink>
+      <span className="shrink-0 text-slate-400">-&gt;</span>
+      <EntityLink
+        kind="release"
+        to="/releases/$componentId/$version"
+        params={{ componentId, version: targetVersion }}
+      >
+        {targetVersion}
+      </EntityLink>
+    </div>
+  );
 }

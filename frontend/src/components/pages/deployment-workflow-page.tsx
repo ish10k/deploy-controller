@@ -60,6 +60,30 @@ export function DeploymentWorkflowPage({
     return deploysets.filter((deployset) => deployset.componentSetId === activeComponentSetId);
   }, [activeComponentSetId, deploysetsQuery.data]);
   const activeDeploySetId = deploySetId || filteredDeploysets[0]?.deploySetId || "";
+  const selectedDeployset = useMemo(
+    () => filteredDeploysets.find((deployset) => deployset.deploySetId === activeDeploySetId) ?? null,
+    [activeDeploySetId, filteredDeploysets],
+  );
+  const deploysetComponentSetIds = useMemo(() => {
+    return new Map((deploysetsQuery.data ?? []).map((deployset) => [deployset.deploySetId, deployset.componentSetId]));
+  }, [deploysetsQuery.data]);
+  const activeExecution = useMemo(() => {
+    if (!selectedEnvironmentId || !selectedDeployset) {
+      return null;
+    }
+
+    return (
+      (executionsQuery.data ?? []).find((execution) => {
+        if (execution.environmentId !== selectedEnvironmentId) {
+          return false;
+        }
+        if (!["pending", "claimed", "running"].includes(execution.status)) {
+          return false;
+        }
+        return deploysetComponentSetIds.get(execution.deploySetId) === selectedDeployset.componentSetId;
+      }) ?? null
+    );
+  }, [deploysetComponentSetIds, executionsQuery.data, selectedDeployset, selectedEnvironmentId]);
   const planQuery = useQuery({
     queryKey: queryKeys.deploymentPlan(selectedEnvironmentId, activeDeploySetId, force),
     queryFn: () => planDeployment({ environmentId: selectedEnvironmentId, deploySetId: activeDeploySetId, force }),
@@ -115,7 +139,13 @@ export function DeploymentWorkflowPage({
   const planPreview = planQuery.data ?? null;
   const tagsError = validateTagDrafts(tags);
   const parsedTags = tagsToRecord(tags);
-  const deployDisabled = !activeDeploySetId || planQuery.isFetching || createMutation.isPending || Boolean(tagsError);
+  const deployDisabled =
+    !activeDeploySetId ||
+    planQuery.isFetching ||
+    createMutation.isPending ||
+    Boolean(tagsError) ||
+    executionsQuery.isFetching ||
+    Boolean(activeExecution);
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
     setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
   };
@@ -287,7 +317,14 @@ export function DeploymentWorkflowPage({
   );
   const footer = (
     <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-5 py-4">
-      <p className="text-xs font-medium text-slate-500">Review the plan before creating a pending deployment execution.</p>
+      <div className="grid gap-1">
+        {activeExecution ? (
+          <p className="text-xs font-semibold text-red-700">
+            Deployment {activeExecution.deploymentExecutionId} is already {activeExecution.status} for this environment and component set.
+          </p>
+        ) : null}
+        <p className="text-xs font-medium text-slate-500">Review the plan before creating a pending deployment execution.</p>
+      </div>
       <div className="flex items-center gap-2">
         {onCancel ? (
           <Button type="button" variant="outline" onClick={onCancel}>

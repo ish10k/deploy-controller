@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/deployments/status-badge";
 import { ResourceContent } from "@/components/pages/resource-content";
 import { listDeploymentExecutions, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
-import { formatDateTime } from "@/lib/format";
+import { formatRelativeTime } from "@/lib/format";
 
 export function ExecutionsPage() {
   const { environmentId } = useAppContext();
@@ -26,7 +26,7 @@ export function ExecutionsPage() {
           execution.deploymentExecutionId,
           execution.deploySetId,
           <StatusBadge status={execution.status} />,
-          formatDateTime(execution.startedAt),
+          formatRelativeTime(execution.startedAt, { mode: "short" }),
           execution.claimedBy ?? "-",
         ]}
       />

@@ -28,7 +28,7 @@ import {
   type ApiEnvironmentState,
   type ApiRelease,
 } from "@/lib/api-client";
-import { formatDateTime, tagSummary } from "@/lib/format";
+import { formatRelativeTime, tagSummary } from "@/lib/format";
 
 type DeploySetItemDraft = {
   id: string;
@@ -278,7 +278,7 @@ function DeploysetsTable({ rows }: { rows: ApiDeploySet[] }) {
               </EntityLink>
             </TableCell>
             <TableCell>{deployset.createdBy}</TableCell>
-            <TableCell>{formatDateTime(deployset.createdAt)}</TableCell>
+            <TableCell>{formatRelativeTime(deployset.createdAt, { mode: "short" })}</TableCell>
             <TableCell>
               <TagList tags={deployset.tags} limit={3} />
             </TableCell>

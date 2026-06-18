@@ -256,6 +256,12 @@ export async function getDeploymentExecution(deploymentExecutionId: string) {
   return request<ApiDeploymentExecution>(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}`);
 }
 
+export async function cancelDeploymentExecution(deploymentExecutionId: string) {
+  return request<ApiDeploymentExecution>(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}/cancel`, {
+    method: "POST",
+  });
+}
+
 export async function planDeployment(payload: ApiPlanDeploymentRequest) {
   return request<ApiDeploymentPlan>("/deployments/plan", {
     method: "POST",

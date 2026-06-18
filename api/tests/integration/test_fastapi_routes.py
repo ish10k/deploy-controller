@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 from src.domain.enums import Permission, PrincipalType
 from src.domain.models import AuthContext
@@ -80,9 +82,14 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
     assert deployment_response.status_code == 200
 
     execution_id = deployment_response.json()["deploymentExecutionId"]
+    assert re.fullmatch(r"[0-9a-f]{8}", execution_id)
     execution_response = client_instance.get(f"/deployment-executions/{execution_id}")
     assert execution_response.status_code == 200
     assert execution_response.json()["notes"] == "Production rollout requested after change window opened."
+
+    cancel_response = client_instance.post(f"/deployment-executions/{execution_id}/cancel")
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancelled"
 
 
 def test_fastapi_webhook_round_trip_with_subscriptions() -> None:

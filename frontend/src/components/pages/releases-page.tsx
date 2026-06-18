@@ -14,7 +14,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createRelease, listComponents, listReleases, queryKeys, type ApiRelease } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatRelativeTime } from "@/lib/format";
 
 export function ReleasesPage() {
   const [search, setSearch] = useState("");
@@ -140,7 +140,7 @@ export function ReleasesPage() {
                           {release.version}
                         </EntityLink>
                       </TableCell>
-                      <TableCell>{formatDateTime(release.createdAt)}</TableCell>
+                      <TableCell>{formatRelativeTime(release.createdAt, { mode: "short" })}</TableCell>
                       <TableCell className="max-w-[420px] truncate">{release.notes ?? "-"}</TableCell>
                     </TableRow>
                   ))}

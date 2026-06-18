@@ -141,32 +141,11 @@ class PrincipalUseCases:
                     resource_id=principal_id,
                     after=principal,
                 )
-                self.events.append_actor(
-                    actor_principal_id=principal_id,
-                    action="principal.authenticated",
-                    category="auth",
-                    summary=f"Authenticated {principal.display_name}",
-                    resource_type="principal",
-                    resource_id=principal_id,
-                    metadata={"authMethod": principal.auth_method},
-                )
             return auth_context_for_oidc_principal(principal, claims or {}, self.roles.list())
         if principal is None or not principal.active or principal.type != PrincipalType.USER or principal.auth_method != "oidc":
             raise ForbiddenError("OIDC token is valid, but no active Settle principal is registered.")
         updated = principal.model_copy(update={"last_seen_at": now})
         self.principals.put(updated)
-        if self.events:
-            self.events.append_actor(
-                actor_principal_id=updated.principal_id,
-                action="principal.authenticated",
-                category="auth",
-                summary=f"Authenticated {updated.display_name}",
-                resource_type="principal",
-                resource_id=updated.principal_id,
-                before=principal,
-                after=updated,
-                metadata={"authMethod": updated.auth_method},
-            )
         return auth_context_for_oidc_principal(updated, claims or {}, self.roles.list())
 
     def ensure_service_principal(

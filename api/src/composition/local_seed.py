@@ -609,7 +609,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-local-20260615-001",
+            deployment_execution_id="a1b2c3d4",
             environment_id="local",
             deployset_id="local-default",
             status=ExecutionStatus.SUCCEEDED,
@@ -663,14 +663,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="local",
             deployset_id="local-default",
             status=ExecutionStatus.SUCCEEDED,
-            last_deployment_execution_id="exec-local-20260615-001",
+            last_deployment_execution_id="a1b2c3d4",
             updated_at="2026-06-15T09:18:00Z",
         ),
     )
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-dev-20260612-001",
+            deployment_execution_id="b2c3d4e5",
             environment_id="dev",
             deployset_id="dev-default",
             status=ExecutionStatus.SUCCEEDED,
@@ -723,14 +723,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="dev",
             deployset_id="dev-default",
             status=ExecutionStatus.SUCCEEDED,
-            last_deployment_execution_id="exec-dev-20260612-001",
+            last_deployment_execution_id="b2c3d4e5",
             updated_at="2026-06-12T14:11:00Z",
         ),
     )
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-staging-20260613-001",
+            deployment_execution_id="c3d4e5f6",
             environment_id="staging",
             deployset_id="staging-default",
             status=ExecutionStatus.FAILED,
@@ -787,14 +787,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="staging",
             deployset_id="staging-default",
             status=ExecutionStatus.FAILED,
-            last_deployment_execution_id="exec-staging-20260613-001",
+            last_deployment_execution_id="c3d4e5f6",
             updated_at="2026-06-13T11:07:00Z",
         ),
     )
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-staging-20260616-001",
+            deployment_execution_id="d4e5f6a7",
             environment_id="staging",
             deployset_id="staging-default",
             status=ExecutionStatus.PENDING,
@@ -839,14 +839,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="staging",
             deployset_id="staging-default",
             status=ExecutionStatus.PENDING,
-            last_deployment_execution_id="exec-staging-20260616-001",
+            last_deployment_execution_id="d4e5f6a7",
             updated_at="2026-06-16T08:30:00Z",
         ),
     )
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-prod-20260610-001",
+            deployment_execution_id="e5f6a7b8",
             environment_id="prod",
             deployset_id="prod-default",
             status=ExecutionStatus.SUCCEEDED,
@@ -899,14 +899,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="prod",
             deployset_id="prod-default",
             status=ExecutionStatus.SUCCEEDED,
-            last_deployment_execution_id="exec-prod-20260610-001",
+            last_deployment_execution_id="e5f6a7b8",
             updated_at="2026-06-10T22:19:00Z",
         ),
     )
     _seed_execution(
         store,
         DeploymentExecution(
-            deployment_execution_id="exec-data-20260609-001",
+            deployment_execution_id="f6a7b8c9",
             environment_id="shared-data",
             deployset_id="data-default",
             status=ExecutionStatus.SUCCEEDED,
@@ -941,8 +941,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
             environment_id="shared-data",
             deployset_id="data-default",
             status=ExecutionStatus.SUCCEEDED,
-            last_deployment_execution_id="exec-data-20260609-001",
+            last_deployment_execution_id="f6a7b8c9",
             updated_at="2026-06-09T07:52:00Z",
         ),
     )
-

@@ -1,3 +1,4 @@
+import { EntityLink } from "@/components/ui/entity-link";
 import { Network, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +28,7 @@ export function PlanItems({
               {item.componentId}
             </TableCell>
             <TableCell className="font-medium text-slate-700">
-              <VersionDiff currentVersion={currentVersions.get(item.componentId)} targetVersion={item.version} />
+              <VersionCell componentId={item.componentId} currentVersion={currentVersions.get(item.componentId)} targetVersion={item.version} />
             </TableCell>
             <TableCell>
               <Badge variant={item.requestedAction === "skip" ? "slate" : "blue"}>
@@ -41,21 +42,40 @@ export function PlanItems({
   );
 }
 
-function VersionDiff({ currentVersion, targetVersion }: { currentVersion: string | undefined; targetVersion: string }) {
+function VersionCell({
+  componentId,
+  currentVersion,
+  targetVersion,
+}: {
+  componentId: string;
+  currentVersion: string | undefined;
+  targetVersion: string;
+}) {
   if (!currentVersion || currentVersion === targetVersion) {
-    return <span className="text-slate-900">{targetVersion}</span>;
+    return (
+      <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId, version: targetVersion }}>
+        {targetVersion}
+      </EntityLink>
+    );
   }
 
   return (
-    <span>
-      {currentVersion} -&gt; <span className="font-bold text-blue-900">{targetVersion}</span>
-    </span>
+    <div className="flex min-w-0 items-center gap-1">
+      <EntityLink
+        kind="release"
+        to="/releases/$componentId/$version"
+        params={{ componentId, version: currentVersion }}
+      >
+        {currentVersion}
+      </EntityLink>
+      <span className="shrink-0 text-slate-400">-&gt;</span>
+      <EntityLink
+        kind="release"
+        to="/releases/$componentId/$version"
+        params={{ componentId, version: targetVersion }}
+      >
+        {targetVersion}
+      </EntityLink>
+    </div>
   );
-}
-
-export function formatVersion(currentVersion: string | undefined, targetVersion: string) {
-  if (!currentVersion || currentVersion === targetVersion) {
-    return targetVersion;
-  }
-  return `${currentVersion} -> ${targetVersion}`;
 }

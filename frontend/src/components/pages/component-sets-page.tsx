@@ -14,7 +14,7 @@ import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listComponents, listComponentSets, putComponentSet, queryKeys, type ApiComponentSet } from "@/lib/api-client";
-import { formatDateTime, tagSummary } from "@/lib/format";
+import { formatRelativeTime, tagSummary } from "@/lib/format";
 
 export function ComponentSetsPage() {
   const queryClient = useQueryClient();
@@ -132,7 +132,7 @@ export function ComponentSetsPage() {
                       </EntityLink>
                     </TableCell>
                     <TableCell>{componentSet.components.length}</TableCell>
-                    <TableCell>{formatDateTime(componentSet.createdAt)}</TableCell>
+                    <TableCell>{formatRelativeTime(componentSet.createdAt, { mode: "short" })}</TableCell>
                     <TableCell>
                       <TagList tags={componentSet.tags} limit={3} />
                     </TableCell>

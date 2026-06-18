@@ -1,4 +1,5 @@
 import json
+import re
 
 from src.application.use_cases.auth import hash_token
 from src.composition.local_seed import seed_local_data
@@ -87,6 +88,11 @@ def test_lambda_deployment_notes_round_trip() -> None:
     assert response["statusCode"] == 200
 
     execution_id = json.loads(response["body"])["deploymentExecutionId"]
+    assert re.fullmatch(r"[0-9a-f]{8}", execution_id)
     detail_response = route(event("GET", f"/deployment-executions/{execution_id}"), container)
     assert detail_response["statusCode"] == 200
     assert json.loads(detail_response["body"])["notes"] == "Lambda deployment note coverage."
+
+    cancel_response = route(event("POST", f"/deployment-executions/{execution_id}/cancel", authenticated=True), container)
+    assert cancel_response["statusCode"] == 200
+    assert json.loads(cancel_response["body"])["status"] == "cancelled"

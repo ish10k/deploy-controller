@@ -162,7 +162,7 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
   return (
     <SideDrawer
       open={Boolean(event)}
-      title={event?.action ?? "Event"}
+      title={event?.summary ?? "Event"}
       description={event ? `${formatDateTime(event.occurredAt)} by ${event.actorPrincipalId}` : undefined}
       maxWidth="max-w-[900px]"
       onClose={onClose}

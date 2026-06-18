@@ -10,15 +10,18 @@ import {
   LogOut,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { LoadingPanel } from "@/components/common/api-state";
+import { listEvents, queryKeys, type ApiEventLogEntry } from "@/lib/api-client";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { useAuth } from "@/lib/auth-context";
-import { canViewRoles, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
+import { canViewEvents, canViewRoles, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
+import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -61,7 +64,6 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
 }
 
 const headerActions = [
-  { label: "Notifications", icon: Bell },
   { label: "Help", icon: HelpCircle },
   { label: "Settings", icon: Settings },
 ];
@@ -123,6 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="ml-auto flex items-center gap-4">
           <div className="flex items-center gap-1 border-r border-white/10 pr-4">
+            <NotificationBell principalId={auth.user?.principalId} enabled={canViewEvents(auth.user)} />
             {headerActions.map((action) => (
               <Button key={action.label} variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" aria-label={action.label}>
                 <action.icon className="h-5 w-5" />
@@ -187,4 +190,195 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     </div>
   );
+}
+
+function NotificationBell({ principalId, enabled }: { principalId: string | undefined; enabled: boolean }) {
+  if (!enabled) {
+    return (
+      <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" aria-label="Notifications" disabled>
+        <Bell className="h-5 w-5" />
+      </Button>
+    );
+  }
+
+  return <EventNotificationBell principalId={principalId} />;
+}
+
+function EventNotificationBell({ principalId }: { principalId: string | undefined }) {
+  const [open, setOpen] = useState(false);
+  const storageKey = principalId ? `settle.notifications.readAt.${principalId}` : "settle.notifications.readAt.anonymous";
+  const [readAt, setReadAt] = useState(() => readNotificationTimestamp(storageKey));
+  const recentWindowMs = 30 * 60 * 1000;
+  const query = useQuery({
+    queryKey: queryKeys.events({ limit: 50 }),
+    queryFn: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - recentWindowMs);
+      return listEvents({
+        limit: 50,
+        from: from.toISOString(),
+        to: to.toISOString(),
+      });
+    },
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: true,
+  });
+  const events = useMemo(() => (query.data?.events ?? []).filter(isNotificationEvent).slice(0, 25), [query.data?.events]);
+  const unreadCount = useMemo(
+    () => (readAt ? events.filter((event) => event.occurredAt > readAt).length : events.length),
+    [events, readAt],
+  );
+
+  useEffect(() => {
+    setReadAt(readNotificationTimestamp(storageKey));
+  }, [storageKey]);
+
+  const markRead = () => {
+    const latest = events[0]?.occurredAt;
+    if (!latest) {
+      return;
+    }
+    window.localStorage.setItem(storageKey, latest);
+    setReadAt(latest);
+  };
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative text-white hover:bg-white/10 hover:text-white"
+        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+        aria-expanded={open}
+        onClick={() => {
+          if (open) {
+            markRead();
+          }
+          setOpen((current) => !current);
+        }}
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount ? (
+          <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#07111f]">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        ) : null}
+      </Button>
+      {open ? (
+        <div className="absolute right-0 top-11 z-50 w-[420px] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl">
+          <div className="max-h-[480px] overflow-y-auto">
+            {query.isLoading ? (
+              <div className="px-4 py-8 text-center text-sm font-semibold text-slate-500">Loading notifications...</div>
+            ) : query.error ? (
+              <div className="px-4 py-8 text-center text-sm font-semibold text-red-600">Unable to load notifications.</div>
+            ) : events.length ? (
+              events.map((event) => (
+                <NotificationEntry
+                  key={event.eventId}
+                  event={event}
+                  unread={!readAt || event.occurredAt > readAt}
+                  onNavigate={() => {
+                    markRead();
+                    setOpen(false);
+                  }}
+                />
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm font-semibold text-slate-500">No recent events.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NotificationEntry({ event, unread, onNavigate }: { event: ApiEventLogEntry; unread: boolean; onNavigate: () => void }) {
+  const target = notificationTarget(event);
+
+  return (
+    <a
+      href={target.href}
+      onClick={onNavigate}
+      className={cn(
+        "block border-b border-slate-100 px-4 py-3 last:border-b-0 hover:bg-slate-50",
+        unread && "bg-blue-50/70 hover:bg-blue-50",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start gap-2">
+            {unread ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" /> : null}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold text-slate-950">{event.summary}</div>
+              <div className="mt-1 truncate font-mono text-xs text-slate-500">{event.resourceId}</div>
+            </div>
+          </div>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-slate-500">{formatRelativeTime(event.occurredAt, { mode: "short" })}</span>
+      </div>
+    </a>
+  );
+}
+
+function notificationTarget(event: ApiEventLogEntry) {
+  const releaseParts = event.resourceType === "release" ? event.resourceId.split(/[:@]/) : [];
+  const targets: Record<string, string> = {
+    component: `/components/${encodeURIComponent(event.resourceId)}`,
+    componentSet: `/component-sets/${encodeURIComponent(event.resourceId)}`,
+    deployset: `/deploysets/${encodeURIComponent(event.resourceId)}`,
+    deploymentExecution: `/deployments/${encodeURIComponent(event.resourceId)}`,
+    environment: `/environments/${encodeURIComponent(event.resourceId)}`,
+    deploymentRunner: `/deployment-runners/${encodeURIComponent(event.resourceId)}`,
+    principal: `/users/${encodeURIComponent(event.resourceId)}`,
+    role: `/roles/${encodeURIComponent(event.resourceId)}`,
+    releaseSource: `/release-sources/${encodeURIComponent(event.resourceId)}`,
+    webhook: `/webhooks/${encodeURIComponent(event.resourceId)}`,
+  };
+
+  if (event.resourceType === "release" && releaseParts.length >= 2) {
+    return {
+      href: `/releases/${encodeURIComponent(releaseParts[0])}/${encodeURIComponent(releaseParts.slice(1).join(":"))}`,
+    };
+  }
+
+  return {
+    href: targets[event.resourceType] ?? `/audit`,
+  };
+}
+
+function readNotificationTimestamp(storageKey: string) {
+  try {
+    return window.localStorage.getItem(storageKey) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+const NOTIFICATION_ACTIONS = new Set([
+  "deployset.created",
+  "deployment.created",
+  "deployment.claimed",
+  "deployment.status_changed",
+  "deployment_item.status_reported",
+  "release.created",
+  "release.published",
+  "release_source.created",
+  "release_source.token_rotated",
+  "deployment_runner.created",
+  "deployment_runner.token_rotated",
+  "principal.created",
+  "principal.bootstrap_created",
+  "principal.roles_changed",
+  "role.created",
+  "role.updated",
+  "webhook.created",
+  "webhook.updated",
+]);
+
+function isNotificationEvent(event: ApiEventLogEntry) {
+  if (event.severity === "error" || event.severity === "warning") {
+    return true;
+  }
+  return NOTIFICATION_ACTIONS.has(event.action);
 }

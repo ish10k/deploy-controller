@@ -7,14 +7,12 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
-  ExternalLink,
   Filter,
   Globe2,
   Hourglass,
   MoreHorizontal,
   Plus,
   RefreshCcw,
-  Rocket,
   Server,
   SlidersHorizontal,
 } from "lucide-react";
@@ -24,12 +22,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
-import { type EntityIconKind } from "@/lib/entity-icons";
 import { Input } from "@/components/ui/input";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Select } from "@/components/ui/select";
 import { SideDrawer } from "@/components/ui/side-drawer";
+import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -45,10 +43,18 @@ import {
   type ApiEventLogEntry,
 } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { formatDateTime, tagSummary } from "@/lib/format";
+import { formatRelativeTime, tagSummary } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type EnvironmentStatusKind = "healthy" | "failed" | "pending" | "idle";
+type EnvironmentDetailView = "deployments" | "current-components";
+
+type CurrentComponentRow = {
+  componentId: string;
+  version?: string;
+  deploySetId?: string;
+  source: "deployed" | "desired" | "missing";
+};
 
 type EnvironmentRow = {
   environment: ApiEnvironment;
@@ -197,6 +203,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
 
 function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
   const auth = useAuth();
+  const [detailView, setDetailView] = useState<EnvironmentDetailView>("deployments");
   const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
   const eventQuery = useQuery({
     queryKey: queryKeys.events({ resourceType: "environment", resourceId: row.environment.environmentId, limit: 50 }),
@@ -204,9 +211,13 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
     queryFn: () => listEvents({ resourceType: "environment", resourceId: row.environment.environmentId, limit: 50 }),
   });
   const latest = row.latestExecution;
-  const activities = buildActivities(row);
   const driftCount = latest?.items.filter((item) => item.driftDetected).length ?? 0;
   const events = eventQuery.data?.events ?? [];
+  const currentComponents = buildCurrentComponentRows(row);
+  const detailViewOptions: SwitchableCardOption<EnvironmentDetailView>[] = [
+    { value: "deployments", label: `Recent deployments (${row.recentExecutions.length})` },
+    { value: "current-components", label: `Current components (${currentComponents.length})` },
+  ];
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -248,95 +259,37 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
         <EnvironmentFactCard icon={AlertTriangle} label="Drift Signals" value={String(driftCount)} sublabel="From latest execution" />
       </div>
 
-      <EnvironmentDetailsPanel row={row} focused />
-
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px] gap-4">
-        <Card className="flex min-h-0 flex-col overflow-hidden">
-          <CardHeader>
-            <CardTitle>Recent deployments</CardTitle>
-            <Link to="/executions" className="text-sm font-bold text-blue-600">
-              View deployments
-            </Link>
-          </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {row.recentExecutions.length ? (
-              <ScrollFade className="h-full" contentClassName="px-4 pb-4">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-white">
-                    <TableRow>
-                      <TableHead>Execution</TableHead>
-                      <TableHead>DeploySet</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Items</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {row.recentExecutions.slice(0, 8).map((execution) => (
-                      <TableRow key={execution.deploymentExecutionId}>
-                        <TableCell className="font-semibold">
-                          <EntityLink
-                            kind="deployment"
-                            to="/deployments/$deploymentExecutionId"
-                            params={{ deploymentExecutionId: execution.deploymentExecutionId }}
-                          >
-                            {execution.deploymentExecutionId}
-                          </EntityLink>
-                        </TableCell>
-                        <TableCell>
-                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
-                            {execution.deploySetId}
-                          </EntityLink>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={execution.status === "failed" ? "red" : execution.status === "succeeded" ? "green" : "slate"}>{execution.status}</Badge>
-                        </TableCell>
-                        <TableCell>{formatDateTime(execution.startedAt)}</TableCell>
-                        <TableCell>{execution.items.length}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollFade>
-            ) : (
-              <div className="p-4">
-                <EmptyPanel label="No recent deployments found for this environment." />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="flex min-h-0 flex-col overflow-hidden">
-          <CardHeader>
-            <CardTitle>Event log</CardTitle>
-            <Link to="/executions" className="text-sm font-bold text-blue-600">
-              View events
-            </Link>
-          </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {events.length ? (
-              <EnvironmentAuditEvents events={events} />
-            ) : activities.length ? (
-              <ScrollFade className="h-full" contentClassName="px-4 pb-4">
-              <div className="divide-y divide-slate-200">
-                {activities.map((activity) => (
-                  <div key={activity.id} className="flex items-center gap-3 py-2 text-sm">
-                    <activity.icon className={cn("h-4 w-4 shrink-0", activity.tone)} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold text-slate-800">{activity.title}</div>
-                      <div className="truncate text-xs text-slate-500">{activity.subtitle}</div>
-                    </div>
-                    <div className="shrink-0 text-xs text-slate-500">{formatDateTime(activity.time)}</div>
-                  </div>
-                ))}
-              </div>
-              </ScrollFade>
-            ) : (
-              <div className="p-4">
-                <EmptyPanel label="No environment events found." />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <SwitchableCard
+          ariaLabel="Select environment detail content"
+          value={detailView}
+          options={detailViewOptions}
+          onChange={setDetailView}
+          contentClassName="min-h-0 flex flex-1 flex-col overflow-hidden p-0"
+        >
+          {detailView === "deployments" ? (
+            <RecentDeploymentsPanel executions={row.recentExecutions} />
+          ) : (
+            <CurrentComponentsPanel rows={currentComponents} currentComponentSet={row.currentComponentSet} />
+          )}
+        </SwitchableCard>
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
+          <EnvironmentDetailsPanel row={row} />
+          <Card className="flex min-h-0 flex-col overflow-hidden">
+            <CardHeader>
+              <CardTitle>Event log</CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+              {events.length ? (
+                <EnvironmentAuditEvents events={events} />
+              ) : (
+                <div className="p-4">
+                  <EmptyPanel label="No environment events found." />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -350,13 +303,129 @@ function EnvironmentAuditEvents({ events }: { events: ApiEventLogEntry[] }) {
           <div key={event.eventId} className="flex items-center gap-3 py-2 text-sm">
             <Activity className="h-4 w-4 shrink-0 text-blue-600" />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold text-slate-800">{event.action}</div>
-              <div className="truncate text-xs text-slate-500">{event.summary}</div>
+              <div className="truncate font-semibold text-slate-800">{event.summary}</div>
+              <div className="truncate text-xs text-slate-500">{event.actorPrincipalId}</div>
             </div>
-            <div className="shrink-0 text-xs text-slate-500">{formatDateTime(event.occurredAt)}</div>
+            <div className="shrink-0 text-xs text-slate-500">{formatRelativeTime(event.occurredAt, { mode: "short" })}</div>
           </div>
         ))}
       </div>
+    </ScrollFade>
+  );
+}
+
+function RecentDeploymentsPanel({ executions }: { executions: ApiDeploymentExecution[] }) {
+  if (!executions.length) {
+    return (
+      <div className="p-4">
+        <EmptyPanel label="No recent deployments found for this environment." />
+      </div>
+    );
+  }
+
+  return (
+    <ScrollFade className="h-full" contentClassName="px-4 pb-4">
+      <Table>
+        <TableHeader className="sticky top-0 z-10 bg-white">
+          <TableRow>
+            <TableHead>Execution</TableHead>
+            <TableHead>DeploySet</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Started</TableHead>
+            <TableHead>Items</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {executions.slice(0, 8).map((execution) => (
+            <TableRow key={execution.deploymentExecutionId}>
+              <TableCell className="font-semibold">
+                <EntityLink
+                  kind="deployment"
+                  to="/deployments/$deploymentExecutionId"
+                  params={{ deploymentExecutionId: execution.deploymentExecutionId }}
+                >
+                  {execution.deploymentExecutionId}
+                </EntityLink>
+              </TableCell>
+              <TableCell>
+                <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
+                  {execution.deploySetId}
+                </EntityLink>
+              </TableCell>
+              <TableCell>
+                <Badge variant={execution.status === "failed" ? "red" : execution.status === "succeeded" ? "green" : "slate"}>{execution.status}</Badge>
+              </TableCell>
+              <TableCell>{formatRelativeTime(execution.startedAt, { mode: "short" })}</TableCell>
+              <TableCell>{execution.items.length}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </ScrollFade>
+  );
+}
+
+function CurrentComponentsPanel({
+  rows,
+  currentComponentSet,
+}: {
+  rows: CurrentComponentRow[];
+  currentComponentSet?: ApiComponentSet;
+}) {
+  if (!rows.length) {
+    return (
+      <div className="p-4">
+        <EmptyPanel label={currentComponentSet ? "No components found in this component set." : "No current component set found for this environment."} />
+      </div>
+    );
+  }
+
+  return (
+    <ScrollFade className="h-full" contentClassName="px-4 pb-4">
+      <Table>
+        <TableHeader className="sticky top-0 z-10 bg-white">
+          <TableRow>
+            <TableHead>Component</TableHead>
+            <TableHead>Latest deployed version</TableHead>
+            <TableHead>DeploySet</TableHead>
+            <TableHead>Source</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.componentId}>
+              <TableCell className="font-semibold">
+                <EntityLink kind="component" to="/components/$componentId" params={{ componentId: row.componentId }}>
+                  {row.componentId}
+                </EntityLink>
+              </TableCell>
+              <TableCell>
+                {row.version ? (
+                  <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: row.componentId, version: row.version }}>
+                    {row.version}
+                  </EntityLink>
+                ) : (
+                  <span className="text-slate-500">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {row.deploySetId ? (
+                  <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: row.deploySetId }}>
+                    {row.deploySetId}
+                  </EntityLink>
+                ) : (
+                  <span className="text-slate-500">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant={row.source === "deployed" ? "green" : row.source === "desired" ? "blue" : "slate"}>
+                  {row.source === "deployed" ? "Deployed" : row.source === "desired" ? "Desired" : "Missing"}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </ScrollFade>
   );
 }
@@ -408,7 +477,7 @@ function EnvironmentCard({ row }: { row: EnvironmentRow }) {
         <div className="grid gap-0 text-sm">
           <CardDetailRow label="Current DeploySet" value={<CardValue value={row.currentDeploySet?.deploySetId} />} />
           <CardDetailRow label="Last Execution" value={<CardValue value={row.latestExecution?.deploymentExecutionId} />} />
-          <CardDetailRow label="Last Deployment" value={<span className="font-medium text-slate-800">{row.latestExecution ? formatDateTime(row.latestExecution.startedAt) : "-"}</span>} />
+          <CardDetailRow label="Last Deployment" value={<span className="font-medium text-slate-800">{row.latestExecution ? formatRelativeTime(row.latestExecution.startedAt, { mode: "short" }) : "-"}</span>} />
         </div>
 
         <div className="mt-auto pt-4">
@@ -433,74 +502,52 @@ function CardDetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function EnvironmentDetailsPanel({ row, focused = false }: { row: EnvironmentRow; focused?: boolean }) {
+function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
   const latest = row.latestExecution;
-  const activities = buildActivities(row);
 
   return (
-    <Card className="mt-4">
-
-      <CardContent className="grid grid-cols-[1fr_1fr] gap-5 p-4">
-        <div>
-          <div className="grid grid-cols-[180px_1fr_auto] gap-x-3 gap-y-3 text-sm">
-            <DetailLabel icon={Server} label="Current DeploySet" />
-            <ResourceLink label={row.currentDeploySet?.deploySetId} to="/deploysets/$deploySetId" params={row.currentDeploySet ? { deploySetId: row.currentDeploySet.deploySetId } : undefined} />
-            <SmallLink to="/deploysets" label="View details" />
-            <DetailLabel icon={SlidersHorizontal} label="Current ConfigSet" />
-            <ResourceLink
-              label={row.currentComponentSet?.componentSetId}
-              to="/component-sets/$componentSetId"
-              params={row.currentComponentSet ? { componentSetId: row.currentComponentSet.componentSetId } : undefined}
-            />
-            {row.currentComponentSet ? (
-              <SmallLink to="/component-sets/$componentSetId" params={{ componentSetId: row.currentComponentSet.componentSetId }} label="View details" />
-            ) : (
-              <SmallLink to="/component-sets" label="View sets" />
-            )}
-            <DetailLabel icon={Activity} label="Last Deployment" />
-            <span className="flex items-center gap-2">
-              {latest ? <EnvironmentStatusBadge status={executionToEnvironmentStatus(latest.status)} /> : <Badge>No execution</Badge>}
-              <span className="text-slate-600">{formatDateTime(latest?.startedAt)}</span>
-            </span>
-            <SmallLink to="/executions" label="View execution" />
-            <DetailLabel icon={Server} label="Deployment Runner" />
-            <span className="font-medium text-blue-700">{latest?.claimedBy ?? "unclaimed"}</span>
-            <SmallLink to="/deployment-runners" label="View queue" />
-            <DetailLabel icon={Clock3} label="Updated" />
-            <span className="text-slate-700">{formatDateTime(row.updatedAt)}</span>
-            <span />
-            <DetailLabel icon={Filter} label="Tags" />
-            <TagList tags={row.environment.tags} />
-            <span />
-          </div>
-        </div>
-        <div className="border-l border-slate-200 pl-5">
-          <div className="mb-3 flex items-center justify-between">
-            <CardTitle>Recent activity</CardTitle>
-            <Link to="/executions" className="text-sm font-bold text-blue-600">
-              View all events
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-200">
-            {activities.length ? (
-              activities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 py-2">
-                  <activity.icon className={cn("h-4 w-4", activity.tone)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-slate-800">{activity.title}</div>
-                    <div className="truncate text-xs text-slate-500">{activity.subtitle}</div>
-                  </div>
-                  <div className="text-xs text-slate-500">{formatDateTime(activity.time)}</div>
-                </div>
-              ))
-            ) : (
-              <div className="py-6 text-sm text-slate-500">No recent execution activity for this environment.</div>
-            )}
-          </div>
-          <Link to="/executions" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-blue-600">
-            View full activity for {row.environment.environmentId} <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+    <Card className="flex min-h-0 flex-col overflow-hidden">
+      <CardHeader>
+        <CardTitle>Environment metadata</CardTitle>
+      </CardHeader>
+      <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+        <ScrollFade className="h-full" contentClassName="grid gap-3 px-4 pb-4 text-sm">
+          <MetaRow
+            icon={Server}
+            label="Current DeploySet"
+            value={
+              <ResourceLink
+                label={row.currentDeploySet?.deploySetId}
+                to="/deploysets/$deploySetId"
+                params={row.currentDeploySet ? { deploySetId: row.currentDeploySet.deploySetId } : undefined}
+              />
+            }
+          />
+          <MetaRow
+            icon={SlidersHorizontal}
+            label="Current ConfigSet"
+            value={
+              <ResourceLink
+                label={row.currentComponentSet?.componentSetId}
+                to="/component-sets/$componentSetId"
+                params={row.currentComponentSet ? { componentSetId: row.currentComponentSet.componentSetId } : undefined}
+              />
+            }
+          />
+          <MetaRow
+            icon={Activity}
+            label="Last Deployment"
+            value={
+              <span className="flex items-center gap-2">
+                {latest ? <EnvironmentStatusBadge status={executionToEnvironmentStatus(latest.status)} /> : <Badge>No execution</Badge>}
+                <span className="text-slate-600">{formatRelativeTime(latest?.startedAt, { mode: "short" })}</span>
+              </span>
+            }
+          />
+          <MetaRow icon={Server} label="Deployment Runner" value={<span className="font-medium text-blue-700">{latest?.claimedBy ?? "unclaimed"}</span>} />
+          <MetaRow icon={Clock3} label="Updated" value={<span className="text-slate-700">{formatRelativeTime(row.updatedAt, { mode: "short" })}</span>} />
+          <MetaRow icon={Filter} label="Tags" value={<TagList tags={row.environment.tags} />} />
+        </ScrollFade>
       </CardContent>
     </Card>
   );
@@ -614,7 +661,7 @@ function ResourceLink({
   if (!label) {
     return <span className="text-slate-500">-</span>;
   }
-  const kind: EntityIconKind = to.includes("component-sets") ? "componentSet" : "deployset";
+  const kind = to.includes("component-sets") ? "componentSet" : "deployset";
   return (
     <EntityLink kind={kind} to={to} params={params}>
       {label}
@@ -622,28 +669,15 @@ function ResourceLink({
   );
 }
 
-function SmallLink({
-  to,
-  params,
-  label,
-}: {
-  to: "/deploysets" | "/component-sets" | "/component-sets/$componentSetId" | "/executions" | "/deployment-runners";
-  params?: { componentSetId: string };
-  label: string;
-}) {
+function MetaRow({ icon: Icon, label, value }: { icon: typeof Server; label: string; value: ReactNode }) {
   return (
-    <Link to={to} params={params} className="text-xs font-bold text-blue-600">
-      {label}
-    </Link>
-  );
-}
-
-function DetailLabel({ icon: Icon, label }: { icon: typeof Server; label: string }) {
-  return (
-    <span className="flex items-center gap-2 font-semibold text-slate-700">
-      <Icon className="h-4 w-4 text-slate-500" />
-      {label}
-    </span>
+    <div className="grid grid-cols-[170px_1fr] items-center gap-3">
+      <span className="flex items-center gap-2 font-semibold text-slate-700">
+        <Icon className="h-4 w-4 text-slate-500" />
+        {label}
+      </span>
+      <span className="min-w-0 truncate text-slate-800">{value}</span>
+    </div>
   );
 }
 
@@ -774,6 +808,39 @@ function buildEnvironmentRows(data: Awaited<ReturnType<typeof fetchEnvironmentCe
   });
 }
 
+function buildCurrentComponentRows(row: EnvironmentRow): CurrentComponentRow[] {
+  const deployedByComponent = new Map(row.latestExecution?.items.map((item) => [item.componentId, item]) ?? []);
+  const desiredByComponent = new Map(row.currentDeploySet?.items.map((item) => [item.componentId, item]) ?? []);
+  const componentIds = row.currentComponentSet?.components.map((item) => item.componentId) ?? row.currentDeploySet?.items.map((item) => item.componentId) ?? [];
+
+  return componentIds.map((componentId) => {
+    const deployed = deployedByComponent.get(componentId);
+    if (deployed) {
+      return {
+        componentId,
+        version: deployed.version,
+        deploySetId: row.latestExecution?.deploySetId,
+        source: "deployed",
+      };
+    }
+
+    const desired = desiredByComponent.get(componentId);
+    if (desired) {
+      return {
+        componentId,
+        version: desired.version,
+        deploySetId: row.currentDeploySet?.deploySetId,
+        source: "desired",
+      };
+    }
+
+    return {
+      componentId,
+      source: "missing",
+    };
+  });
+}
+
 function dedupeExecutions(executions: ApiDeploymentExecution[]) {
   const byId = new Map<string, ApiDeploymentExecution>();
   for (const execution of executions) {
@@ -819,30 +886,6 @@ function executionToEnvironmentStatus(status: ApiDeploymentExecution["status"]):
     return "pending";
   }
   return "healthy";
-}
-
-function buildActivities(row: EnvironmentRow) {
-  const latest = row.latestExecution
-    ? [
-        {
-          id: row.latestExecution.deploymentExecutionId,
-          icon: row.latestExecution.status === "failed" ? AlertTriangle : CheckCircle2,
-          tone: row.latestExecution.status === "failed" ? "text-red-500" : "text-emerald-600",
-          title: `Deployment ${row.latestExecution.deploySetId} ${row.latestExecution.status}`,
-          subtitle: `${row.latestExecution.items.length} component actions requested`,
-          time: row.latestExecution.completedAt ?? row.latestExecution.startedAt,
-        },
-      ]
-    : [];
-  const pending = row.pendingExecutions.slice(0, 3).map((execution) => ({
-    id: execution.deploymentExecutionId,
-    icon: Hourglass,
-    tone: "text-blue-600",
-    title: `Execution ${execution.deploymentExecutionId} pending`,
-    subtitle: `${execution.items.length} component actions awaiting runner claim`,
-    time: execution.startedAt,
-  }));
-  return [...latest, ...pending].slice(0, 5);
 }
 
 function percentage(value: number, total: number) {

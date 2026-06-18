@@ -17,7 +17,7 @@ import {
   listEnvironmentState,
   type ApiDeploySet,
 } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 
 export function DeploySetDetailsPage({ deploySetId }: { deploySetId: string }) {
   const query = useQuery({
@@ -183,7 +183,7 @@ function DeploySetDetailsView({
                             <StatusBadge status={execution.status} />
                           </div>
                           <div className="mt-1 text-xs text-slate-500">
-                            {execution.environmentId} | {formatDateTime(execution.startedAt)}
+                            {execution.environmentId} | {formatRelativeTime(execution.startedAt, { mode: "short" })}
                           </div>
                         </div>
                         <hr></hr>

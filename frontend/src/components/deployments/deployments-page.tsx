@@ -13,7 +13,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchDashboardData, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
-import { formatDateTime } from "@/lib/format";
+import { formatRelativeTime } from "@/lib/format";
 import { Link } from "@tanstack/react-router";
 
 type DeploymentsPageProps = {
@@ -309,8 +309,8 @@ function ExecutionTable({
       },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       { header: "Claimed By", cell: ({ row }) => row.original.claimedBy ?? "-" },
-      { header: "Started", cell: ({ row }) => formatDateTime(row.original.startedAt) },
-      { header: "Updated", cell: ({ row }) => formatDateTime(row.original.completedAt ?? row.original.startedAt) },
+      { header: "Started", cell: ({ row }) => formatRelativeTime(row.original.startedAt, { mode: "short" }) },
+      { header: "Updated", cell: ({ row }) => formatRelativeTime(row.original.completedAt ?? row.original.startedAt, { mode: "short" }) },
       {
         id: "actions",
         cell: ({ row }) => (

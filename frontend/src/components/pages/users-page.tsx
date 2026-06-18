@@ -50,7 +50,7 @@ import {
   type ApiRelease,
   type ApiRole,
 } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { canChangeUserPermissions, canCreateUsers, canViewRoles, canViewUsers } from "@/lib/user-permissions";
 
 const USER_ROLE_OPTIONS = [
@@ -160,7 +160,7 @@ export function UsersPage() {
                     <TableCell>
                       <Badge variant={user.active ? "green" : "slate"}>{user.active ? "Active" : "Inactive"}</Badge>
                     </TableCell>
-                    <TableCell>{formatDateTime(user.lastSeenAt)}</TableCell>
+                    <TableCell>{formatRelativeTime(user.lastSeenAt, { mode: "short" })}</TableCell>
                     <TableCell>
                       <TagList tags={user.tags} limit={3} />
                     </TableCell>
@@ -320,7 +320,7 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
               <MetaRow icon={FileText} label="Email" value={principal.email ?? "-"} />
               <MetaRow icon={KeyRound} label="Auth" value={principal.authMethod} />
               <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(principal.createdAt)} />
-              <MetaRow icon={Clock3} label="Last seen" value={formatDateTime(principal.lastSeenAt)} />
+              <MetaRow icon={Clock3} label="Last seen" value={formatRelativeTime(principal.lastSeenAt, { mode: "short" })} />
               <div className="grid grid-cols-[120px_1fr] gap-3">
                 <span className="font-semibold text-slate-700">Tags</span>
                 <TagList tags={principal.tags} emptyLabel="No tags" />
@@ -629,7 +629,7 @@ function UserEventLogPanel({ activities, events }: { activities: UserActivity[];
         <TableBody>
           {activities.map((activity) => (
             <TableRow key={activity.id}>
-              <TableCell>{formatDateTime(activity.at)}</TableCell>
+              <TableCell>{formatRelativeTime(activity.at, { mode: "short" })}</TableCell>
               <TableCell>
                 <div className="font-semibold text-slate-900">{activity.type}</div>
                 <div className="text-xs text-slate-500">{activity.summary}</div>

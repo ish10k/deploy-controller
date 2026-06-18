@@ -38,7 +38,7 @@ import {
   type ApiRotateTokenResult,
 } from "@/lib/api-client";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { canManageReleaseSources } from "@/lib/user-permissions";
 
 export function ReleaseSourcesPage() {
@@ -150,7 +150,7 @@ export function ReleaseSourcesPage() {
                         <Badge variant={source.active ? "green" : "slate"}>{source.active ? "Active" : "Inactive"}</Badge>
                       </TableCell>
                       <TableCell>{scopeSummary(source)}</TableCell>
-                      <TableCell>{formatDateTime(source.lastUsedAt)}</TableCell>
+                      <TableCell>{formatRelativeTime(source.lastUsedAt, { mode: "short" })}</TableCell>
                       <TableCell>
                         <TagList tags={source.tags} limit={3} />
                       </TableCell>
@@ -284,8 +284,8 @@ function ReleaseSourceDetailsView({
       <div className="grid shrink-0 grid-cols-4 gap-4">
         <FactCard icon={Webhook} label="Status" value={releaseSource.active ? "Active" : "Inactive"} sublabel="Registration state" />
         <FactCard icon={ENTITY_ICONS.release} label="Scoped Releases" value={String(scopedReleases.length)} sublabel="Matching current scope" />
-        <FactCard icon={KeyRound} label="Token Prefix" value={releaseSource.tokenPrefix ?? "None"} sublabel={releaseSource.tokenRotatedAt ? `Rotated ${formatDateTime(releaseSource.tokenRotatedAt)}` : "Not rotated"} />
-        <FactCard icon={CalendarClock} label="Last Used" value={formatDateTime(releaseSource.lastUsedAt)} sublabel="Authentication activity" />
+        <FactCard icon={KeyRound} label="Token Prefix" value={releaseSource.tokenPrefix ?? "None"} sublabel={releaseSource.tokenRotatedAt ? `Rotated ${formatRelativeTime(releaseSource.tokenRotatedAt, { mode: "short" })}` : "Not rotated"} />
+        <FactCard icon={CalendarClock} label="Last Used" value={formatRelativeTime(releaseSource.lastUsedAt, { mode: "short" })} sublabel="Authentication activity" />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px] gap-4">

@@ -37,6 +37,14 @@ export function StatusBadge({ status }: { status: Status }) {
     );
   }
 
+  if (status === "cancelled") {
+    return (
+      <Badge variant="red">
+        <CircleSlash className="h-3 w-3" /> Cancelled
+      </Badge>
+    );
+  }
+
   if (status === "degraded" || status === "warning") {
     return (
       <Badge variant="orange">

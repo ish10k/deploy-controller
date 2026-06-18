@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ApiWhoAmI } from "@/lib/api-types";
-import { canChangeUserPermissions, canCreateUsers, canViewUsers } from "@/lib/user-permissions";
+import { canCancelDeployments, canChangeUserPermissions, canCreateUsers, canViewUsers } from "@/lib/user-permissions";
 
 function userWithPermissions(permissions: string[]): ApiWhoAmI {
   return {
@@ -20,6 +20,7 @@ describe("user permission gates", () => {
     expect(canViewUsers(userWithPermissions(["principals:read"]))).toBe(true);
     expect(canCreateUsers(userWithPermissions(["principals:read"]))).toBe(false);
     expect(canChangeUserPermissions(userWithPermissions(["principals:read"]))).toBe(false);
+    expect(canCancelDeployments(userWithPermissions(["principals:read"]))).toBe(false);
   });
 
   it("enables user creation and permission changes with principal write permission", () => {
@@ -28,6 +29,7 @@ describe("user permission gates", () => {
     expect(canViewUsers(user)).toBe(true);
     expect(canCreateUsers(user)).toBe(true);
     expect(canChangeUserPermissions(user)).toBe(true);
+    expect(canCancelDeployments(user)).toBe(false);
   });
 
   it("denies user management without principal permissions", () => {
@@ -36,5 +38,12 @@ describe("user permission gates", () => {
     expect(canViewUsers(user)).toBe(false);
     expect(canCreateUsers(user)).toBe(false);
     expect(canChangeUserPermissions(user)).toBe(false);
+    expect(canCancelDeployments(user)).toBe(false);
+  });
+
+  it("enables deployment cancellation with the cancel permission", () => {
+    const user = userWithPermissions(["deployments:cancel"]);
+
+    expect(canCancelDeployments(user)).toBe(true);
   });
 });

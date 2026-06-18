@@ -10,7 +10,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getComponent, listReleases, type ApiComponent, type ApiRelease } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatRelativeTime } from "@/lib/format";
 
 export function ComponentDetailsPage({ componentId }: { componentId: string }) {
   const query = useQuery({
@@ -58,7 +58,7 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
             params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
-            <FactCard icon={Package} label="Latest Release" value={latestRelease.version} sublabel={formatDateTime(latestRelease.createdAt)} interactive />
+            <FactCard icon={Package} label="Latest Release" value={latestRelease.version} sublabel={formatRelativeTime(latestRelease.createdAt, { mode: "short" })} interactive />
           </Link>
         ) : (
           <FactCard icon={Package} label="Latest Release" value="None" sublabel="No releases yet" />
@@ -95,7 +95,7 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
                             {release.version}
                           </EntityLink>
                         </TableCell>
-                        <TableCell>{formatDateTime(release.createdAt)}</TableCell>
+                        <TableCell>{formatRelativeTime(release.createdAt, { mode: "short" })}</TableCell>
                         <TableCell className="max-w-[260px] truncate">{release.artifact.key}</TableCell>
                         <TableCell className="max-w-[300px] truncate">{release.notes ?? "-"}</TableCell>
                       </TableRow>

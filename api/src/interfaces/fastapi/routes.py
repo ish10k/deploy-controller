@@ -744,6 +744,22 @@ def get_deployment_execution(
 
 
 @router.post(
+    "/deployment-executions/{deployment_execution_id}/cancel",
+    tags=["Deployments"],
+    summary="Cancel a deployment execution",
+    description="Marks an active deployment execution as cancelled.",
+    response_model=DeploymentExecution,
+    responses=WRITE_RESPONSES,
+)
+def cancel_deployment_execution(
+    deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> DeploymentExecution:
+    return _handle(lambda: container.create_deployment.cancel(deployment_execution_id, context))
+
+
+@router.post(
     "/deployments/plan",
     tags=["Deployments"],
     summary="Plan a deployment",

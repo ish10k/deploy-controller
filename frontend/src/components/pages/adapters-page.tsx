@@ -35,7 +35,7 @@ import {
   type ApiEnvironment,
   type ApiRotateTokenResult,
 } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 
 export function DeploymentRunnersPage() {
   const queryClient = useQueryClient();
@@ -111,7 +111,7 @@ export function DeploymentRunnersPage() {
                       <Badge variant={runner.active ? "green" : "slate"}>{runner.active ? "Active" : "Inactive"}</Badge>
                     </TableCell>
                     <TableCell>{scopeSummary(runner)}</TableCell>
-                    <TableCell>{formatDateTime(runner.lastHeartbeatAt)}</TableCell>
+                    <TableCell>{formatRelativeTime(runner.lastHeartbeatAt, { mode: "short" })}</TableCell>
                     <TableCell>
                       <TagList tags={runner.tags} limit={3} />
                     </TableCell>
@@ -388,8 +388,8 @@ function DeploymentRunnerDetailsView({
       <div className="grid shrink-0 grid-cols-4 gap-4">
         <FactCard icon={Radio} label="Status" value={runner.active ? "Active" : "Inactive"} sublabel="Registration state" />
         <FactCard icon={Server} label="Pending Executions" value={String(pendingExecutions.length)} sublabel="Currently claimable" />
-        <FactCard icon={Clock3} label="Last Heartbeat" value={formatDateTime(runner.lastHeartbeatAt)} sublabel="Runner-reported timestamp" />
-        <FactCard icon={KeyRound} label="Token Prefix" value={runner.tokenPrefix ?? "None"} sublabel={runner.tokenRotatedAt ? `Rotated ${formatDateTime(runner.tokenRotatedAt)}` : "Not rotated"} />
+        <FactCard icon={Clock3} label="Last Heartbeat" value={formatRelativeTime(runner.lastHeartbeatAt, { mode: "short" })} sublabel="Runner-reported timestamp" />
+        <FactCard icon={KeyRound} label="Token Prefix" value={runner.tokenPrefix ?? "None"} sublabel={runner.tokenRotatedAt ? `Rotated ${formatRelativeTime(runner.tokenRotatedAt, { mode: "short" })}` : "Not rotated"} />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_400px] gap-4">
@@ -461,7 +461,7 @@ function DeploymentRunnerDetailsView({
               <MetaRow icon={KeyRound} label="Token prefix" value={runner.tokenPrefix ?? "None"} />
               <MetaRow icon={CalendarClock} label="Token created" value={formatDateTime(runner.tokenCreatedAt)} />
               <MetaRow icon={CalendarClock} label="Token rotated" value={formatDateTime(runner.tokenRotatedAt)} />
-              <MetaRow icon={Clock3} label="Last used" value={formatDateTime(runner.lastUsedAt)} />
+              <MetaRow icon={Clock3} label="Last used" value={formatRelativeTime(runner.lastUsedAt, { mode: "short" })} />
               <MetaRow icon={UserRound} label="Display Name" value={runner.displayName} />
               <MetaRow icon={Server} label="Webhook" value={runner.webhookId ?? "None"} />
               <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(runner.createdAt)} />
