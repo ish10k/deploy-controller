@@ -72,6 +72,8 @@ export const queryKeys = {
   components: ["components"] as const,
   componentSets: ["component-sets"] as const,
   releases: (componentId?: string) => ["releases", componentId ?? "all"] as const,
+  principals: ["principals"] as const,
+  releaseSources: ["release-sources"] as const,
   deploysets: ["deploysets"] as const,
   deployset: (deploySetId: string) => ["deploysets", deploySetId] as const,
   environments: ["environments"] as const,
@@ -146,6 +148,13 @@ export async function createReleaseSource(payload: ApiReleaseSourceCreateRequest
 export async function rotateReleaseSourceToken(releaseSourceId: string) {
   return request<ApiRotateTokenResult>(`/release-sources/${encodeURIComponent(releaseSourceId)}/rotate-token`, {
     method: "POST",
+  });
+}
+
+export async function putReleaseSource(releaseSourceId: string, releaseSource: ApiReleaseSource) {
+  return request<ApiReleaseSource>(`/release-sources/${encodeURIComponent(releaseSourceId)}`, {
+    method: "PUT",
+    body: releaseSource,
   });
 }
 
@@ -250,6 +259,13 @@ export async function getDeploymentRunner(runnerId: string) {
 export async function createDeploymentRunner(runner: ApiDeploymentRunnerCreateRequest) {
   return request<ApiDeploymentRunnerCreateResult>("/deployment-runners", {
     method: "POST",
+    body: runner,
+  });
+}
+
+export async function putDeploymentRunner(runnerId: string, runner: ApiDeploymentRunner) {
+  return request<ApiDeploymentRunner>(`/deployment-runners/${encodeURIComponent(runnerId)}`, {
+    method: "PUT",
     body: runner,
   });
 }

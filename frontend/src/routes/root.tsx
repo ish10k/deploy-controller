@@ -11,6 +11,7 @@ import { ComponentDetailsPage } from "@/components/pages/component-details-page"
 import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
 import { ComponentSetsPage } from "@/components/pages/component-sets-page";
 import { ComponentsPage } from "@/components/pages/components-page";
+import { AdminPage } from "@/components/pages/admin-page";
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
 import { DeploysetsPage } from "@/components/pages/deploysets-page";
 import { ExecutionsPage } from "@/components/pages/executions-page";
@@ -96,6 +97,7 @@ const deploysetDetailRoute = createRoute({
   },
 });
 const environmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/environments", component: EnvironmentsPage });
+const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage });
 const environmentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/environments/$environmentId",
@@ -126,6 +128,7 @@ export const routeTree = rootRoute.addChildren([
   loginRoute,
   forbiddenRoute,
   indexRoute,
+  adminRoute,
   deploymentsRoute,
   deploymentExecutionDetailRoute,
   planRoute,

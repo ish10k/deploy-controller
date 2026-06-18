@@ -55,15 +55,16 @@ const navGroups = [
     items: [
       { label: "Release Sources", icon: CircleFadingArrowUp, to: "/unsupported/release-sources" },
       { label: "Runners", icon: Play, to: "/deployment-runners" },
-      { label: "Wehbooks", icon: Webhook, to: "/webhooks" },
+      { label: "Webhooks", icon: Webhook, to: "/webhooks" },
     ],
   },
-  {
-    label: "Governance",
-    items: [
-      { label: "Auth", icon: UserRound, to: "/unsupported/auth" },
-      { label: "Audit", icon: Shield, to: "/unsupported/audit" },
-    ],
+    {
+      label: "Governance",
+      items: [
+        { label: "Admin", icon: ShieldCheck, to: "/admin" },
+        { label: "Auth", icon: UserRound, to: "/unsupported/auth" },
+        { label: "Audit", icon: Shield, to: "/unsupported/audit" },
+      ],
   },
 ];
 
