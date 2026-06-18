@@ -9,8 +9,10 @@ from src.application.ports import (
     ReleaseRepository,
     ReleaseSourceRepository,
 )
-from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, RequestedAction
-from src.domain.errors import ConflictError, NotFoundError, ValidationError
+from src.application.use_cases.authorization import require_permission
+from src.application.use_cases.events import EventLogUseCases
+from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction
+from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
     Component,
     ComponentSet,
@@ -21,6 +23,7 @@ from src.domain.models import (
     DeploySetItem,
     Environment,
     EnvironmentState,
+    AuthContext,
     Release,
     ReleaseSource,
     ReleaseSourceCreateRequest,
@@ -36,11 +39,25 @@ def _same(left: object, right: object) -> bool:
 
 
 class ComponentUseCases:
-    def __init__(self, components: ComponentRepository) -> None:
+    def __init__(self, components: ComponentRepository, events: EventLogUseCases | None = None) -> None:
         self.components = components
+        self.events = events
 
-    def put(self, component: Component) -> Component:
+    def put(self, component: Component, context: AuthContext) -> Component:
+        require_permission(context, Permission.COMPONENTS_WRITE)
+        existing = self.components.get(component.component_id)
         self.components.put(component)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="component.created" if existing is None else "component.updated",
+                category="registry",
+                summary=f"{'Created' if existing is None else 'Updated'} component {component.component_id}",
+                resource_type="component",
+                resource_id=component.component_id,
+                before=existing,
+                after=component,
+            )
         return component
 
     def get(self, component_id: str) -> Component:
@@ -54,11 +71,27 @@ class ComponentUseCases:
 
 
 class ComponentSetUseCases:
-    def __init__(self, component_sets: ComponentSetRepository) -> None:
+    def __init__(self, component_sets: ComponentSetRepository, events: EventLogUseCases | None = None) -> None:
         self.component_sets = component_sets
+        self.events = events
 
-    def put(self, component_set: ComponentSet) -> ComponentSet:
+    def put(self, component_set: ComponentSet, context: AuthContext) -> ComponentSet:
+        require_permission(context, Permission.COMPONENT_SETS_WRITE)
+        existing = self.component_sets.get(component_set.component_set_id)
+        if existing is None:
+            component_set = component_set.model_copy(update={"created_by": context.principal_id})
         self.component_sets.put(component_set)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="component_set.created" if existing is None else "component_set.updated",
+                category="registry",
+                summary=f"{'Created' if existing is None else 'Updated'} ComponentSet {component_set.component_set_id}",
+                resource_type="componentSet",
+                resource_id=component_set.component_set_id,
+                before=existing,
+                after=component_set,
+            )
         return component_set
 
     def get(self, component_set_id: str) -> ComponentSet:
@@ -72,10 +105,13 @@ class ComponentSetUseCases:
 
 
 class ReleaseUseCases:
-    def __init__(self, releases: ReleaseRepository) -> None:
+    def __init__(self, releases: ReleaseRepository, events: EventLogUseCases | None = None) -> None:
         self.releases = releases
+        self.events = events
 
-    def create(self, release: Release) -> Release:
+    def create(self, release: Release, context: AuthContext) -> Release:
+        require_permission(context, Permission.RELEASES_CREATE)
+        release = release.model_copy(update={"created_by": context.principal_id})
         existing = self.releases.get(release.component_id, release.version)
         if existing is not None:
             if _same(existing, release):
@@ -84,6 +120,17 @@ class ReleaseUseCases:
                 f"Release already exists with different content: {release.component_id}/{release.version}"
             )
         self.releases.create(release)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=release.created_by,
+                action="release.created",
+                category="release",
+                summary=f"Created release {release.component_id} {release.version}",
+                resource_type="release",
+                resource_id=f"{release.component_id}:{release.version}",
+                after=release,
+                metadata={"componentId": release.component_id, "version": release.version},
+            )
         return release
 
     def get(self, component_id: str, version: str) -> Release:
@@ -105,14 +152,17 @@ class ReleaseSourceUseCases:
         component_sets: ComponentSetRepository,
         clock: Clock,
         principals: PrincipalUseCases,
+        events: EventLogUseCases | None = None,
     ) -> None:
         self.release_sources = release_sources
         self.releases = releases
         self.component_sets = component_sets
         self.clock = clock
         self.principals = principals
+        self.events = events
 
-    def create(self, request: ReleaseSourceCreateRequest) -> ReleaseSourceCreateResult:
+    def create(self, request: ReleaseSourceCreateRequest, context: AuthContext) -> ReleaseSourceCreateResult:
+        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
         existing = self.release_sources.get(request.release_source_id)
         if existing is not None:
             raise ConflictError(f"ReleaseSource already exists: {request.release_source_id}")
@@ -132,7 +182,7 @@ class ReleaseSourceUseCases:
             scope=request.scope,
             tags=request.tags,
             created_at=now,
-            created_by="user:local-admin",
+            created_by=context.principal_id,
         )
         self.principals.ensure_service_principal(
             principal_id=release_source.principal_id,
@@ -142,10 +192,35 @@ class ReleaseSourceUseCases:
             tags=release_source.tags,
         )
         self.release_sources.put(release_source)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=release_source.created_by,
+                action="release_source.created",
+                category="integration",
+                summary=f"Created release source {release_source.release_source_id}",
+                resource_type="releaseSource",
+                resource_id=release_source.release_source_id,
+                after=release_source,
+            )
         return ReleaseSourceCreateResult(release_source=release_source, token=token)
 
-    def put(self, release_source: ReleaseSource) -> ReleaseSource:
+    def put(self, release_source: ReleaseSource, context: AuthContext) -> ReleaseSource:
+        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
+        existing = self.release_sources.get(release_source.release_source_id)
+        if existing is None:
+            release_source = release_source.model_copy(update={"created_by": context.principal_id})
         self.release_sources.put(release_source)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="release_source.updated",
+                category="integration",
+                summary=f"Updated release source {release_source.release_source_id}",
+                resource_type="releaseSource",
+                resource_id=release_source.release_source_id,
+                before=existing,
+                after=release_source,
+            )
         return release_source
 
     def get(self, release_source_id: str) -> ReleaseSource:
@@ -157,7 +232,8 @@ class ReleaseSourceUseCases:
     def list(self) -> list[ReleaseSource]:
         return self.release_sources.list()
 
-    def rotate_token(self, release_source_id: str) -> RotateTokenResult:
+    def rotate_token(self, release_source_id: str, context: AuthContext) -> RotateTokenResult:
+        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
         release_source = self.get(release_source_id)
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
@@ -171,15 +247,31 @@ class ReleaseSourceUseCases:
             }
         )
         self.release_sources.put(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="release_source.token_rotated",
+                category="security",
+                summary=f"Rotated token for release source {release_source_id}",
+                resource_type="releaseSource",
+                resource_id=release_source_id,
+                before=release_source,
+                after=updated,
+                metadata={"tokenPrefix": updated.token_prefix, "tokenRotatedAt": updated.token_rotated_at},
+            )
         return RotateTokenResult(token=token)
 
-    def publish_release(self, release_source_id: str, release: Release) -> Release:
+    def publish_release(self, release_source_id: str, release: Release, context: AuthContext) -> Release:
+        require_permission(context, Permission.RELEASE_SOURCES_PUBLISH)
         release_source = self.get(release_source_id)
+        if context.principal_id.startswith("service:") and context.principal_id != release_source.principal_id:
+            raise ForbiddenError(f"ReleaseSource token cannot publish for another source: {release_source_id}")
         if not release_source.active:
             raise ValidationError(f"ReleaseSource is inactive: {release_source_id}")
         if not self._allows_component(release_source, release.component_id):
             raise ValidationError(f"ReleaseSource scope does not allow component: {release.component_id}")
 
+        release = release.model_copy(update={"created_by": context.principal_id})
         existing = self.releases.get(release.component_id, release.version)
         if existing is not None:
             if _same(existing, release):
@@ -188,6 +280,17 @@ class ReleaseSourceUseCases:
                 f"Release already exists with different content: {release.component_id}/{release.version}"
             )
         self.releases.create(release)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="release.published",
+                category="release",
+                summary=f"Published release {release.component_id} {release.version} from {release_source_id}",
+                resource_type="release",
+                resource_id=f"{release.component_id}:{release.version}",
+                after=release,
+                metadata={"releaseSourceId": release_source_id, "componentId": release.component_id, "version": release.version},
+            )
         return release
 
     def _allows_component(self, release_source: ReleaseSource, component_id: str) -> bool:
@@ -212,16 +315,23 @@ class DeploySetUseCases:
         releases: ReleaseRepository,
         executions: DeploymentExecutionRepository,
         clock: Clock,
+        events: EventLogUseCases | None = None,
     ) -> None:
         self.deploysets = deploysets
         self.component_sets = component_sets
         self.releases = releases
         self.executions = executions
         self.clock = clock
+        self.events = events
 
-    def create(self, request: DeploySet | DeploySetCreateRequest | dict[str, object]) -> DeploySetCreateResult:
+    def create(self, request: DeploySet | DeploySetCreateRequest | dict[str, object], context: AuthContext) -> DeploySetCreateResult:
+        require_permission(context, Permission.DEPSETS_CREATE)
         if isinstance(request, dict):
             request = DeploySetCreateRequest.model_validate(request)
+        if isinstance(request, DeploySetCreateRequest):
+            request = request.model_copy(update={"created_by": context.principal_id})
+        if isinstance(request, DeploySet):
+            request = request.model_copy(update={"created_by": context.principal_id})
         deployset, warnings = self._expand(request)
         existing = self.deploysets.get(deployset.deployset_id)
         if existing is not None:
@@ -229,6 +339,17 @@ class DeploySetUseCases:
                 return DeploySetCreateResult(deployset=existing, warnings=warnings)
             raise ConflictError(f"DeploySet already exists with different content: {deployset.deployset_id}")
         self.deploysets.create(deployset)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=deployset.created_by,
+                action="deployset.created",
+                category="deployment",
+                summary=f"Created DeploySet {deployset.deployset_id}",
+                resource_type="deployset",
+                resource_id=deployset.deployset_id,
+                after=deployset,
+                metadata={"warnings": warnings},
+            )
         return DeploySetCreateResult(deployset=deployset, warnings=warnings)
 
     def _expand(self, request: DeploySet | DeploySetCreateRequest) -> tuple[DeploySet, list[str]]:
@@ -365,11 +486,25 @@ class DeploySetUseCases:
 
 
 class EnvironmentUseCases:
-    def __init__(self, environments: EnvironmentRepository) -> None:
+    def __init__(self, environments: EnvironmentRepository, events: EventLogUseCases | None = None) -> None:
         self.environments = environments
+        self.events = events
 
-    def put(self, environment: Environment) -> Environment:
+    def put(self, environment: Environment, context: AuthContext) -> Environment:
+        require_permission(context, Permission.ENVIRONMENTS_WRITE)
+        existing = self.environments.get(environment.environment_id)
         self.environments.put(environment)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="environment.created" if existing is None else "environment.updated",
+                category="environment",
+                summary=f"{'Created' if existing is None else 'Updated'} environment {environment.environment_id}",
+                resource_type="environment",
+                resource_id=environment.environment_id,
+                before=existing,
+                after=environment,
+            )
         return environment
 
     def get(self, environment_id: str) -> Environment:
@@ -408,5 +543,3 @@ class ReadOnlyUseCases:
 
     def list_deployment_executions(self, environment_id: str | None = None) -> list[DeploymentExecution]:
         return self.executions.list_by_environment(environment_id)
-
-

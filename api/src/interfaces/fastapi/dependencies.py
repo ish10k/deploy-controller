@@ -37,6 +37,7 @@ def get_auth_context(
             principals=container.principals.list(),
             runners=container.deployment_runners.list(),
             release_sources=container.release_sources.list(),
+            roles=container.roles.list_unchecked(),
         )
     if os.getenv("SETTLE_AUTH_MODE", "oidc") != "oidc":
         raise UnauthorizedError("OIDC authentication is not configured in this runtime.")
@@ -75,4 +76,3 @@ def get_auth_context(
         bootstrap_allowed_subject=os.getenv("SETTLE_BOOTSTRAP_ALLOWED_SUB"),
         claims=claims,
     )
-

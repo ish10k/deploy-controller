@@ -27,6 +27,14 @@ from src.domain.models import (
     ReleaseSource,
     ReleaseSourceScope,
     Source,
+    Webhook,
+    WebhookActor,
+    WebhookDelivery,
+    WebhookEnvelope,
+    WebhookFilter,
+    WebhookResource,
+    WebhookRetryPolicy,
+    WebhookSubscription,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
 
@@ -237,6 +245,143 @@ def seed_local_data(store: MemoryRepositories) -> None:
             tags={"team": "data-platform"},
             created_at="2026-04-03T09:05:00Z",
             created_by="system:local-seed",
+        )
+    )
+
+    # Webhooks
+    store.put_webhook(
+        Webhook(
+            webhook_id="platform-events",
+            display_name="Platform Events",
+            url="https://hooks.example.com/settle/platform",
+            active=True,
+            retry_policy=WebhookRetryPolicy(max_attempts=3, backoff_seconds=60),
+            subscriptions=[
+                WebhookSubscription(
+                    subscription_id="sub-platform-releases",
+                    event_types=["release.created", "release.published"],
+                    filters=WebhookFilter(resource_types=["release"], categories=["registry"]),
+                ),
+                WebhookSubscription(
+                    subscription_id="sub-platform-deployments",
+                    event_types=["deployset.created", "deployment.created", "deployment.status_changed"],
+                    filters=WebhookFilter(resource_types=["deployset", "deploymentExecution"], categories=["deployment"]),
+                ),
+            ],
+            secret_ref="secret://webhooks/platform-events",
+            tags={"team": "platform", "env": "local"},
+            created_at="2026-06-15T09:30:00Z",
+            created_by="platform-bootstrap",
+            updated_at="2026-06-17T10:00:00Z",
+        )
+    )
+    store.put_webhook(
+        Webhook(
+            webhook_id="audit-feed",
+            display_name="Audit Feed",
+            url="https://hooks.example.com/settle/audit",
+            active=True,
+            retry_policy=WebhookRetryPolicy(max_attempts=5, backoff_seconds=120),
+            subscriptions=[
+                WebhookSubscription(
+                    subscription_id="sub-audit-events",
+                    event_types=["eventlog.created", "principal.updated", "role.updated", "webhook.updated"],
+                    filters=WebhookFilter(resource_types=["principal", "role", "webhook"]),
+                )
+            ],
+            secret_ref=None,
+            tags={"team": "governance", "env": "local"},
+            created_at="2026-06-16T08:15:00Z",
+            created_by="platform-bootstrap",
+            updated_at=None,
+        )
+    )
+    store.put_webhook(
+        Webhook(
+            webhook_id="ops-deployments",
+            display_name="Ops Deployments",
+            url="https://hooks.example.com/settle/ops",
+            active=False,
+            retry_policy=WebhookRetryPolicy(max_attempts=2, backoff_seconds=30),
+            subscriptions=[
+                WebhookSubscription(
+                    subscription_id="sub-ops-deployments",
+                    event_types=["deployment.created", "deployment_item.status_changed"],
+                    filters=WebhookFilter(resource_types=["deploymentExecution"]),
+                )
+            ],
+            secret_ref="secret://webhooks/ops-deployments",
+            tags={"team": "ops", "env": "local"},
+            created_at="2026-06-17T07:00:00Z",
+            created_by="platform-bootstrap",
+            updated_at="2026-06-17T07:20:00Z",
+        )
+    )
+
+    store.put_webhook_delivery(
+        WebhookDelivery(
+            webhook_delivery_id="whd-platform-events-001",
+            webhook_id="platform-events",
+            subscription_id="sub-platform-releases",
+            event_id="event-release-001",
+            event_type="release.created",
+            status="succeeded",
+            envelope=WebhookEnvelope(
+                deliveryId="whd-platform-events-001",
+                webhookId="platform-events",
+                subscriptionId="sub-platform-releases",
+                eventId="event-release-001",
+                eventType="release.created",
+                occurredAt="2026-06-17T09:00:00Z",
+                sentAt="2026-06-17T09:00:01Z",
+                attempt=1,
+                actor=WebhookActor(principalId="service:release-source:platform-ci", type="service", origin="service"),
+                resource=WebhookResource(type="release", id="api@5.7.1"),
+                relatedResources=[],
+                data={"componentId": "api", "version": "5.7.1"},
+                changes=[],
+                metadata={"channel": "registry"},
+            ),
+            attempts=1,
+            next_attempt_at=None,
+            last_response_status=204,
+            last_response_body=None,
+            last_error=None,
+            created_at="2026-06-17T09:00:01Z",
+            updated_at="2026-06-17T09:00:01Z",
+        )
+    )
+    store.put_webhook_delivery(
+        WebhookDelivery(
+            webhook_delivery_id="whd-audit-feed-001",
+            webhook_id="audit-feed",
+            subscription_id="sub-audit-events",
+            event_id="event-role-001",
+            event_type="role.updated",
+            status="failed",
+            envelope=WebhookEnvelope(
+                deliveryId="whd-audit-feed-001",
+                webhookId="audit-feed",
+                subscriptionId="sub-audit-events",
+                eventId="event-role-001",
+                eventType="role.updated",
+                occurredAt="2026-06-17T11:15:00Z",
+                sentAt="2026-06-17T11:15:01Z",
+                attempt=1,
+                actor=WebhookActor(principalId="user:admin@example.local", type="user", origin="user"),
+                resource=WebhookResource(type="role", id="admin"),
+                related_resources=[],
+                data={"roleId": "admin"},
+                changes=[],
+                metadata={"channel": "governance"},
+            ),
+            attempts=1,
+            next_attempt_at="2026-06-17T11:17:01Z",
+            last_response_status=500,
+            last_response_body="downstream unavailable",
+            last_error="downstream unavailable",
+            created_at="2026-06-17T11:15:01Z",
+            updated_at="2026-06-17T11:15:01Z",
         )
     )
 
@@ -800,5 +945,4 @@ def seed_local_data(store: MemoryRepositories) -> None:
             updated_at="2026-06-09T07:52:00Z",
         ),
     )
-
 

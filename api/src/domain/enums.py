@@ -57,6 +57,18 @@ class PrincipalType(StrEnum):
     SERVICE = "service"
 
 
+class EventOrigin(StrEnum):
+    USER = "user"
+    SERVICE = "service"
+    SYSTEM = "system"
+
+
+class EventSeverity(StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 class Permission(StrEnum):
     COMPONENTS_READ = "components:read"
     COMPONENTS_WRITE = "components:write"
@@ -78,10 +90,13 @@ class Permission(StrEnum):
     RELEASE_SOURCES_PUBLISH = "release_sources:publish"
     PRINCIPALS_READ = "principals:read"
     PRINCIPALS_WRITE = "principals:write"
+    ROLES_READ = "roles:read"
+    ROLES_WRITE = "roles:write"
     WEBHOOKS_READ = "webhooks:read"
     WEBHOOKS_WRITE = "webhooks:write"
     WEBHOOK_DELIVERIES_READ = "webhook_deliveries:read"
     WEBHOOK_DELIVERIES_RETRY = "webhook_deliveries:retry"
+    EVENTS_READ = "events:read"
 
 
 class WebhookEvent(StrEnum):
@@ -106,5 +121,3 @@ class DriftReason(StrEnum):
     SAME_VERSION_REDEPLOYED = "same_version_redeployed"
     SAME_VERSION_TARGET_MISSING = "same_version_target_missing"
     SAME_VERSION_ARTIFACT_MISMATCH = "same_version_artifact_mismatch"
-
-

@@ -1,22 +1,41 @@
 import json
 
+from src.application.use_cases.auth import hash_token
+from src.composition.local_seed import seed_local_data
 from src.composition.memory_container import build_memory_container
+from src.infrastructure.memory.repositories import MemoryRepositories
 from src.interfaces.lambda_api.router import route
 
+TOKEN = "settle_pat_test_admin"
 
-def event(method: str, path: str, body: dict[str, object] | None = None) -> dict[str, object]:
+
+def event(method: str, path: str, body: dict[str, object] | None = None, authenticated: bool = False) -> dict[str, object]:
     return {
         "requestContext": {"http": {"method": method}},
         "rawPath": path,
+        "headers": {"Authorization": f"Bearer {TOKEN}"} if authenticated else {},
         "body": json.dumps(body or {}),
     }
 
 
+def authenticated_container():
+    store = MemoryRepositories()
+    seed_local_data(store)
+    container = build_memory_container(store)
+    runner = store.get_deployment_runner("local-runner-01")
+    assert runner is not None
+    store.put_deployment_runner(runner.model_copy(update={"token_hash": hash_token(TOKEN)}))
+    principal = store.get_principal(runner.principal_id)
+    assert principal is not None
+    store.put_principal(principal.model_copy(update={"roles": ["admin"]}))
+    return container
+
+
 def test_lambda_component_round_trip() -> None:
-    container = build_memory_container()
+    container = authenticated_container()
 
     response = route(
-        event("PUT", "/components/api", {"componentId": "ignored", "type": "ecs", "active": True}),
+        event("PUT", "/components/api", {"componentId": "ignored", "type": "ecs", "active": True}, authenticated=True),
         container,
     )
     assert response["statusCode"] == 200
@@ -27,7 +46,7 @@ def test_lambda_component_round_trip() -> None:
 
 
 def test_lambda_deployment_notes_round_trip() -> None:
-    container = build_memory_container()
+    container = authenticated_container()
 
     release_response = route(
         event(
@@ -43,6 +62,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
                 "createdAt": "2026-06-16T12:00:00Z",
                 "createdBy": "ci",
             },
+            authenticated=True,
         ),
         container,
     )
@@ -60,6 +80,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
                 "notes": "Lambda deployment note coverage.",
                 "force": False,
             },
+            authenticated=True,
         ),
         container,
     )
@@ -69,5 +90,3 @@ def test_lambda_deployment_notes_round_trip() -> None:
     detail_response = route(event("GET", f"/deployment-executions/{execution_id}"), container)
     assert detail_response["statusCode"] == 200
     assert json.loads(detail_response["body"])["notes"] == "Lambda deployment note coverage."
-
-

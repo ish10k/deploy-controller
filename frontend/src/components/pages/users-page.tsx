@@ -36,24 +36,29 @@ import {
   listComponentSets,
   listDeploysets,
   listDeploymentExecutions,
+  listEvents,
   listPrincipals,
   listReleases,
+  listRoles,
   putPrincipal,
   queryKeys,
   type ApiComponentSet,
   type ApiDeploySet,
   type ApiDeploymentExecution,
+  type ApiEventLogEntry,
   type ApiPrincipal,
   type ApiRelease,
+  type ApiRole,
 } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
-import { canChangeUserPermissions, canCreateUsers, canViewUsers } from "@/lib/user-permissions";
+import { canChangeUserPermissions, canCreateUsers, canViewRoles, canViewUsers } from "@/lib/user-permissions";
 
 const USER_ROLE_OPTIONS = [
-  "platform-admin",
+  "admin",
   "platform-deployer",
   "platform-viewer",
 ] as const;
+const UNCHANGEABLE_USER_ROLES = new Set<string>(["admin", "platform-admin"]);
 
 type IconComponent = typeof UserRound;
 
@@ -71,6 +76,8 @@ type UserDetailData = {
   releases: ApiRelease[];
   deploysets: ApiDeploySet[];
   componentSets: ApiComponentSet[];
+  events: ApiEventLogEntry[];
+  roles: ApiRole[];
 };
 
 type UserDetailView = "event-log" | "deployments" | "releases" | "deploysets";
@@ -85,6 +92,11 @@ export function UsersPage() {
   const query = useQuery({
     queryKey: queryKeys.principals,
     queryFn: listPrincipals,
+    enabled: canView,
+  });
+  const rolesQuery = useQuery({
+    queryKey: queryKeys.roles,
+    queryFn: listRoles,
     enabled: canView,
   });
   const mutation = useMutation({
@@ -168,6 +180,7 @@ export function UsersPage() {
         onSubmit={(value) => mutation.mutate(value)}
         pending={mutation.isPending}
         createdBy={auth.user?.principalId ?? "user:unknown"}
+        roleOptions={rolesQuery.data?.map((role) => role.roleId) ?? [...USER_ROLE_OPTIONS]}
       />
     </>
   );
@@ -180,23 +193,43 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
   const [detailView, setDetailView] = useState<UserDetailView>("event-log");
   const canView = canViewUsers(auth.user);
   const canChangePermissions = canChangeUserPermissions(auth.user);
+  const canReadRoles = canViewRoles(auth.user);
+  const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
   const query = useQuery({
     queryKey: ["users", "detail", principalId],
     enabled: canView,
     queryFn: async (): Promise<UserDetailData> => {
-      const [principal, deployments, releases, deploysets, componentSets] = await Promise.all([
+      type EventListResult = Awaited<ReturnType<typeof listEvents>>;
+      const eventRequests = canReadEvents
+        ? Promise.all([
+            listEvents({ actorPrincipalId: principalId, limit: 50 }),
+            listEvents({ resourceType: "principal", resourceId: principalId, limit: 50 }),
+          ])
+        : Promise.resolve([] as EventListResult[]);
+      const roleRequest = canReadRoles ? listRoles() : Promise.resolve(USER_ROLE_OPTIONS.map((roleId) => ({ roleId }) as ApiRole));
+      const [principal, deployments, releases, deploysets, componentSets, roles, eventResults] = await Promise.all([
         getPrincipal(principalId),
         listDeploymentExecutions(),
         listReleases(),
         listDeploysets(),
         listComponentSets(),
+        roleRequest,
+        eventRequests,
       ]);
+      const eventsById = new Map<string, ApiEventLogEntry>();
+      for (const result of eventResults) {
+        for (const event of result.events) {
+          eventsById.set(event.eventId, event);
+        }
+      }
       return {
         principal,
         deployments: deployments.filter((deployment) => matchesUser(principal, deployment.requestedBy) || matchesUser(principal, deployment.claimedBy)),
         releases: releases.filter((release) => matchesUser(principal, release.createdBy)),
         deploysets: deploysets.filter((deployset) => matchesUser(principal, deployset.createdBy)),
         componentSets: componentSets.filter((componentSet) => matchesUser(principal, componentSet.createdBy)),
+        events: [...eventsById.values()].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt)),
+        roles,
       };
     },
     retry: 1,
@@ -227,10 +260,10 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.principal) return <EmptyPanel label={`User ${principalId} was not found.`} />;
 
-  const { principal, deployments, releases, deploysets, componentSets } = query.data;
+  const { principal, deployments, releases, deploysets, componentSets, events, roles } = query.data;
   const activities = buildUserActivity(principal, deployments, releases, deploysets, componentSets);
   const detailViewOptions: SwitchableCardOption<UserDetailView>[] = [
-    { value: "event-log", label: `Event log (${activities.length})` },
+    { value: "event-log", label: `Event log (${events.length || activities.length})` },
     { value: "deployments", label: `Deployments (${deployments.length})` },
     { value: "releases", label: `Releases (${releases.length})` },
     { value: "deploysets", label: `DeploySets (${deploysets.length + componentSets.length})` },
@@ -269,6 +302,7 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
           <UserDetailSwitcherContent
             view={detailView}
             activities={activities}
+            events={events}
             deployments={deployments}
             releases={releases}
             deploysets={deploysets}
@@ -294,7 +328,13 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
             </CardContent>
           </Card>
 
-          <UserPermissionsCard principal={principal} canChange={canChangePermissions} pending={roleMutation.isPending} onSubmit={(roles) => roleMutation.mutate(roles)} />
+          <UserPermissionsCard
+            principal={principal}
+            roleOptions={roles.map((role) => role.roleId)}
+            canChange={canChangePermissions}
+            pending={roleMutation.isPending}
+            onSubmit={(roles) => roleMutation.mutate(roles)}
+          />
         </div>
       </div>
     </div>
@@ -307,12 +347,14 @@ function UserDrawer({
   onSubmit,
   pending,
   createdBy,
+  roleOptions,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (principal: ApiPrincipal) => void;
   pending: boolean;
   createdBy: string;
+  roleOptions: string[];
 }) {
   const [principalId, setPrincipalId] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -410,7 +452,7 @@ function UserDrawer({
           </div>
         </section>
 
-        <RolePicker roles={roles} disabled={false} onChange={setRoles} />
+        <RolePicker roles={roles} roleOptions={roleOptions} disabled={false} onChange={setRoles} />
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <label className="flex items-start gap-3 text-sm text-slate-600">
@@ -438,9 +480,11 @@ function UserPermissionsCard({
   principal,
   canChange,
   pending,
+  roleOptions,
   onSubmit,
 }: {
   principal: ApiPrincipal;
+  roleOptions: string[];
   canChange: boolean;
   pending: boolean;
   onSubmit: (roles: string[]) => void;
@@ -458,7 +502,7 @@ function UserPermissionsCard({
         <CardTitle>Roles</CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
-        <RolePicker roles={roles} disabled={!canChange} onChange={setRoles} />
+        <RolePicker roles={roles} roleOptions={roleOptions} disabled={!canChange} onChange={setRoles} />
         <div className="mt-auto flex justify-end pt-2">
           {canChange ? (
             <Button disabled={!changed || pending} onClick={() => onSubmit(roles)}>
@@ -474,19 +518,28 @@ function UserPermissionsCard({
   );
 }
 
-function RolePicker({ roles, disabled, onChange }: { roles: string[]; disabled: boolean; onChange: (roles: string[]) => void }) {
-  const roleOptions = Array.from(new Set([...USER_ROLE_OPTIONS, ...roles]));
+function RolePicker({ roles, roleOptions, disabled, onChange }: { roles: string[]; roleOptions: string[]; disabled: boolean; onChange: (roles: string[]) => void }) {
+  const displayRoles = normalizeDisplayRoles(roles);
+  const options = Array.from(new Set([...USER_ROLE_OPTIONS, ...roleOptions, ...displayRoles])).map((role) => (role === "platform-admin" ? "admin" : role));
 
   const toggleRole = (role: string) => {
-    onChange(roles.includes(role) ? roles.filter((item) => item !== role) : [...roles, role]);
+    if (UNCHANGEABLE_USER_ROLES.has(role)) {
+      return;
+    }
+    onChange(displayRoles.includes(role) ? displayRoles.filter((item) => item !== role) : [...displayRoles, role]);
   };
 
   return (
     <div className="rounded-lg bg-white px-2 py-3">
       <div className="grid gap-2">
-        {roleOptions.map((role) => (
+        {Array.from(new Set(options)).map((role) => (
           <label key={role} className="flex items-center gap-3 px-1 py-1 text-sm text-slate-700">
-            <input checked={roles.includes(role)} disabled={disabled} type="checkbox" onChange={() => toggleRole(role)} />
+            <input
+              checked={displayRoles.includes(role)}
+              disabled={disabled || UNCHANGEABLE_USER_ROLES.has(role)}
+              type="checkbox"
+              onChange={() => toggleRole(role)}
+            />
             <span>{role}</span>
           </label>
         ))}
@@ -498,6 +551,7 @@ function RolePicker({ roles, disabled, onChange }: { roles: string[]; disabled: 
 function UserDetailSwitcherContent({
   view,
   activities,
+  events,
   deployments,
   releases,
   deploysets,
@@ -505,6 +559,7 @@ function UserDetailSwitcherContent({
 }: {
   view: UserDetailView;
   activities: UserActivity[];
+  events: ApiEventLogEntry[];
   deployments: ApiDeploymentExecution[];
   releases: ApiRelease[];
   deploysets: ApiDeploySet[];
@@ -520,12 +575,45 @@ function UserDetailSwitcherContent({
     return <UserDeploysetsPanel deploysets={deploysets} componentSets={componentSets} />;
   }
 
-  return <UserEventLogPanel activities={activities} />;
+  return <UserEventLogPanel activities={activities} events={events} />;
 }
 
-function UserEventLogPanel({ activities }: { activities: UserActivity[] }) {
-  if (!activities.length) {
+function UserEventLogPanel({ activities, events }: { activities: UserActivity[]; events: ApiEventLogEntry[] }) {
+  if (!activities.length && !events.length) {
     return <EmptyCardMessage>No user activity found.</EmptyCardMessage>;
+  }
+
+  if (events.length) {
+    return (
+      <ScrollFade className="h-full" contentClassName="px-4 pb-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Time</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Resource</TableHead>
+              <TableHead>Summary</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {events.map((event) => (
+              <TableRow key={event.eventId}>
+                <TableCell>{formatDateTime(event.occurredAt)}</TableCell>
+                <TableCell>
+                  <div className="font-mono text-[11px] font-semibold text-slate-900">{event.action}</div>
+                  <div className="text-xs text-slate-500">{event.actorPrincipalId}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-semibold text-slate-900">{event.resourceType}</div>
+                  <div className="font-mono text-[11px] text-slate-500">{event.resourceId}</div>
+                </TableCell>
+                <TableCell className="max-w-[440px] truncate">{event.summary}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ScrollFade>
+    );
   }
 
   return (
@@ -834,5 +922,9 @@ function matchesUser(principal: ApiPrincipal, value: string | null | undefined) 
 }
 
 function rolesToTags(roles: string[]) {
-  return Object.fromEntries(roles.map((role) => [role, ""] as const));
+  return Object.fromEntries(normalizeDisplayRoles(roles).map((role) => [role, ""] as const));
+}
+
+function normalizeDisplayRoles(roles: string[]) {
+  return roles.map((role) => (role === "platform-admin" ? "admin" : role));
 }

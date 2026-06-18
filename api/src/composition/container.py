@@ -11,6 +11,9 @@ from src.application.use_cases.registry import (
     ReleaseSourceUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
+from src.application.use_cases.events import EventLogUseCases
+from src.application.use_cases.roles import RoleUseCases
+from src.application.use_cases.webhooks import WebhookUseCases
 
 
 @dataclass(frozen=True)
@@ -26,5 +29,6 @@ class Container:
     create_deployment: CreateDeploymentUseCase
     deployment_runners: DeploymentRunnerUseCases
     principals: PrincipalUseCases
-
-
+    roles: RoleUseCases
+    events: EventLogUseCases
+    webhooks: WebhookUseCases

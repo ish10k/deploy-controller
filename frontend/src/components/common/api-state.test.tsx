@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ApiErrorPanel } from "@/components/common/api-state";
 import { ApiRequestError } from "@/lib/api-client";
+
+afterEach(() => cleanup());
 
 describe("ApiErrorPanel", () => {
   it("prompts the user to configure a working API", () => {
@@ -14,10 +16,10 @@ describe("ApiErrorPanel", () => {
   });
 
   it("shows not found errors without backend startup instructions", () => {
-    render(<ApiErrorPanel error={new ApiRequestError("DeploymentRunner not found: xwq", 404)} />);
+    const rendered = render(<ApiErrorPanel error={new ApiRequestError("DeploymentRunner not found: xwq", 404)} />);
 
     expect(screen.getByText("Record not found")).toBeInTheDocument();
     expect(screen.getByText("DeploymentRunner not found: xwq")).toBeInTheDocument();
-    expect(screen.queryByText(/VITE_API_TARGET/)).not.toBeInTheDocument();
+    expect(within(rendered.container).queryByText(/VITE_API_TARGET/)).not.toBeInTheDocument();
   });
 });

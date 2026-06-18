@@ -14,6 +14,8 @@ import type {
   ApiDeploymentPlan,
   ApiEnvironment,
   ApiEnvironmentState,
+  ApiEventLogEntry,
+  ApiEventLogListResult,
   ApiPlanDeploymentRequest,
   ApiBootstrapState,
   ApiPrincipal,
@@ -23,8 +25,13 @@ import type {
   ApiReleaseSourceCreateResult,
   ApiReportExecutionItemStatusRequest,
   ApiReportExecutionStatusRequest,
+  ApiRole,
   ApiRotateTokenResult,
   ApiWhoAmI,
+  ApiWebhook,
+  ApiWebhookDelivery,
+  ApiWebhookFilter,
+  ApiWebhookSubscription,
 } from "@/lib/api-types";
 import { getAccessToken } from "@/lib/auth-token";
 
@@ -73,7 +80,10 @@ export const queryKeys = {
   componentSets: ["component-sets"] as const,
   releases: (componentId?: string) => ["releases", componentId ?? "all"] as const,
   principals: ["principals"] as const,
+  roles: ["roles"] as const,
+  role: (roleId: string) => ["roles", roleId] as const,
   releaseSources: ["release-sources"] as const,
+  releaseSource: (releaseSourceId: string) => ["release-sources", releaseSourceId] as const,
   deploysets: ["deploysets"] as const,
   deployset: (deploySetId: string) => ["deploysets", deploySetId] as const,
   environments: ["environments"] as const,
@@ -86,7 +96,45 @@ export const queryKeys = {
   dashboard: (environmentId: string) => ["dashboard", environmentId] as const,
   deploymentRunners: ["deployment-runners"] as const,
   pendingExecutions: ["runner-pending-executions"] as const,
+  events: (filters?: EventLogFilters) => ["events", filters ?? {}] as const,
+  event: (eventId: string) => ["events", eventId] as const,
+  webhooks: ["webhooks"] as const,
+  webhook: (webhookId: string) => ["webhooks", webhookId] as const,
+  webhookDeliveries: (filters?: WebhookDeliveryFilters) => ["webhook-deliveries", filters ?? {}] as const,
+  webhookDelivery: (deliveryId: string) => ["webhook-deliveries", deliveryId] as const,
 } as const;
+
+export type EventLogFilters = {
+  limit?: number;
+  cursor?: string | null;
+  actorPrincipalId?: string;
+  resourceType?: string;
+  resourceId?: string;
+  category?: string;
+  action?: string;
+  origin?: string;
+  from?: string;
+  to?: string;
+};
+
+export type WebhookDeliveryFilters = {
+  webhookId?: string;
+  eventId?: string;
+  status?: string;
+  resourceType?: string;
+  resourceId?: string;
+};
+
+function queryString(params: Record<string, string | number | null | undefined>) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      search.set(key, String(value));
+    }
+  });
+  const value = search.toString();
+  return value ? `?${value}` : "";
+}
 
 export async function listComponents() {
   return request<ApiComponent[]>("/components");
@@ -136,6 +184,10 @@ export async function createRelease(release: ApiRelease) {
 
 export async function listReleaseSources() {
   return request<ApiReleaseSource[]>("/release-sources");
+}
+
+export async function getReleaseSource(releaseSourceId: string) {
+  return request<ApiReleaseSource>(`/release-sources/${encodeURIComponent(releaseSourceId)}`);
 }
 
 export async function createReleaseSource(payload: ApiReleaseSourceCreateRequest) {
@@ -232,6 +284,65 @@ export async function getBootstrapState() {
 
 export async function listPrincipals() {
   return request<ApiPrincipal[]>("/principals");
+}
+
+export async function listRoles() {
+  return request<ApiRole[]>("/roles");
+}
+
+export async function getRole(roleId: string) {
+  return request<ApiRole>(`/roles/${encodeURIComponent(roleId)}`);
+}
+
+export async function putRole(roleId: string, role: ApiRole) {
+  return request<ApiRole>(`/roles/${encodeURIComponent(roleId)}`, {
+    method: "PUT",
+    body: role,
+  });
+}
+
+export async function listEvents(filters: EventLogFilters = {}) {
+  return request<ApiEventLogListResult>(`/events${queryString(filters)}`);
+}
+
+export async function getEvent(eventId: string) {
+  return request<ApiEventLogEntry>(`/events/${encodeURIComponent(eventId)}`);
+}
+
+export async function listWebhooks() {
+  return request<ApiWebhook[]>("/webhooks");
+}
+
+export async function getWebhook(webhookId: string) {
+  return request<ApiWebhook>(`/webhooks/${encodeURIComponent(webhookId)}`);
+}
+
+export async function putWebhook(webhookId: string, webhook: ApiWebhook) {
+  return request<ApiWebhook>(`/webhooks/${encodeURIComponent(webhookId)}`, {
+    method: "PUT",
+    body: webhook,
+  });
+}
+
+export async function createWebhook(webhook: ApiWebhook) {
+  return request<ApiWebhook>("/webhooks", {
+    method: "POST",
+    body: webhook,
+  });
+}
+
+export async function listWebhookDeliveries(filters: WebhookDeliveryFilters = {}) {
+  return request<ApiWebhookDelivery[]>(`/webhook-deliveries${queryString(filters)}`);
+}
+
+export async function getWebhookDelivery(deliveryId: string) {
+  return request<ApiWebhookDelivery>(`/webhook-deliveries/${encodeURIComponent(deliveryId)}`);
+}
+
+export async function retryWebhookDelivery(deliveryId: string) {
+  return request<ApiWebhookDelivery>(`/webhook-deliveries/${encodeURIComponent(deliveryId)}/retry`, {
+    method: "POST",
+  });
 }
 
 export async function getPrincipal(principalId: string) {
@@ -361,12 +472,19 @@ export type {
   ApiDeploymentPlan,
   ApiEnvironment,
   ApiEnvironmentState,
+  ApiEventLogEntry,
+  ApiEventLogListResult,
   ApiBootstrapState,
   ApiPrincipal,
   ApiRelease,
   ApiReleaseSource,
   ApiReleaseSourceCreateRequest,
   ApiReleaseSourceCreateResult,
+  ApiRole,
   ApiRotateTokenResult,
   ApiWhoAmI,
+  ApiWebhook,
+  ApiWebhookDelivery,
+  ApiWebhookFilter,
+  ApiWebhookSubscription,
 } from "@/lib/api-types";

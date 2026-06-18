@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -11,13 +11,14 @@ let mockUser: ApiWhoAmI | null = {
   authMethod: "oidc",
   displayName: "Ops User",
   email: "ops@example.local",
-  roles: ["platform-admin"],
+  roles: ["admin"],
   permissions: ["principals:read"],
 };
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
-  useRouterState: () => ({ location: { pathname: "/deployments" } }),
+  useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) =>
+    select({ location: { pathname: "/deployments" } }),
   useNavigate: () => vi.fn(),
 }));
 
@@ -32,6 +33,8 @@ vi.mock("@/lib/auth-context", () => ({
   }),
 }));
 
+afterEach(() => cleanup());
+
 describe("AppShell", () => {
   beforeEach(() => {
     mockUser = {
@@ -40,8 +43,8 @@ describe("AppShell", () => {
       authMethod: "oidc",
       displayName: "Ops User",
       email: "ops@example.local",
-      roles: ["platform-admin"],
-      permissions: ["principals:read"],
+      roles: ["admin"],
+      permissions: ["principals:read", "roles:read", "webhooks:read"],
     };
   });
 
@@ -53,6 +56,10 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/audit");
+    expect(screen.getByRole("link", { name: "Release Sources" })).toHaveAttribute("href", "/release-sources");
+    expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/webhooks");
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
   });
 

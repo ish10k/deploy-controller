@@ -15,6 +15,10 @@ export type DriftReason =
 export type DeploySetItemSource = "explicit" | "inferred";
 export type EnvironmentStatus = "idle" | "pending" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
 export type PrincipalType = "user" | "service";
+export type EventOrigin = "user" | "service" | "system";
+export type EventSeverity = "info" | "warning" | "error";
+export type WebhookDeliveryStatus = "pending" | "succeeded" | "failed";
+export type ApiPermission = string;
 
 export interface Artifact {
   key: string;
@@ -215,6 +219,117 @@ export interface ApiWhoAmI {
   permissions: string[];
 }
 
+export interface ApiRole {
+  roleId: string;
+  permissions: ApiPermission[];
+  description: string | null;
+  system: boolean;
+  permissionsEditable: boolean;
+}
+
+export interface ApiEventResourceRef {
+  resourceType: string;
+  resourceId: string;
+}
+
+export interface ApiEventChange {
+  field: string;
+  before: unknown | null;
+  after: unknown | null;
+}
+
+export interface ApiEventLogEntry {
+  eventId: string;
+  occurredAt: string;
+  actorPrincipalId: string;
+  actorType: string;
+  origin: EventOrigin;
+  action: string;
+  category: string;
+  severity: EventSeverity;
+  summary: string;
+  resourceType: string;
+  resourceId: string;
+  relatedResources: ApiEventResourceRef[];
+  correlationId: string | null;
+  requestId: string | null;
+  changes: ApiEventChange[];
+  metadata: Record<string, unknown>;
+}
+
+export interface ApiEventLogListResult {
+  events: ApiEventLogEntry[];
+  nextCursor: string | null;
+}
+
+export interface ApiWebhookRetryPolicy {
+  maxAttempts: number;
+  backoffSeconds: number;
+}
+
+export interface ApiWebhookFilter {
+  resourceTypes: string[];
+  resourceIds: string[];
+  categories: string[];
+  origins: string[];
+  severities: string[];
+}
+
+export interface ApiWebhookSubscription {
+  subscriptionId: string;
+  eventTypes: string[];
+  filters: ApiWebhookFilter;
+}
+
+export interface ApiWebhook {
+  webhookId: string;
+  displayName: string;
+  url: string;
+  active: boolean;
+  retryPolicy: ApiWebhookRetryPolicy;
+  subscriptions: ApiWebhookSubscription[];
+  secretRef: string | null;
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
+export interface ApiWebhookEnvelope {
+  schemaVersion: "webhook.v1";
+  deliveryId: string;
+  webhookId: string;
+  subscriptionId: string;
+  eventId: string;
+  eventType: string;
+  occurredAt: string;
+  sentAt: string | null;
+  attempt: number;
+  actor: { principalId: string; type: string; origin: string };
+  resource: { type: string; id: string };
+  relatedResources: ApiEventResourceRef[];
+  data: Record<string, unknown>;
+  changes: ApiEventChange[];
+  metadata: Record<string, unknown>;
+}
+
+export interface ApiWebhookDelivery {
+  webhookDeliveryId: string;
+  webhookId: string;
+  subscriptionId: string;
+  eventId: string;
+  eventType: string;
+  status: WebhookDeliveryStatus;
+  envelope: ApiWebhookEnvelope;
+  attempts: number;
+  nextAttemptAt: string | null;
+  lastResponseStatus: number | null;
+  lastResponseBody: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiEnvironmentState {
   environmentId: string;
   deploySetId: string | null;
@@ -310,6 +425,8 @@ export type components = {
     DeploymentRunnerCreateResult: ApiDeploymentRunnerCreateResult;
     Environment: ApiEnvironment;
     EnvironmentState: ApiEnvironmentState;
+    EventLogEntry: ApiEventLogEntry;
+    EventLogListResult: ApiEventLogListResult;
     ExecutionStatus: ExecutionStatus;
     ItemStatus: ItemStatus;
     Release: ApiRelease;
@@ -318,6 +435,7 @@ export type components = {
     ReleaseSourceCreateResult: ApiReleaseSourceCreateResult;
     RotateTokenResult: ApiRotateTokenResult;
     Principal: ApiPrincipal;
+    Role: ApiRole;
     BootstrapState: ApiBootstrapState;
     WhoAmI: ApiWhoAmI;
     ReportExecutionItemStatusRequest: ApiReportExecutionItemStatusRequest;

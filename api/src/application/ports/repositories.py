@@ -8,10 +8,14 @@ from src.domain.models import (
     DeploySet,
     Environment,
     EnvironmentState,
+    EventLogEntry,
     BootstrapState,
     Principal,
     Release,
     ReleaseSource,
+    Role,
+    Webhook,
+    WebhookDelivery,
 )
 
 
@@ -64,6 +68,12 @@ class PrincipalRepository(Protocol):
     def put(self, principal: Principal) -> None: ...
 
 
+class RoleRepository(Protocol):
+    def get(self, role_id: str) -> Role | None: ...
+    def list(self) -> list[Role]: ...
+    def put(self, role: Role) -> None: ...
+
+
 class BootstrapStateRepository(Protocol):
     def get(self) -> BootstrapState: ...
     def put(self, state: BootstrapState) -> None: ...
@@ -84,11 +94,48 @@ class DeploymentExecutionRepository(Protocol):
     def list_pending(self) -> list[DeploymentExecution]: ...
 
 
+class EventLogRepository(Protocol):
+    def append(self, event: EventLogEntry) -> None: ...
+    def get(self, event_id: str) -> EventLogEntry | None: ...
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+        actor_principal_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        category: str | None = None,
+        action: str | None = None,
+        origin: str | None = None,
+        from_time: str | None = None,
+        to_time: str | None = None,
+    ) -> tuple[list[EventLogEntry], str | None]: ...
+
+
+class WebhookRepository(Protocol):
+    def get(self, webhook_id: str) -> Webhook | None: ...
+    def list(self) -> list[Webhook]: ...
+    def put(self, webhook: Webhook) -> None: ...
+
+
+class WebhookDeliveryRepository(Protocol):
+    def get(self, webhook_delivery_id: str) -> WebhookDelivery | None: ...
+    def list(
+        self,
+        *,
+        webhook_id: str | None = None,
+        event_id: str | None = None,
+        status: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[WebhookDelivery]: ...
+    def put(self, delivery: WebhookDelivery) -> None: ...
+
+
 class Clock(Protocol):
     def now(self) -> str: ...
 
 
 class IdGenerator(Protocol):
     def new_id(self) -> str: ...
-
-

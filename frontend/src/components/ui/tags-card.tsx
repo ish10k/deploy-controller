@@ -35,6 +35,7 @@ export function TagsCard({
   keyPlaceholder = "Add tag",
   valuePlaceholder = "",
   emptyLabel = "No tags added.",
+  disabled = false,
   onAdd,
   onChange,
   onRemove,
@@ -46,6 +47,7 @@ export function TagsCard({
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   emptyLabel?: string;
+  disabled?: boolean;
   onAdd: () => void;
   onChange: (id: string, patch: Partial<Omit<TagDraft, "id">>) => void;
   onRemove: (id: string) => void;
@@ -54,6 +56,10 @@ export function TagsCard({
   const isBlankTag = (tag: TagDraft) => !tag.key.trim() && !tag.value.trim();
 
   const handleChange = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
+    if (disabled) {
+      return;
+    }
+
     const nextTags = tags.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag));
     const changedIndex = nextTags.findIndex((tag) => tag.id === id);
     const changedTag = nextTags[changedIndex];
@@ -72,6 +78,10 @@ export function TagsCard({
   };
 
   const handleRemove = (id: string) => {
+    if (disabled) {
+      return;
+    }
+
     if (tags.length === 1) {
       onChange(id, { key: "", value: "" });
       return;
@@ -95,6 +105,7 @@ export function TagsCard({
           valuePlaceholder={valuePlaceholder}
           emptyLabel={emptyLabel}
           hideLastRemove
+          disabled={disabled}
           onChange={handleChange}
           onRemove={handleRemove}
         />

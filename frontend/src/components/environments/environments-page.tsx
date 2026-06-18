@@ -34,6 +34,7 @@ import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraf
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   fetchEnvironmentCenterData,
+  listEvents,
   putEnvironment,
   queryKeys,
   type ApiComponentSet,
@@ -41,7 +42,9 @@ import {
   type ApiDeploymentExecution,
   type ApiEnvironment,
   type ApiEnvironmentState,
+  type ApiEventLogEntry,
 } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import { formatDateTime, tagSummary } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -193,9 +196,17 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
 }
 
 function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
+  const auth = useAuth();
+  const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
+  const eventQuery = useQuery({
+    queryKey: queryKeys.events({ resourceType: "environment", resourceId: row.environment.environmentId, limit: 50 }),
+    enabled: canReadEvents,
+    queryFn: () => listEvents({ resourceType: "environment", resourceId: row.environment.environmentId, limit: 50 }),
+  });
   const latest = row.latestExecution;
   const activities = buildActivities(row);
   const driftCount = latest?.items.filter((item) => item.driftDetected).length ?? 0;
+  const events = eventQuery.data?.events ?? [];
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -302,7 +313,9 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
             </Link>
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {activities.length ? (
+            {events.length ? (
+              <EnvironmentAuditEvents events={events} />
+            ) : activities.length ? (
               <ScrollFade className="h-full" contentClassName="px-4 pb-4">
               <div className="divide-y divide-slate-200">
                 {activities.map((activity) => (
@@ -326,6 +339,25 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+function EnvironmentAuditEvents({ events }: { events: ApiEventLogEntry[] }) {
+  return (
+    <ScrollFade className="h-full" contentClassName="px-4 pb-4">
+      <div className="divide-y divide-slate-200">
+        {events.map((event) => (
+          <div key={event.eventId} className="flex items-center gap-3 py-2 text-sm">
+            <Activity className="h-4 w-4 shrink-0 text-blue-600" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold text-slate-800">{event.action}</div>
+              <div className="truncate text-xs text-slate-500">{event.summary}</div>
+            </div>
+            <div className="shrink-0 text-xs text-slate-500">{formatDateTime(event.occurredAt)}</div>
+          </div>
+        ))}
+      </div>
+    </ScrollFade>
   );
 }
 

@@ -4,7 +4,7 @@
   "displayName": "Settle Local",
   "roles": {
     "realm": [
-      { "name": "platform-admin" },
+      { "name": "admin" },
       { "name": "platform-deployer" },
       { "name": "platform-viewer" }
     ]
@@ -76,7 +76,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["platform-admin"]
+      "realmRoles": ["admin"]
     },
     {
       "username": "deployer@example.local",

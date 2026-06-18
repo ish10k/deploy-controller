@@ -45,10 +45,15 @@ resource "aws_iam_role_policy" "lambda" {
           aws_dynamodb_table.environments.arn,
           aws_dynamodb_table.deployment_runners.arn,
           aws_dynamodb_table.principals.arn,
+          aws_dynamodb_table.roles.arn,
           aws_dynamodb_table.bootstrap.arn,
           aws_dynamodb_table.environment_state.arn,
           aws_dynamodb_table.deployment_executions.arn,
-          "${aws_dynamodb_table.deployment_executions.arn}/index/*"
+          "${aws_dynamodb_table.deployment_executions.arn}/index/*",
+          aws_dynamodb_table.event_log.arn,
+          "${aws_dynamodb_table.event_log.arn}/index/*",
+          aws_dynamodb_table.webhooks.arn,
+          aws_dynamodb_table.webhook_deliveries.arn
         ]
       },
       {

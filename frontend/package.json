@@ -13,14 +13,14 @@
     "openapi:types": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/lib/api-types.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
     "@fontsource/inter": "^5.2.8",
+    "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.139.9",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.555.0",
+    "lucide-react": "^1.21.0",
     "openapi-fetch": "^0.15.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
@@ -29,12 +29,12 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.1",
     "autoprefixer": "^10.4.22",
     "jsdom": "^27.2.0",
     "openapi-typescript": "^7.10.1",

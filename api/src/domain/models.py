@@ -4,6 +4,8 @@ from src.domain.enums import (
     DeploySetItemSource,
     DriftReason,
     EnvironmentStatus,
+    EventOrigin,
+    EventSeverity,
     ExecutionStatus,
     ItemStatus,
     Permission,
@@ -226,6 +228,8 @@ class Role(ApiModel):
     role_id: str = Field(alias="roleId")
     permissions: list[Permission]
     description: str | None = None
+    system: bool = False
+    permissions_editable: bool = Field(default=True, alias="permissionsEditable")
 
 
 class AuthContext(ApiModel):
@@ -247,24 +251,115 @@ class WhoAmI(ApiModel):
     permissions: list[Permission] = Field(default_factory=list)
 
 
+class EventResourceRef(ApiModel):
+    resource_type: str = Field(alias="resourceType")
+    resource_id: str = Field(alias="resourceId")
+
+
+class EventChange(ApiModel):
+    field: str
+    before: object | None = None
+    after: object | None = None
+
+
+class EventLogEntry(ApiModel):
+    event_id: str = Field(alias="eventId")
+    occurred_at: str = Field(alias="occurredAt")
+    actor_principal_id: str = Field(alias="actorPrincipalId")
+    actor_type: str = Field(alias="actorType")
+    origin: EventOrigin
+    action: str
+    category: str
+    severity: EventSeverity = EventSeverity.INFO
+    summary: str
+    resource_type: str = Field(alias="resourceType")
+    resource_id: str = Field(alias="resourceId")
+    related_resources: list[EventResourceRef] = Field(default_factory=list, alias="relatedResources")
+    correlation_id: str | None = Field(default=None, alias="correlationId")
+    request_id: str | None = Field(default=None, alias="requestId")
+    changes: list[EventChange] = Field(default_factory=list)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class EventLogListResult(ApiModel):
+    events: list[EventLogEntry]
+    next_cursor: str | None = Field(default=None, alias="nextCursor")
+
+
+class WebhookRetryPolicy(ApiModel):
+    max_attempts: int = Field(default=3, alias="maxAttempts", ge=1, le=20)
+    backoff_seconds: int = Field(default=60, alias="backoffSeconds", ge=0, le=86400)
+
+
+class WebhookFilter(ApiModel):
+    resource_types: list[str] = Field(default_factory=list, alias="resourceTypes")
+    resource_ids: list[str] = Field(default_factory=list, alias="resourceIds")
+    categories: list[str] = Field(default_factory=list)
+    origins: list[str] = Field(default_factory=list)
+    severities: list[str] = Field(default_factory=list)
+
+
+class WebhookSubscription(ApiModel):
+    subscription_id: str = Field(alias="subscriptionId")
+    event_types: list[str] = Field(default_factory=list, alias="eventTypes")
+    filters: WebhookFilter = Field(default_factory=WebhookFilter)
+
+
 class Webhook(ApiModel):
     webhook_id: str = Field(alias="webhookId")
+    display_name: str = Field(alias="displayName")
     url: str
-    events: list[WebhookEvent]
     active: bool = True
+    retry_policy: WebhookRetryPolicy = Field(default_factory=WebhookRetryPolicy, alias="retryPolicy")
+    subscriptions: list[WebhookSubscription] = Field(default_factory=list)
     secret_ref: str | None = Field(default=None, alias="secretRef")
     tags: dict[str, str] = Field(default_factory=dict)
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
+class WebhookActor(ApiModel):
+    principal_id: str = Field(alias="principalId")
+    type: str
+    origin: str
+
+
+class WebhookResource(ApiModel):
+    type: str
+    id: str
+
+
+class WebhookEnvelope(ApiModel):
+    schema_version: str = Field(default="webhook.v1", alias="schemaVersion")
+    delivery_id: str = Field(alias="deliveryId")
+    webhook_id: str = Field(alias="webhookId")
+    subscription_id: str = Field(alias="subscriptionId")
+    event_id: str = Field(alias="eventId")
+    event_type: str = Field(alias="eventType")
+    occurred_at: str = Field(alias="occurredAt")
+    sent_at: str | None = Field(default=None, alias="sentAt")
+    attempt: int = 1
+    actor: WebhookActor
+    resource: WebhookResource
+    related_resources: list[EventResourceRef] = Field(default_factory=list, alias="relatedResources")
+    data: dict[str, object] = Field(default_factory=dict)
+    changes: list[EventChange] = Field(default_factory=list)
+    metadata: dict[str, object] = Field(default_factory=dict)
 
 
 class WebhookDelivery(ApiModel):
     webhook_delivery_id: str = Field(alias="webhookDeliveryId")
     webhook_id: str = Field(alias="webhookId")
-    event: WebhookEvent
+    subscription_id: str = Field(alias="subscriptionId")
+    event_id: str = Field(alias="eventId")
+    event_type: str = Field(alias="eventType")
     status: WebhookDeliveryStatus
-    payload: dict[str, object]
+    envelope: WebhookEnvelope
     attempts: int = 0
+    next_attempt_at: str | None = Field(default=None, alias="nextAttemptAt")
+    last_response_status: int | None = Field(default=None, alias="lastResponseStatus")
+    last_response_body: str | None = Field(default=None, alias="lastResponseBody")
     last_error: str | None = Field(default=None, alias="lastError")
     created_at: str = Field(alias="createdAt")
     updated_at: str = Field(alias="updatedAt")
@@ -313,5 +408,3 @@ class DeploymentPlan(ApiModel):
     environment_id: str = Field(alias="environmentId")
     deployset_id: str = Field(alias="deploySetId")
     items: list[DeploymentExecutionItem]
-
-

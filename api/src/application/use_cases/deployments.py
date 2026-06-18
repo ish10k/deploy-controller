@@ -10,6 +10,8 @@ from src.application.ports import (
     IdGenerator,
     ReleaseRepository,
 )
+from src.application.use_cases.authorization import require_permission
+from src.application.use_cases.events import EventLogUseCases
 from src.domain.enums import (
     EXECUTION_STATUSES,
     ITEM_STATUSES,
@@ -17,10 +19,12 @@ from src.domain.enums import (
     EnvironmentStatus,
     ExecutionStatus,
     ItemStatus,
+    Permission,
+    PrincipalType,
     ReportedAction,
     RequestedAction,
 )
-from src.domain.errors import ConflictError, NotFoundError, ValidationError
+from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
     DeploymentExecution,
     DeploymentExecutionItem,
@@ -29,6 +33,8 @@ from src.domain.models import (
     DeploymentRunnerCreateResult,
     DeploymentPlan,
     EnvironmentState,
+    EventResourceRef,
+    AuthContext,
     RotateTokenResult,
 )
 from src.application.use_cases.credentials import issue_pat
@@ -105,23 +111,26 @@ class CreateDeploymentUseCase:
         states: EnvironmentStateRepository,
         clock: Clock,
         id_generator: IdGenerator,
+        events: EventLogUseCases | None = None,
     ) -> None:
         self.planner = planner
         self.executions = executions
         self.states = states
         self.clock = clock
         self.id_generator = id_generator
+        self.events = events
 
     def execute(
         self,
         *,
         environment_id: str,
         deployset_id: str,
-        requested_by: str,
+        context: AuthContext,
         notes: str | None = None,
         force: bool = False,
         tags: dict[str, str] | None = None,
     ) -> DeploymentExecution:
+        require_permission(context, Permission.DEPLOYMENTS_CREATE)
         plan = self.planner.execute(environment_id=environment_id, deployset_id=deployset_id, force=force)
         now = self.clock.now()
         execution = DeploymentExecution(
@@ -129,7 +138,7 @@ class CreateDeploymentUseCase:
             environment_id=environment_id,
             deployset_id=deployset_id,
             status=ExecutionStatus.PENDING,
-            requested_by=requested_by,
+            requested_by=context.principal_id,
             notes=notes,
             force=force,
             started_at=now,
@@ -147,6 +156,21 @@ class CreateDeploymentUseCase:
                 updated_at=now,
             )
         )
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment.created",
+                category="deployment",
+                summary=f"Created deployment execution {execution.deployment_execution_id}",
+                resource_type="deploymentExecution",
+                resource_id=execution.deployment_execution_id,
+                after=execution,
+                related_resources=[
+                    EventResourceRef(resource_type="environment", resource_id=environment_id),
+                    EventResourceRef(resource_type="deployset", resource_id=deployset_id),
+                ],
+                metadata={"environmentId": environment_id, "deploysetId": deployset_id, "force": force},
+            )
         return execution
 
 
@@ -160,6 +184,7 @@ class DeploymentRunnerUseCases:
         states: EnvironmentStateRepository,
         clock: Clock,
         principals: PrincipalUseCases,
+        events: EventLogUseCases | None = None,
     ) -> None:
         self.runners = runners
         self.executions = executions
@@ -167,12 +192,29 @@ class DeploymentRunnerUseCases:
         self.states = states
         self.clock = clock
         self.principals = principals
+        self.events = events
 
-    def put(self, runner: DeploymentRunner) -> DeploymentRunner:
+    def put(self, runner: DeploymentRunner, context: AuthContext) -> DeploymentRunner:
+        require_permission(context, Permission.DEPLOYMENT_RUNNERS_WRITE)
+        existing = self.runners.get(runner.runner_id)
+        if existing is None:
+            runner = runner.model_copy(update={"created_by": context.principal_id})
         self.runners.put(runner)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment_runner.created" if existing is None else "deployment_runner.updated",
+                category="integration",
+                summary=f"{'Created' if existing is None else 'Updated'} deployment runner {runner.runner_id}",
+                resource_type="deploymentRunner",
+                resource_id=runner.runner_id,
+                before=existing,
+                after=runner,
+            )
         return runner
 
-    def create(self, request: DeploymentRunnerCreateRequest) -> DeploymentRunnerCreateResult:
+    def create(self, request: DeploymentRunnerCreateRequest, context: AuthContext) -> DeploymentRunnerCreateResult:
+        require_permission(context, Permission.DEPLOYMENT_RUNNERS_WRITE)
         existing = self.runners.get(request.runner_id)
         if existing is not None:
             raise ConflictError(f"DeploymentRunner already exists: {request.runner_id}")
@@ -194,7 +236,7 @@ class DeploymentRunnerUseCases:
             last_heartbeat_at=None,
             tags=request.tags,
             created_at=now,
-            created_by="user:local-admin",
+            created_by=context.principal_id,
         )
         self.principals.ensure_service_principal(
             principal_id=runner.principal_id,
@@ -204,6 +246,16 @@ class DeploymentRunnerUseCases:
             tags=runner.tags,
         )
         self.runners.put(runner)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=runner.created_by,
+                action="deployment_runner.created",
+                category="integration",
+                summary=f"Created deployment runner {runner.runner_id}",
+                resource_type="deploymentRunner",
+                resource_id=runner.runner_id,
+                after=runner,
+            )
         return DeploymentRunnerCreateResult(runner=runner, token=token)
 
     def get(self, runner_id: str) -> DeploymentRunner:
@@ -215,7 +267,8 @@ class DeploymentRunnerUseCases:
     def list(self) -> list[DeploymentRunner]:
         return self.runners.list()
 
-    def rotate_token(self, runner_id: str) -> RotateTokenResult:
+    def rotate_token(self, runner_id: str, context: AuthContext) -> RotateTokenResult:
+        require_permission(context, Permission.DEPLOYMENT_RUNNERS_WRITE)
         runner = self.get(runner_id)
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
@@ -229,19 +282,44 @@ class DeploymentRunnerUseCases:
             }
         )
         self.runners.put(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment_runner.token_rotated",
+                category="security",
+                summary=f"Rotated token for deployment runner {runner_id}",
+                resource_type="deploymentRunner",
+                resource_id=runner_id,
+                before=runner,
+                after=updated,
+                metadata={"tokenPrefix": updated.token_prefix, "tokenRotatedAt": updated.token_rotated_at},
+            )
         return RotateTokenResult(token=token)
 
-    def heartbeat(self, runner_id: str) -> DeploymentRunner:
+    def heartbeat(self, runner_id: str, context: AuthContext) -> DeploymentRunner:
+        self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
         runner = self.get(runner_id)
         updated = runner.model_copy(update={"last_heartbeat_at": self.clock.now()})
         self.runners.put(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=runner.principal_id,
+                action="deployment_runner.heartbeat",
+                category="runner",
+                summary=f"Heartbeat from deployment runner {runner_id}",
+                resource_type="deploymentRunner",
+                resource_id=runner_id,
+                before=runner,
+                after=updated,
+            )
         return updated
 
     def list_pending(self, runner_id: str) -> list[DeploymentExecution]:
         runner = self._active_runner(runner_id)
         return [execution for execution in self.executions.list_pending() if self._runner_allows_execution(runner, execution)]
 
-    def claim(self, runner_id: str, deployment_execution_id: str, lease_seconds: int | None = None) -> DeploymentExecution:
+    def claim(self, runner_id: str, deployment_execution_id: str, context: AuthContext, lease_seconds: int | None = None) -> DeploymentExecution:
+        self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_CLAIM)
         runner = self._active_runner(runner_id)
         execution = self._get(deployment_execution_id)
         self._require_scope(runner, execution)
@@ -250,6 +328,18 @@ class DeploymentRunnerUseCases:
         updated = execution.model_copy(update={"status": ExecutionStatus.CLAIMED, "claimed_by": runner_id})
         self.executions.put(updated)
         self._update_state(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment.claimed",
+                category="deployment",
+                summary=f"Claimed deployment execution {deployment_execution_id}",
+                resource_type="deploymentExecution",
+                resource_id=deployment_execution_id,
+                before=execution,
+                after=updated,
+                metadata={"runnerId": runner_id},
+            )
         return updated
 
     def report_item_status(
@@ -260,11 +350,13 @@ class DeploymentRunnerUseCases:
         component_id: str,
         status: str,
         reported_action: str,
+        context: AuthContext,
         reported_by: str | None = None,
         runner_reason: str | None = None,
         message: str | None = None,
         error: str | None = None,
     ) -> DeploymentExecution:
+        self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
         if status not in ITEM_STATUSES:
             raise ValidationError(f"Unsupported item status: {status}")
         if reported_action not in REPORTED_ACTIONS:
@@ -309,9 +401,27 @@ class DeploymentRunnerUseCases:
             raise NotFoundError(f"Execution item not found: {deployment_execution_id}/{component_id}")
         updated = execution.model_copy(update={"items": updated_items})
         self.executions.put(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment_item.status_reported",
+                category="deployment",
+                summary=f"Reported {component_id} as {status} for execution {deployment_execution_id}",
+                resource_type="deploymentExecution",
+                resource_id=deployment_execution_id,
+                before=execution,
+                after=updated,
+                metadata={
+                    "runnerId": runner_id,
+                    "componentId": component_id,
+                    "status": str(status),
+                    "reportedAction": str(reported_action),
+                },
+            )
         return updated
 
-    def report_execution_status(self, runner_id: str, deployment_execution_id: str, status: str) -> DeploymentExecution:
+    def report_execution_status(self, runner_id: str, deployment_execution_id: str, status: str, context: AuthContext) -> DeploymentExecution:
+        self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
         if status not in EXECUTION_STATUSES:
             raise ValidationError(f"Unsupported execution status: {status}")
         status = ExecutionStatus(status)
@@ -327,6 +437,18 @@ class DeploymentRunnerUseCases:
         updated = execution.model_copy(update={"status": status, "completed_at": completed_at})
         self.executions.put(updated)
         self._update_state(updated)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action="deployment.status_changed",
+                category="deployment",
+                summary=f"Changed deployment execution {deployment_execution_id} to {status}",
+                resource_type="deploymentExecution",
+                resource_id=deployment_execution_id,
+                before=execution,
+                after=updated,
+                metadata={"runnerId": runner_id, "status": str(status)},
+            )
         return updated
 
     def _active_runner(self, runner_id: str) -> DeploymentRunner:
@@ -334,6 +456,11 @@ class DeploymentRunnerUseCases:
         if not runner.active:
             raise ValidationError(f"DeploymentRunner is inactive: {runner_id}")
         return runner
+
+    def _require_runner_permission(self, context: AuthContext, runner_id: str, permission: Permission) -> None:
+        require_permission(context, permission)
+        if context.principal_type == PrincipalType.SERVICE and context.claims.get("runnerId") != runner_id:
+            raise ForbiddenError(f"DeploymentRunner token cannot operate on another runner: {runner_id}")
 
     def _runner_allows_execution(self, runner: DeploymentRunner, execution: DeploymentExecution) -> bool:
         scope = runner.scope
@@ -381,5 +508,3 @@ class DeploymentRunnerUseCases:
                 updated_at=self.clock.now(),
             )
         )
-
-

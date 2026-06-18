@@ -13,10 +13,14 @@ import { ComponentSetsPage } from "@/components/pages/component-sets-page";
 import { ComponentsPage } from "@/components/pages/components-page";
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
 import { DeploysetsPage } from "@/components/pages/deploysets-page";
+import { EventLogPage } from "@/components/pages/event-log-page";
 import { ExecutionsPage } from "@/components/pages/executions-page";
 import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
+import { ReleaseSourceDetailsPage, ReleaseSourcesPage } from "@/components/pages/release-sources-page";
 import { ReleasesPage } from "@/components/pages/releases-page";
+import { RoleDetailsPage, RolesPage } from "@/components/pages/roles-page";
 import { UserDetailsPage, UsersPage } from "@/components/pages/users-page";
+import { WebhookDeliveryDetailsPage, WebhookDetailsPage, WebhooksPage } from "@/components/pages/webhooks-page";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -79,6 +83,15 @@ const componentSetDetailRoute = createRoute({
   },
 });
 const releasesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/releases", component: ReleasesPage });
+const releaseSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/release-sources", component: ReleaseSourcesPage });
+const releaseSourceDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/release-sources/$releaseSourceId",
+  component: () => {
+    const { releaseSourceId } = releaseSourceDetailRoute.useParams();
+    return <ReleaseSourceDetailsPage releaseSourceId={releaseSourceId} />;
+  },
+});
 const releaseDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/releases/$componentId/$version",
@@ -98,6 +111,33 @@ const deploysetDetailRoute = createRoute({
 });
 const environmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/environments", component: EnvironmentsPage });
 const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/users", component: UsersPage });
+const rolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/roles", component: RolesPage });
+const roleDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/roles/$roleId",
+  component: () => {
+    const { roleId } = roleDetailRoute.useParams();
+    return <RoleDetailsPage roleId={roleId} />;
+  },
+});
+const auditRoute = createRoute({ getParentRoute: () => rootRoute, path: "/audit", component: EventLogPage });
+const webhooksRoute = createRoute({ getParentRoute: () => rootRoute, path: "/webhooks", component: WebhooksPage });
+const webhookDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/webhooks/$webhookId",
+  component: () => {
+    const { webhookId } = webhookDetailRoute.useParams();
+    return <WebhookDetailsPage webhookId={webhookId} />;
+  },
+});
+const webhookDeliveryDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/webhook-deliveries/$deliveryId",
+  component: () => {
+    const { deliveryId } = webhookDeliveryDetailRoute.useParams();
+    return <WebhookDeliveryDetailsPage deliveryId={deliveryId} />;
+  },
+});
 const userDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/users/$principalId",
@@ -137,6 +177,12 @@ export const routeTree = rootRoute.addChildren([
   forbiddenRoute,
   indexRoute,
   usersRoute,
+  rolesRoute,
+  roleDetailRoute,
+  auditRoute,
+  webhooksRoute,
+  webhookDetailRoute,
+  webhookDeliveryDetailRoute,
   userDetailRoute,
   deploymentsRoute,
   deploymentExecutionDetailRoute,
@@ -146,6 +192,8 @@ export const routeTree = rootRoute.addChildren([
   componentSetsRoute,
   componentSetDetailRoute,
   releasesRoute,
+  releaseSourcesRoute,
+  releaseSourceDetailRoute,
   releaseDetailRoute,
   deploysetsRoute,
   deploysetDetailRoute,

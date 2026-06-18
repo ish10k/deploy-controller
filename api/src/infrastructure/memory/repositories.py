@@ -11,10 +11,14 @@ from src.domain.models import (
     DeploySet,
     Environment,
     EnvironmentState,
+    EventLogEntry,
     BootstrapState,
     Principal,
     Release,
     ReleaseSource,
+    Role,
+    Webhook,
+    WebhookDelivery,
 )
 
 
@@ -28,9 +32,13 @@ class MemoryRepositories:
     environments: dict[str, Environment] = field(default_factory=dict)
     deployment_runners: dict[str, DeploymentRunner] = field(default_factory=dict)
     principals: dict[str, Principal] = field(default_factory=dict)
+    roles: dict[str, Role] = field(default_factory=dict)
     bootstrap: BootstrapState = field(default_factory=BootstrapState)
     environment_states: dict[str, EnvironmentState] = field(default_factory=dict)
     deployment_executions: dict[str, DeploymentExecution] = field(default_factory=dict)
+    event_log: dict[str, EventLogEntry] = field(default_factory=dict)
+    webhooks: dict[str, Webhook] = field(default_factory=dict)
+    webhook_deliveries: dict[str, WebhookDelivery] = field(default_factory=dict)
 
     def get_component(self, component_id: str) -> Component | None:
         return self.components.get(component_id)
@@ -124,6 +132,15 @@ class MemoryRepositories:
     def put_principal(self, principal: Principal) -> None:
         self.principals[principal.principal_id] = principal
 
+    def get_role(self, role_id: str) -> Role | None:
+        return self.roles.get(role_id)
+
+    def list_roles(self) -> list[Role]:
+        return sorted(self.roles.values(), key=lambda item: item.role_id)
+
+    def put_role(self, role: Role) -> None:
+        self.roles[role.role_id] = role
+
     def get_bootstrap_state(self) -> BootstrapState:
         return self.bootstrap
 
@@ -165,6 +182,90 @@ class MemoryRepositories:
             (item for item in self.deployment_executions.values() if item.status == ExecutionStatus.PENDING),
             key=lambda item: (item.started_at, item.deployment_execution_id),
         )
+
+    def append_event(self, event: EventLogEntry) -> None:
+        self.event_log[event.event_id] = event
+
+    def get_event(self, event_id: str) -> EventLogEntry | None:
+        return self.event_log.get(event_id)
+
+    def list_events(
+        self,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+        actor_principal_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        category: str | None = None,
+        action: str | None = None,
+        origin: str | None = None,
+        from_time: str | None = None,
+        to_time: str | None = None,
+    ) -> tuple[list[EventLogEntry], str | None]:
+        events = sorted(self.event_log.values(), key=lambda item: (item.occurred_at, item.event_id), reverse=True)
+        if actor_principal_id:
+            events = [event for event in events if event.actor_principal_id == actor_principal_id]
+        if resource_type:
+            events = [event for event in events if event.resource_type == resource_type]
+        if resource_id:
+            events = [event for event in events if event.resource_id == resource_id]
+        if category:
+            events = [event for event in events if event.category == category]
+        if action:
+            events = [event for event in events if event.action == action]
+        if origin:
+            events = [event for event in events if event.origin == origin]
+        if from_time:
+            events = [event for event in events if event.occurred_at >= from_time]
+        if to_time:
+            events = [event for event in events if event.occurred_at <= to_time]
+
+        start = int(cursor) if cursor else 0
+        window = events[start:start + limit]
+        next_cursor = str(start + limit) if start + limit < len(events) else None
+        return window, next_cursor
+
+    def get_webhook(self, webhook_id: str) -> Webhook | None:
+        return self.webhooks.get(webhook_id)
+
+    def list_webhooks(self) -> list[Webhook]:
+        return sorted(self.webhooks.values(), key=lambda item: item.webhook_id)
+
+    def put_webhook(self, webhook: Webhook) -> None:
+        self.webhooks[webhook.webhook_id] = webhook
+
+    def get_webhook_delivery(self, webhook_delivery_id: str) -> WebhookDelivery | None:
+        return self.webhook_deliveries.get(webhook_delivery_id)
+
+    def list_webhook_deliveries(
+        self,
+        *,
+        webhook_id: str | None = None,
+        event_id: str | None = None,
+        status: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[WebhookDelivery]:
+        deliveries = sorted(
+            self.webhook_deliveries.values(),
+            key=lambda item: (item.created_at, item.webhook_delivery_id),
+            reverse=True,
+        )
+        if webhook_id:
+            deliveries = [delivery for delivery in deliveries if delivery.webhook_id == webhook_id]
+        if event_id:
+            deliveries = [delivery for delivery in deliveries if delivery.event_id == event_id]
+        if status:
+            deliveries = [delivery for delivery in deliveries if delivery.status == status]
+        if resource_type:
+            deliveries = [delivery for delivery in deliveries if delivery.envelope.resource.type == resource_type]
+        if resource_id:
+            deliveries = [delivery for delivery in deliveries if delivery.envelope.resource.id == resource_id]
+        return deliveries
+
+    def put_webhook_delivery(self, delivery: WebhookDelivery) -> None:
+        self.webhook_deliveries[delivery.webhook_delivery_id] = delivery
 
 
 class MemoryComponentRepository:
@@ -282,6 +383,20 @@ class MemoryPrincipalRepository:
         self.store.put_principal(principal)
 
 
+class MemoryRoleRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, role_id: str) -> Role | None:
+        return self.store.get_role(role_id)
+
+    def list(self) -> list[Role]:
+        return self.store.list_roles()
+
+    def put(self, role: Role) -> None:
+        self.store.put_role(role)
+
+
 class MemoryBootstrapStateRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
@@ -330,3 +445,81 @@ class MemoryDeploymentExecutionRepository:
         return self.store.list_pending_deployment_executions()
 
 
+class MemoryEventLogRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def append(self, event: EventLogEntry) -> None:
+        self.store.append_event(event)
+
+    def get(self, event_id: str) -> EventLogEntry | None:
+        return self.store.get_event(event_id)
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+        actor_principal_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        category: str | None = None,
+        action: str | None = None,
+        origin: str | None = None,
+        from_time: str | None = None,
+        to_time: str | None = None,
+    ) -> tuple[list[EventLogEntry], str | None]:
+        return self.store.list_events(
+            limit=limit,
+            cursor=cursor,
+            actor_principal_id=actor_principal_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            category=category,
+            action=action,
+            origin=origin,
+            from_time=from_time,
+            to_time=to_time,
+        )
+
+
+class MemoryWebhookRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, webhook_id: str) -> Webhook | None:
+        return self.store.get_webhook(webhook_id)
+
+    def list(self) -> list[Webhook]:
+        return self.store.list_webhooks()
+
+    def put(self, webhook: Webhook) -> None:
+        self.store.put_webhook(webhook)
+
+
+class MemoryWebhookDeliveryRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, webhook_delivery_id: str) -> WebhookDelivery | None:
+        return self.store.get_webhook_delivery(webhook_delivery_id)
+
+    def list(
+        self,
+        *,
+        webhook_id: str | None = None,
+        event_id: str | None = None,
+        status: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[WebhookDelivery]:
+        return self.store.list_webhook_deliveries(
+            webhook_id=webhook_id,
+            event_id=event_id,
+            status=status,
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+
+    def put(self, delivery: WebhookDelivery) -> None:
+        self.store.put_webhook_delivery(delivery)

@@ -1,4 +1,5 @@
 from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
+from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.registry import (
     ComponentSetUseCases,
     ComponentUseCases,
@@ -9,9 +10,11 @@ from src.application.use_cases.registry import (
     ReleaseSourceUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
+from src.application.use_cases.roles import RoleUseCases
+from src.application.use_cases.webhooks import WebhookUseCases
 from src.composition.container import Container
 from src.composition.local_seed import seed_local_data
-from src.infrastructure.ids import UuidIdGenerator
+from src.infrastructure.ids import EventIdGenerator, UuidIdGenerator, WebhookDeliveryIdGenerator
 from src.infrastructure.memory.repositories import (
     MemoryComponentRepository,
     MemoryComponentSetRepository,
@@ -20,11 +23,15 @@ from src.infrastructure.memory.repositories import (
     MemoryDeploySetRepository,
     MemoryEnvironmentRepository,
     MemoryEnvironmentStateRepository,
+    MemoryEventLogRepository,
     MemoryBootstrapStateRepository,
     MemoryPrincipalRepository,
     MemoryReleaseRepository,
     MemoryReleaseSourceRepository,
     MemoryRepositories,
+    MemoryRoleRepository,
+    MemoryWebhookDeliveryRepository,
+    MemoryWebhookRepository,
 )
 from src.infrastructure.time import SystemClock
 
@@ -42,11 +49,25 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     environments = MemoryEnvironmentRepository(store)
     runners = MemoryDeploymentRunnerRepository(store)
     principals = MemoryPrincipalRepository(store)
+    role_repo = MemoryRoleRepository(store)
     bootstrap = MemoryBootstrapStateRepository(store)
     states = MemoryEnvironmentStateRepository(store)
     executions = MemoryDeploymentExecutionRepository(store)
+    event_log = MemoryEventLogRepository(store)
+    webhook_repo = MemoryWebhookRepository(store)
+    webhook_deliveries = MemoryWebhookDeliveryRepository(store)
     clock = SystemClock()
-    identity = PrincipalUseCases(principals=principals, bootstrap=bootstrap, clock=clock)
+    webhooks = WebhookUseCases(
+        webhooks=webhook_repo,
+        deliveries=webhook_deliveries,
+        clock=clock,
+        delivery_ids=WebhookDeliveryIdGenerator(),
+        dispatch_async=True,
+    )
+    events = EventLogUseCases(events=event_log, clock=clock, id_generator=EventIdGenerator(), on_append=webhooks.enqueue_for_event)
+    webhooks.set_event_log(events)
+    roles = RoleUseCases(roles=role_repo, events=events)
+    identity = PrincipalUseCases(principals=principals, roles=role_repo, bootstrap=bootstrap, clock=clock, events=events)
     planner = PlanDeploymentUseCase(
         deploysets=deploysets,
         releases=releases,
@@ -54,15 +75,16 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         executions=executions,
     )
     return Container(
-        components=ComponentUseCases(components),
-        component_sets=ComponentSetUseCases(component_sets),
-        releases=ReleaseUseCases(releases),
+        components=ComponentUseCases(components, events=events),
+        component_sets=ComponentSetUseCases(component_sets, events=events),
+        releases=ReleaseUseCases(releases, events=events),
         release_sources=ReleaseSourceUseCases(
             release_sources=release_sources,
             releases=releases,
             component_sets=component_sets,
             clock=clock,
             principals=identity,
+            events=events,
         ),
         deploysets=DeploySetUseCases(
             deploysets=deploysets,
@@ -70,8 +92,9 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             releases=releases,
             executions=executions,
             clock=clock,
+            events=events,
         ),
-        environments=EnvironmentUseCases(environments),
+        environments=EnvironmentUseCases(environments, events=events),
         read_only=ReadOnlyUseCases(states, executions),
         plan_deployment=planner,
         create_deployment=CreateDeploymentUseCase(
@@ -80,6 +103,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             states=states,
             clock=clock,
             id_generator=UuidIdGenerator(),
+            events=events,
         ),
         deployment_runners=DeploymentRunnerUseCases(
             runners=runners,
@@ -88,8 +112,10 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             states=states,
             clock=clock,
             principals=identity,
+            events=events,
         ),
         principals=identity,
+        roles=roles,
+        events=events,
+        webhooks=webhooks,
     )
-
-

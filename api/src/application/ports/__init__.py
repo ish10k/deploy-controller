@@ -7,9 +7,13 @@ from src.application.ports.repositories import (
     DeploySetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
+    EventLogRepository,
     BootstrapStateRepository,
     IdGenerator,
     PrincipalRepository,
+    RoleRepository,
+    WebhookDeliveryRepository,
+    WebhookRepository,
     ReleaseRepository,
     ReleaseSourceRepository,
 )
@@ -24,10 +28,12 @@ __all__ = [
     "BootstrapStateRepository",
     "EnvironmentRepository",
     "EnvironmentStateRepository",
+    "EventLogRepository",
     "IdGenerator",
     "PrincipalRepository",
+    "RoleRepository",
+    "WebhookDeliveryRepository",
+    "WebhookRepository",
     "ReleaseRepository",
     "ReleaseSourceRepository",
 ]
-
-

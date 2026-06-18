@@ -1,13 +1,12 @@
 import {
   Bell,
+  HatGlasses,
   HelpCircle,
   Menu,
   Settings,
-  Shield,
-  CircleFadingArrowUp,
+  ShieldCheck,
   Play,
   Rocket,
-  Webhook,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -19,7 +18,7 @@ import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { LoadingPanel } from "@/components/common/api-state";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { useAuth } from "@/lib/auth-context";
-import { canViewUsers } from "@/lib/user-permissions";
+import { canViewRoles, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -29,7 +28,7 @@ type NavItem = {
   hidden?: boolean;
 };
 
-function navGroups(showUsers: boolean): Array<{ label: string; items: NavItem[] }> {
+function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean): Array<{ label: string; items: NavItem[] }> {
   return [
     {
       label: "Operations",
@@ -45,16 +44,17 @@ function navGroups(showUsers: boolean): Array<{ label: string; items: NavItem[] 
     {
       label: "Integrations",
       items: [
-        { label: "Release Sources", icon: CircleFadingArrowUp, to: "/unsupported/release-sources" },
+        { label: "Release Sources", icon: ENTITY_ICONS.releaseSource, to: "/release-sources" },
         { label: "Runners", icon: Play, to: "/deployment-runners" },
-        { label: "Webhooks", icon: Webhook, to: "/webhooks" },
+        { label: "Webhooks", icon: ENTITY_ICONS.webhook, to: "/webhooks", hidden: !showWebhooks },
       ],
     },
     {
       label: "Governance",
       items: [
         { label: "Users", icon: ENTITY_ICONS.user, to: "/users", hidden: !showUsers },
-        { label: "Audit", icon: Shield, to: "/unsupported/audit" },
+        { label: "Roles", icon: ShieldCheck, to: "/roles", hidden: !showRoles },
+        { label: "Audit", icon: HatGlasses, to: "/audit" },
       ],
     },
   ];
@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     .map((part) => part[0]?.toUpperCase())
     .join("") || "U";
   const primaryRole = auth.user?.roles[0] ?? "user";
-  const groups = navGroups(canViewUsers(auth.user));
+  const groups = navGroups(canViewUsers(auth.user), canViewRoles(auth.user), canViewWebhooks(auth.user));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">

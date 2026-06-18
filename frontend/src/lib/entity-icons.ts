@@ -1,4 +1,4 @@
-import { Dock, GitCommitHorizontal, Package, Play, Puzzle, Rocket, Server, UserRound, type LucideIcon } from "lucide-react";
+import { CircleFadingArrowUp, Dock, GitCommitHorizontal, Package, Play, Puzzle, Rocket, Server, UserRoundKey, Webhook, type LucideIcon } from "lucide-react";
 
 export const ENTITY_ICONS = {
   deployment: Rocket,
@@ -8,7 +8,9 @@ export const ENTITY_ICONS = {
   component: Puzzle,
   environment: Server,
   runner: Play,
-  user: UserRound,
+  releaseSource: CircleFadingArrowUp,
+  webhook: Webhook,
+  user: UserRoundKey,
 } as const satisfies Record<string, LucideIcon>;
 
 export type EntityIconKind = keyof typeof ENTITY_ICONS;

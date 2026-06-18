@@ -19,9 +19,13 @@ resource "aws_lambda_function" "deploy_controller" {
       ENVIRONMENTS_TABLE           = aws_dynamodb_table.environments.name
       DEPLOYMENT_RUNNERS_TABLE     = aws_dynamodb_table.deployment_runners.name
       PRINCIPALS_TABLE             = aws_dynamodb_table.principals.name
+      ROLES_TABLE                  = aws_dynamodb_table.roles.name
       BOOTSTRAP_TABLE              = aws_dynamodb_table.bootstrap.name
       ENVIRONMENT_STATE_TABLE      = aws_dynamodb_table.environment_state.name
       DEPLOYMENT_EXECUTIONS_TABLE  = aws_dynamodb_table.deployment_executions.name
+      EVENT_LOG_TABLE              = aws_dynamodb_table.event_log.name
+      WEBHOOKS_TABLE               = aws_dynamodb_table.webhooks.name
+      WEBHOOK_DELIVERIES_TABLE     = aws_dynamodb_table.webhook_deliveries.name
     }
   }
 

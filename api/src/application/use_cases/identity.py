@@ -1,69 +1,74 @@
-from src.application.ports import BootstrapStateRepository, Clock, PrincipalRepository
+from __future__ import annotations
+
+from src.application.ports import BootstrapStateRepository, Clock, PrincipalRepository, RoleRepository
+from src.application.use_cases.authorization import require_permission
+from src.application.use_cases.events import EventLogUseCases
+from src.application.use_cases.roles import ADMIN_ROLE, has_admin_role, normalize_roles, permissions_for_roles
 from src.domain.enums import Permission, PrincipalType
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError
-from src.domain.models import AuthContext, BootstrapState, Principal, WhoAmI
-
-PLATFORM_ADMIN = "platform-admin"
-
-ROLE_PERMISSIONS: dict[str, list[Permission]] = {
-    PLATFORM_ADMIN: list(Permission),
-    "platform-deployer": [
-        Permission.COMPONENTS_READ,
-        Permission.COMPONENT_SETS_READ,
-        Permission.RELEASES_READ,
-        Permission.DEPSETS_READ,
-        Permission.DEPLOYMENTS_READ,
-        Permission.DEPLOYMENTS_CREATE,
-    ],
-    "platform-viewer": [
-        Permission.COMPONENTS_READ,
-        Permission.COMPONENT_SETS_READ,
-        Permission.RELEASES_READ,
-        Permission.DEPSETS_READ,
-        Permission.ENVIRONMENTS_READ,
-        Permission.DEPLOYMENTS_READ,
-    ],
-    "deployment-runner": [
-        Permission.EXECUTIONS_CLAIM,
-        Permission.EXECUTIONS_REPORT_STATUS,
-    ],
-    "release-source": [
-        Permission.RELEASES_CREATE,
-        Permission.RELEASE_SOURCES_PUBLISH,
-    ],
-}
-
-
-def permissions_for_roles(roles: list[str]) -> list[Permission]:
-    values = {permission for role in roles for permission in ROLE_PERMISSIONS.get(role, [])}
-    return sorted(values, key=str)
-
+from src.domain.models import AuthContext, BootstrapState, Principal, Role, WhoAmI
 
 class PrincipalUseCases:
     def __init__(
         self,
         *,
         principals: PrincipalRepository,
+        roles: RoleRepository,
         bootstrap: BootstrapStateRepository,
         clock: Clock,
+        events: EventLogUseCases | None = None,
     ) -> None:
         self.principals = principals
+        self.roles = roles
         self.bootstrap = bootstrap
         self.clock = clock
+        self.events = events
 
-    def create(self, principal: Principal) -> Principal:
+    def create(self, principal: Principal, context: AuthContext) -> Principal:
+        require_permission(context, Permission.PRINCIPALS_WRITE)
+        principal = principal.model_copy(update={"created_by": context.principal_id, "roles": normalize_roles(principal.roles)})
         if self.principals.get(principal.principal_id) is not None:
             raise ConflictError(f"Principal already exists: {principal.principal_id}")
+        self._validate_admin_role_unchanged(None, principal)
         self._validate_oidc_unique(principal)
         self._validate_admin_invariant(principal)
         self.principals.put(principal)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=principal.created_by,
+                action="principal.created",
+                category="identity",
+                summary=f"Created principal {principal.principal_id}",
+                resource_type="principal",
+                resource_id=principal.principal_id,
+                after=principal,
+            )
         return principal
 
-    def put(self, principal: Principal) -> Principal:
+    def put(self, principal: Principal, context: AuthContext) -> Principal:
+        require_permission(context, Permission.PRINCIPALS_WRITE)
+        existing = self.principals.get(principal.principal_id)
+        principal = principal.model_copy(update={"roles": normalize_roles(principal.roles)})
+        if existing is None:
+            principal = principal.model_copy(update={"created_by": context.principal_id})
+        self._validate_admin_role_unchanged(existing, principal)
         self._validate_oidc_unique(principal)
         self._validate_admin_invariant(principal)
         self.principals.put(principal.model_copy(update={"updated_at": self.clock.now()}))
-        return self.get(principal.principal_id)
+        updated = self.get(principal.principal_id)
+        if self.events:
+            action = "principal.roles_changed" if existing and existing.roles != updated.roles else "principal.updated"
+            self.events.append_actor(
+                actor_principal_id=context.principal_id,
+                action=action,
+                category="identity",
+                summary=f"Updated principal {principal.principal_id}",
+                resource_type="principal",
+                resource_id=principal.principal_id,
+                before=existing,
+                after=updated,
+            )
+        return updated
 
     def get(self, principal_id: str) -> Principal:
         principal = self.principals.get(principal_id)
@@ -85,8 +90,8 @@ class PrincipalUseCases:
             auth_method=principal.auth_method,
             display_name=principal.display_name,
             email=principal.email,
-            roles=principal.roles,
-            permissions=permissions_for_roles(principal.roles),
+            roles=normalize_roles(principal.roles),
+            permissions=self._permissions_for_roles(principal.roles),
         )
 
     def authenticate_oidc(
@@ -117,7 +122,7 @@ class PrincipalUseCases:
                 auth_method="oidc",
                 external_issuer=issuer,
                 external_subject=subject,
-                roles=[PLATFORM_ADMIN],
+                roles=[ADMIN_ROLE],
                 active=True,
                 tags={},
                 created_at=now,
@@ -126,12 +131,43 @@ class PrincipalUseCases:
             )
             self.principals.put(principal)
             self.bootstrap.put(BootstrapState(completed=True, completed_at=now, completed_by=principal_id))
-            return auth_context_for_oidc_principal(principal, claims or {})
+            if self.events:
+                self.events.append_system(
+                    actor_principal_id="system:first-login-bootstrap",
+                    action="principal.bootstrap_created",
+                    category="identity",
+                    summary=f"Bootstrapped first admin {principal_id}",
+                    resource_type="principal",
+                    resource_id=principal_id,
+                    after=principal,
+                )
+                self.events.append_actor(
+                    actor_principal_id=principal_id,
+                    action="principal.authenticated",
+                    category="auth",
+                    summary=f"Authenticated {principal.display_name}",
+                    resource_type="principal",
+                    resource_id=principal_id,
+                    metadata={"authMethod": principal.auth_method},
+                )
+            return auth_context_for_oidc_principal(principal, claims or {}, self.roles.list())
         if principal is None or not principal.active or principal.type != PrincipalType.USER or principal.auth_method != "oidc":
             raise ForbiddenError("OIDC token is valid, but no active Settle principal is registered.")
         updated = principal.model_copy(update={"last_seen_at": now})
         self.principals.put(updated)
-        return auth_context_for_oidc_principal(updated, claims or {})
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=updated.principal_id,
+                action="principal.authenticated",
+                category="auth",
+                summary=f"Authenticated {updated.display_name}",
+                resource_type="principal",
+                resource_id=updated.principal_id,
+                before=principal,
+                after=updated,
+                metadata={"authMethod": updated.auth_method},
+            )
+        return auth_context_for_oidc_principal(updated, claims or {}, self.roles.list())
 
     def ensure_service_principal(
         self,
@@ -162,6 +198,17 @@ class PrincipalUseCases:
                 raise ConflictError(f"Principal already exists with incompatible auth: {principal_id}")
             return existing
         self.principals.put(expected)
+        if self.events:
+            self.events.append_system(
+                actor_principal_id=created_by,
+                action="principal.service_created",
+                category="identity",
+                summary=f"Created service principal {principal_id}",
+                resource_type="principal",
+                resource_id=principal_id,
+                after=expected,
+                metadata={"role": role},
+            )
         return expected
 
     def _validate_oidc_unique(self, principal: Principal) -> None:
@@ -184,18 +231,32 @@ class PrincipalUseCases:
         active_admins = [
             principal
             for principal in principals.values()
-            if principal.type == PrincipalType.USER and principal.active and PLATFORM_ADMIN in principal.roles
+            if principal.type == PrincipalType.USER and principal.active and has_admin_role(principal.roles)
         ]
         if not active_admins:
-            raise ConflictError("Cannot remove or disable the last active platform-admin user.")
+            raise ConflictError("Cannot remove or disable the last active admin user.")
+
+    def _validate_admin_role_unchanged(self, existing: Principal | None, candidate: Principal) -> None:
+        if candidate.type != PrincipalType.USER:
+            return
+        candidate_is_admin = has_admin_role(candidate.roles)
+        if existing is None:
+            if candidate_is_admin:
+                raise ConflictError("The admin role cannot be assigned through user management.")
+            return
+        if has_admin_role(existing.roles) != candidate_is_admin:
+            raise ConflictError("The admin role cannot be changed through user management.")
+
+    def _permissions_for_roles(self, roles: list[str]) -> list[Permission]:
+        return permissions_for_roles(roles, self.roles.list())
 
 
-def auth_context_for_oidc_principal(principal: Principal, claims: dict[str, object]) -> AuthContext:
+def auth_context_for_oidc_principal(principal: Principal, claims: dict[str, object], roles: list[Role] | None = None) -> AuthContext:
     return AuthContext(
         principal_id=principal.principal_id,
         principal_type=principal.type,
         auth_method=principal.auth_method,
-        roles=principal.roles,
-        permissions=permissions_for_roles(principal.roles),
+        roles=normalize_roles(principal.roles),
+        permissions=permissions_for_roles(principal.roles, roles),
         claims=claims,
     )

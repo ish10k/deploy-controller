@@ -14,10 +14,14 @@ from src.domain.models import (
     DeploySet,
     Environment,
     EnvironmentState,
+    EventLogEntry,
     BootstrapState,
     Principal,
     Release,
     ReleaseSource,
+    Role,
+    Webhook,
+    WebhookDelivery,
 )
 
 T = TypeVar("T")
@@ -150,6 +154,18 @@ class DynamoPrincipalRepository:
         self.table.put_item(Item=_dump(principal))
 
 
+class DynamoRoleRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, role_id: str) -> Role | None:
+        item = self.table.get_item(Key={"roleId": role_id}).get("Item")
+        return Role.model_validate(item) if item else None
+    def list(self) -> list[Role]:
+        return [Role.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, role: Role) -> None:
+        self.table.put_item(Item=_dump(role))
+
+
 class DynamoBootstrapStateRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
@@ -219,3 +235,127 @@ class DynamoDeploymentExecutionRepository:
         ]
 
 
+class DynamoEventLogRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+
+    def append(self, event: EventLogEntry) -> None:
+        item = _dump(event)
+        item["eventBucket"] = "events"
+        item["occurredAtEventId"] = f"{event.occurred_at}#{event.event_id}"
+        item["resourceKey"] = f"{event.resource_type}#{event.resource_id}"
+        self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(eventId)")
+
+    def get(self, event_id: str) -> EventLogEntry | None:
+        response = self.table.query(
+            IndexName="eventId-index",
+            KeyConditionExpression=Key("eventId").eq(event_id),
+            Limit=1,
+        )
+        items = response.get("Items", [])
+        return EventLogEntry.model_validate(items[0]) if items else None
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        cursor: str | None = None,
+        actor_principal_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        category: str | None = None,
+        action: str | None = None,
+        origin: str | None = None,
+        from_time: str | None = None,
+        to_time: str | None = None,
+    ) -> tuple[list[EventLogEntry], str | None]:
+        if resource_type and resource_id:
+            items = self.table.query(
+                IndexName="resourceKey-index",
+                KeyConditionExpression=Key("resourceKey").eq(f"{resource_type}#{resource_id}"),
+                ScanIndexForward=False,
+            ).get("Items", [])
+        elif actor_principal_id:
+            items = self.table.query(
+                IndexName="actorPrincipalId-index",
+                KeyConditionExpression=Key("actorPrincipalId").eq(actor_principal_id),
+                ScanIndexForward=False,
+            ).get("Items", [])
+        else:
+            items = self.table.query(
+                KeyConditionExpression=Key("eventBucket").eq("events"),
+                ScanIndexForward=False,
+            ).get("Items", [])
+
+        events = [EventLogEntry.model_validate(item) for item in items]
+        if actor_principal_id:
+            events = [event for event in events if event.actor_principal_id == actor_principal_id]
+        if resource_type:
+            events = [event for event in events if event.resource_type == resource_type]
+        if resource_id:
+            events = [event for event in events if event.resource_id == resource_id]
+        if category:
+            events = [event for event in events if event.category == category]
+        if action:
+            events = [event for event in events if event.action == action]
+        if origin:
+            events = [event for event in events if event.origin == origin]
+        if from_time:
+            events = [event for event in events if event.occurred_at >= from_time]
+        if to_time:
+            events = [event for event in events if event.occurred_at <= to_time]
+
+        events = sorted(events, key=lambda item: (item.occurred_at, item.event_id), reverse=True)
+        start = int(cursor) if cursor else 0
+        window = events[start:start + limit]
+        next_cursor = str(start + limit) if start + limit < len(events) else None
+        return window, next_cursor
+
+
+class DynamoWebhookRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+
+    def get(self, webhook_id: str) -> Webhook | None:
+        item = self.table.get_item(Key={"webhookId": webhook_id}).get("Item")
+        return Webhook.model_validate(item) if item else None
+
+    def list(self) -> list[Webhook]:
+        return [Webhook.model_validate(item) for item in self.table.scan().get("Items", [])]
+
+    def put(self, webhook: Webhook) -> None:
+        self.table.put_item(Item=_dump(webhook))
+
+
+class DynamoWebhookDeliveryRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+
+    def get(self, webhook_delivery_id: str) -> WebhookDelivery | None:
+        item = self.table.get_item(Key={"webhookDeliveryId": webhook_delivery_id}).get("Item")
+        return WebhookDelivery.model_validate(item) if item else None
+
+    def list(
+        self,
+        *,
+        webhook_id: str | None = None,
+        event_id: str | None = None,
+        status: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[WebhookDelivery]:
+        deliveries = [WebhookDelivery.model_validate(item) for item in self.table.scan().get("Items", [])]
+        if webhook_id:
+            deliveries = [delivery for delivery in deliveries if delivery.webhook_id == webhook_id]
+        if event_id:
+            deliveries = [delivery for delivery in deliveries if delivery.event_id == event_id]
+        if status:
+            deliveries = [delivery for delivery in deliveries if delivery.status == status]
+        if resource_type:
+            deliveries = [delivery for delivery in deliveries if delivery.envelope.resource.type == resource_type]
+        if resource_id:
+            deliveries = [delivery for delivery in deliveries if delivery.envelope.resource.id == resource_id]
+        return sorted(deliveries, key=lambda item: (item.created_at, item.webhook_delivery_id), reverse=True)
+
+    def put(self, delivery: WebhookDelivery) -> None:
+        self.table.put_item(Item=_dump(delivery))

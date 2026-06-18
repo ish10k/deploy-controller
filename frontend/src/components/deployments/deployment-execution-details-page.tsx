@@ -14,10 +14,13 @@ import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getDeploymentExecution,
+  listEvents,
   queryKeys,
   type ApiDeploymentExecution,
   type ApiDeploymentExecutionItem,
+  type ApiEventLogEntry,
 } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import { formatDateTime } from "@/lib/format";
 
 export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { deploymentExecutionId: string }) {
@@ -35,9 +38,17 @@ export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { depl
 }
 
 function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution }) {
+  const auth = useAuth();
+  const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
+  const eventQuery = useQuery({
+    queryKey: queryKeys.events({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
+    enabled: canReadEvents,
+    queryFn: () => listEvents({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
+  });
   const driftCount = execution.items.filter((item) => item.driftDetected).length;
   const failedCount = execution.items.filter((item) => item.status === "failed").length;
   const succeededCount = execution.items.filter((item) => item.status === "succeeded").length;
+  const events = eventQuery.data?.events ?? [];
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -152,51 +163,73 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
               <CardTitle>Event log</CardTitle>
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-              <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
-                <EventLogItem
-                  icon={Radio}
-                  title={`Execution ${execution.status}`}
-                  subtitle={execution.force ? "Force deployment enabled" : "Standard deployment"}
-                  time={formatDateTime(execution.startedAt)}
-                />
-                <hr />
-                <EventLogItem
-                  icon={UserRound}
-                  title={execution.claimedBy ? `Claimed by ${execution.claimedBy}` : "Waiting for claim"}
-                  subtitle={`Requested by ${execution.requestedBy}`}
-                  time={execution.claimedBy ? formatDateTime(execution.startedAt) : "Pending"}
-                />
-                <hr />
-                {execution.items.map((item, index) => (
-                  <div key={item.componentId}>
-                    <EventLogItem
-                      icon={item.componentId.includes("lambda") ? Zap : Network}
-                      title={`${item.componentId} ${item.status}`}
-                      subtitle={[
-                        `Requested ${item.requestedAction}`,
-                        item.reportedBy ? `reported by ${item.reportedBy}` : "awaiting runner report",
-                        item.message ?? item.error ?? item.runnerReason ?? "",
-                      ]
-                        .filter(Boolean)
-                        .join(" | ")}
-                      time={`Step ${index + 1}`}
-                      status={<StatusBadge status={item.status} />}
-                    />
-                    <hr />
-                  </div>
-                ))}
-                <EventLogItem
-                  icon={Clock3}
-                  title={execution.completedAt ? `Completed ${execution.status}` : "Execution still in progress"}
-                  subtitle={execution.completedAt ? "Final execution timestamp recorded" : "No completion timestamp yet"}
-                  time={execution.completedAt ? formatDateTime(execution.completedAt) : formatDateTime(execution.startedAt)}
-                />
-              </ScrollFade>
+              {events.length ? <AuditEventList events={events} /> : <SyntheticExecutionEvents execution={execution} />}
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
+  return (
+    <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
+      {events.map((event) => (
+        <EventLogItem
+          key={event.eventId}
+          icon={Radio}
+          title={event.action}
+          subtitle={`${event.summary} | ${event.actorPrincipalId}`}
+          time={formatDateTime(event.occurredAt)}
+        />
+      ))}
+    </ScrollFade>
+  );
+}
+
+function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecution }) {
+  return (
+    <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
+      <EventLogItem
+        icon={Radio}
+        title={`Execution ${execution.status}`}
+        subtitle={execution.force ? "Force deployment enabled" : "Standard deployment"}
+        time={formatDateTime(execution.startedAt)}
+      />
+      <hr />
+      <EventLogItem
+        icon={UserRound}
+        title={execution.claimedBy ? `Claimed by ${execution.claimedBy}` : "Waiting for claim"}
+        subtitle={`Requested by ${execution.requestedBy}`}
+        time={execution.claimedBy ? formatDateTime(execution.startedAt) : "Pending"}
+      />
+      <hr />
+      {execution.items.map((item, index) => (
+        <div key={item.componentId}>
+          <EventLogItem
+            icon={item.componentId.includes("lambda") ? Zap : Network}
+            title={`${item.componentId} ${item.status}`}
+            subtitle={[
+              `Requested ${item.requestedAction}`,
+              item.reportedBy ? `reported by ${item.reportedBy}` : "awaiting runner report",
+              item.message ?? item.error ?? item.runnerReason ?? "",
+            ]
+              .filter(Boolean)
+              .join(" | ")}
+            time={`Step ${index + 1}`}
+            status={<StatusBadge status={item.status} />}
+          />
+          <hr />
+        </div>
+      ))}
+      <EventLogItem
+        icon={Clock3}
+        title={execution.completedAt ? `Completed ${execution.status}` : "Execution still in progress"}
+        subtitle={execution.completedAt ? "Final execution timestamp recorded" : "No completion timestamp yet"}
+        time={execution.completedAt ? formatDateTime(execution.completedAt) : formatDateTime(execution.startedAt)}
+      />
+    </ScrollFade>
   );
 }
 

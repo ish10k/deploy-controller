@@ -92,6 +92,17 @@ resource "aws_dynamodb_table" "principals" {
   }
 }
 
+resource "aws_dynamodb_table" "roles" {
+  name         = "${var.name_prefix}-roles"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "roleId"
+
+  attribute {
+    name = "roleId"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "bootstrap" {
   name         = "${var.name_prefix}-bootstrap"
   billing_mode = "PAY_PER_REQUEST"
@@ -139,5 +150,79 @@ resource "aws_dynamodb_table" "deployment_executions" {
     name            = "deploymentExecutionId-index"
     hash_key        = "deploymentExecutionId"
     projection_type = "ALL"
+  }
+}
+
+resource "aws_dynamodb_table" "event_log" {
+  name         = "${var.name_prefix}-event-log"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "eventBucket"
+  range_key    = "occurredAtEventId"
+
+  attribute {
+    name = "eventBucket"
+    type = "S"
+  }
+
+  attribute {
+    name = "occurredAtEventId"
+    type = "S"
+  }
+
+  attribute {
+    name = "eventId"
+    type = "S"
+  }
+
+  attribute {
+    name = "actorPrincipalId"
+    type = "S"
+  }
+
+  attribute {
+    name = "resourceKey"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "eventId-index"
+    hash_key        = "eventId"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "actorPrincipalId-index"
+    hash_key        = "actorPrincipalId"
+    range_key       = "occurredAtEventId"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "resourceKey-index"
+    hash_key        = "resourceKey"
+    range_key       = "occurredAtEventId"
+    projection_type = "ALL"
+  }
+}
+
+resource "aws_dynamodb_table" "webhooks" {
+  name         = "${var.name_prefix}-webhooks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "webhookId"
+
+  attribute {
+    name = "webhookId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "webhook_deliveries" {
+  name         = "${var.name_prefix}-webhook-deliveries"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "webhookDeliveryId"
+
+  attribute {
+    name = "webhookDeliveryId"
+    type = "S"
   }
 }

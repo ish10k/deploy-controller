@@ -1,7 +1,10 @@
 import pytest
 from src.composition.memory_container import build_memory_container
+from src.domain.enums import Permission, PrincipalType
 from src.domain.errors import ConflictError
 from src.domain.models import (
+    AuthContext,
+    BootstrapState,
     Component,
     ComponentSet,
     DeploymentExecution,
@@ -9,7 +12,9 @@ from src.domain.models import (
     DeploymentRunnerScope,
     DeploySet,
     Environment,
+    Principal,
     Release,
+    Role,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
 
@@ -19,6 +24,17 @@ def artifact(component_id: str, version: str, digest: str) -> dict[str, object]:
         "key": f"{component_id}:{version}",
         "digest": f"sha256:{digest}",
     }
+
+
+def admin_context() -> AuthContext:
+    return AuthContext(
+        principalId="user:test-admin",
+        principalType=PrincipalType.USER,
+        authMethod="oidc",
+        roles=["admin"],
+        permissions=list(Permission),
+        claims={},
+    )
 
 
 def release(component_id: str, version: str, sha: str) -> Release:
@@ -79,20 +95,92 @@ def seed(store: MemoryRepositories) -> None:
     )
 
 
+def admin_principal(principal_id: str = "user:admin@example.local") -> Principal:
+    return Principal(
+        principalId=principal_id,
+        type=PrincipalType.USER,
+        displayName="Admin User",
+        email="admin@example.local",
+        authMethod="oidc",
+        externalIssuer="http://issuer",
+        externalSubject="admin@example.local",
+        active=True,
+        roles=["admin"],
+        tags={},
+        createdAt="2026-06-18T12:00:00Z",
+        createdBy="system:test",
+    )
+
+
 def test_release_create_is_idempotent_for_same_content() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
     item = release("api", "1.0.0", "sha-a")
-    container.releases.create(item)
-    assert container.releases.create(item) == item
+    expected = item.model_copy(update={"created_by": admin_context().principal_id})
+    container.releases.create(item, admin_context())
+    assert container.releases.create(item, admin_context()) == expected
+
+
+def test_cannot_disable_last_active_admin_user() -> None:
+    store = MemoryRepositories()
+    store.put_bootstrap_state(BootstrapState(completed=True, completedAt="2026-06-18T12:00:00Z", completedBy="user:admin@example.local"))
+    principal = admin_principal()
+    store.put_principal(principal)
+    container = build_memory_container(store)
+
+    with pytest.raises(ConflictError, match="last active admin"):
+        container.principals.put(principal.model_copy(update={"active": False}), admin_context())
+
+
+def test_admin_role_cannot_be_changed_through_user_management() -> None:
+    store = MemoryRepositories()
+    store.put_bootstrap_state(BootstrapState(completed=True, completedAt="2026-06-18T12:00:00Z", completedBy="user:admin@example.local"))
+    principal = admin_principal()
+    store.put_principal(principal)
+    store.put_principal(admin_principal("user:other-admin@example.local"))
+    container = build_memory_container(store)
+
+    with pytest.raises(ConflictError, match="admin role cannot be changed"):
+        container.principals.put(principal.model_copy(update={"roles": ["platform-viewer"]}), admin_context())
+
+
+def test_roles_are_listed_and_custom_role_permissions_can_be_updated() -> None:
+    store = MemoryRepositories()
+    container = build_memory_container(store)
+
+    roles = container.roles.list(admin_context())
+    assert "admin" in {role.role_id for role in roles}
+
+    custom = container.roles.put(
+        "release-manager",
+        Role(roleId="ignored", description="Release manager", permissions=[Permission.RELEASES_READ]),
+        admin_context(),
+    )
+    assert custom.role_id == "release-manager"
+    assert custom.permissions == ["releases:read"]
+
+    updated = container.roles.put(
+        "release-manager",
+        custom.model_copy(update={"permissions": [Permission.RELEASES_READ, Permission.RELEASES_CREATE]}),
+        admin_context(),
+    )
+    assert updated.permissions == [Permission.RELEASES_READ, Permission.RELEASES_CREATE]
+
+
+def test_admin_role_permissions_are_system_managed() -> None:
+    store = MemoryRepositories()
+    container = build_memory_container(store)
+
+    with pytest.raises(ConflictError, match="system-managed"):
+        container.roles.put("admin", Role(roleId="admin", permissions=[Permission.COMPONENTS_READ]), admin_context())
 
 
 def test_release_create_conflicts_for_different_content() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
-    container.releases.create(release("api", "1.0.0", "sha-a"))
+    container.releases.create(release("api", "1.0.0", "sha-a"), admin_context())
     with pytest.raises(ConflictError):
-        container.releases.create(release("api", "1.0.0", "sha-b"))
+        container.releases.create(release("api", "1.0.0", "sha-b"), admin_context())
 
 
 def test_deployset_create_expands_partial_request_from_base_deployset() -> None:
@@ -108,7 +196,8 @@ def test_deployset_create_expands_partial_request_from_base_deployset() -> None:
             "notes": "Promote API v2 while inheriting the current worker release.",
             "items": [{"componentId": "api", "version": "2.0.0"}],
             "createdBy": "ishina",
-        }
+        },
+        admin_context(),
     )
 
     assert [item.component_id for item in result.deployset.items] == ["api", "worker"]
@@ -178,7 +267,7 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     execution = container.create_deployment.execute(
         environment_id="prod",
         deployset_id="ds-1",
-        requested_by="ishina",
+        context=admin_context(),
         notes="Approved for rollout after verification in staging.",
     )
 
@@ -222,13 +311,14 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     execution = container.create_deployment.execute(
         environment_id="prod",
         deployset_id="ds-1",
-        requested_by="ishina",
+        context=admin_context(),
         force=True,
     )
 
     claimed = container.deployment_runners.claim(
         "aws-prod-runner",
         execution.deployment_execution_id,
+        admin_context(),
     )
 
     updated = container.deployment_runners.report_item_status(
@@ -237,6 +327,7 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
         component_id="api",
         status="succeeded",
         reported_action="deploy",
+        context=admin_context(),
         reported_by="aws-prod-runner",
         runner_reason="artifact_mismatch",
     )
@@ -244,5 +335,3 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     assert claimed.claimed_by == "aws-prod-runner"
     assert updated.items[0].drift_detected is True
     assert updated.items[0].drift_reason == "same_version_redeployed"
-
-

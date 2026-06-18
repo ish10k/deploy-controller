@@ -18,6 +18,8 @@ from src.domain.models import (
     DeploymentPlan,
     Environment,
     EnvironmentState,
+    EventLogEntry,
+    EventLogListResult,
     AuthContext,
     BootstrapState,
     Principal,
@@ -25,7 +27,10 @@ from src.domain.models import (
     ReleaseSource,
     ReleaseSourceCreateRequest,
     ReleaseSourceCreateResult,
+    Role,
     RotateTokenResult,
+    Webhook,
+    WebhookDelivery,
     WhoAmI,
 )
 from src.interfaces.fastapi.dependencies import get_auth_context, get_container
@@ -105,8 +110,8 @@ def list_principals(container: ContainerDep) -> list[Principal]:
     response_model=Principal,
     responses=WRITE_RESPONSES,
 )
-def post_principal(principal: Principal, container: ContainerDep) -> Principal:
-    return _handle(lambda: container.principals.create(principal))
+def post_principal(principal: Principal, context: AuthDep, container: ContainerDep) -> Principal:
+    return _handle(lambda: container.principals.create(principal, context))
 
 
 @router.get(
@@ -135,10 +140,229 @@ def get_principal(
 def put_principal(
     principal_id: Annotated[str, Path(description="Principal identifier.")],
     principal: Principal,
+    context: AuthDep,
     container: ContainerDep,
 ) -> Principal:
     updated = principal.model_copy(update={"principal_id": principal_id})
-    return _handle(lambda: container.principals.put(updated))
+    return _handle(lambda: container.principals.put(updated, context))
+
+
+@router.get(
+    "/roles",
+    tags=["Roles"],
+    summary="List roles",
+    description="Returns RBAC role definitions and resolved permissions.",
+    response_model=list[Role],
+    responses=NOT_FOUND_RESPONSES,
+)
+def list_roles(context: AuthDep, container: ContainerDep) -> list[Role]:
+    return _handle(lambda: container.roles.list(context))
+
+
+@router.get(
+    "/roles/{role_id}",
+    tags=["Roles"],
+    summary="Get a role",
+    description="Returns a single RBAC role definition.",
+    response_model=Role,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_role(
+    role_id: Annotated[str, Path(description="Role identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> Role:
+    return _handle(lambda: container.roles.get(role_id, context))
+
+
+@router.put(
+    "/roles/{role_id}",
+    tags=["Roles"],
+    summary="Create or update a role",
+    description="Stores a role under the requested ID. System-managed roles cannot be modified.",
+    response_model=Role,
+    responses=WRITE_RESPONSES,
+)
+def put_role(
+    role_id: Annotated[str, Path(description="Role identifier.")],
+    role: Role,
+    context: AuthDep,
+    container: ContainerDep,
+) -> Role:
+    return _handle(lambda: container.roles.put(role_id, role, context))
+
+
+@router.get(
+    "/events",
+    tags=["Events"],
+    summary="List event log entries",
+    description="Returns durable audit events newest-first, optionally filtered by actor, resource, category, action, origin, or time range.",
+    response_model=EventLogListResult,
+    responses={401: {"model": ErrorResponse, "description": "Authentication required"}, 403: {"model": ErrorResponse, "description": "Permission denied"}},
+)
+def list_events(
+    context: AuthDep,
+    container: ContainerDep,
+    limit: Annotated[int, Query(description="Maximum event count, clamped to 1-200.")] = 50,
+    cursor: Annotated[str | None, Query(description="Pagination cursor returned by a previous call.")] = None,
+    actorPrincipalId: Annotated[str | None, Query(description="Actor principal filter.")] = None,
+    resourceType: Annotated[str | None, Query(description="Resource type filter.")] = None,
+    resourceId: Annotated[str | None, Query(description="Resource ID filter.")] = None,
+    category: Annotated[str | None, Query(description="Event category filter.")] = None,
+    action: Annotated[str | None, Query(description="Event action filter.")] = None,
+    origin: Annotated[str | None, Query(description="Event origin filter.")] = None,
+    from_: Annotated[str | None, Query(alias="from", description="Inclusive lower occurredAt bound.")] = None,
+    to: Annotated[str | None, Query(description="Inclusive upper occurredAt bound.")] = None,
+) -> EventLogListResult:
+    return _handle(
+        lambda: container.events.list(
+            context,
+            limit=limit,
+            cursor=cursor,
+            actor_principal_id=actorPrincipalId,
+            resource_type=resourceType,
+            resource_id=resourceId,
+            category=category,
+            action=action,
+            origin=origin,
+            from_time=from_,
+            to_time=to,
+        )
+    )
+
+
+@router.get(
+    "/events/{event_id}",
+    tags=["Events"],
+    summary="Get an event log entry",
+    description="Returns a single audit event by event ID.",
+    response_model=EventLogEntry,
+    responses={**NOT_FOUND_RESPONSES, 401: {"model": ErrorResponse, "description": "Authentication required"}, 403: {"model": ErrorResponse, "description": "Permission denied"}},
+)
+def get_event(
+    event_id: Annotated[str, Path(description="Event identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> EventLogEntry:
+    return _handle(lambda: container.events.get(context, event_id))
+
+
+@router.get(
+    "/webhooks",
+    tags=["Webhooks"],
+    summary="List webhooks",
+    description="Returns configured outbound webhook subscribers.",
+    response_model=list[Webhook],
+    responses={401: {"model": ErrorResponse, "description": "Authentication required"}, 403: {"model": ErrorResponse, "description": "Permission denied"}},
+)
+def list_webhooks(context: AuthDep, container: ContainerDep) -> list[Webhook]:
+    return _handle(lambda: container.webhooks.list(context))
+
+
+@router.post(
+    "/webhooks",
+    tags=["Webhooks"],
+    summary="Create a webhook",
+    description="Creates or stores a webhook subscriber destination.",
+    response_model=Webhook,
+    responses=WRITE_RESPONSES,
+)
+def post_webhook(webhook: Webhook, context: AuthDep, container: ContainerDep) -> Webhook:
+    return _handle(lambda: container.webhooks.put(webhook.webhook_id, webhook, context))
+
+
+@router.get(
+    "/webhooks/{webhook_id}",
+    tags=["Webhooks"],
+    summary="Get a webhook",
+    description="Returns a webhook subscriber by ID.",
+    response_model=Webhook,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_webhook(
+    webhook_id: Annotated[str, Path(description="Webhook identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> Webhook:
+    return _handle(lambda: container.webhooks.get(webhook_id, context))
+
+
+@router.put(
+    "/webhooks/{webhook_id}",
+    tags=["Webhooks"],
+    summary="Create or update a webhook",
+    description="Stores a webhook subscriber under the requested ID.",
+    response_model=Webhook,
+    responses=WRITE_RESPONSES,
+)
+def put_webhook(
+    webhook_id: Annotated[str, Path(description="Webhook identifier.")],
+    webhook: Webhook,
+    context: AuthDep,
+    container: ContainerDep,
+) -> Webhook:
+    return _handle(lambda: container.webhooks.put(webhook_id, webhook, context))
+
+
+@router.get(
+    "/webhook-deliveries",
+    tags=["Webhooks"],
+    summary="List webhook deliveries",
+    description="Returns outbound webhook delivery attempts and state.",
+    response_model=list[WebhookDelivery],
+    responses={401: {"model": ErrorResponse, "description": "Authentication required"}, 403: {"model": ErrorResponse, "description": "Permission denied"}},
+)
+def list_webhook_deliveries(
+    context: AuthDep,
+    container: ContainerDep,
+    webhookId: Annotated[str | None, Query(description="Webhook ID filter.")] = None,
+    eventId: Annotated[str | None, Query(description="Event ID filter.")] = None,
+    status: Annotated[str | None, Query(description="Delivery status filter.")] = None,
+    resourceType: Annotated[str | None, Query(description="Resource type filter.")] = None,
+    resourceId: Annotated[str | None, Query(description="Resource ID filter.")] = None,
+) -> list[WebhookDelivery]:
+    return _handle(
+        lambda: container.webhooks.list_deliveries(
+            context,
+            webhook_id=webhookId,
+            event_id=eventId,
+            status=status,
+            resource_type=resourceType,
+            resource_id=resourceId,
+        )
+    )
+
+
+@router.get(
+    "/webhook-deliveries/{delivery_id}",
+    tags=["Webhooks"],
+    summary="Get a webhook delivery",
+    description="Returns one webhook delivery by ID.",
+    response_model=WebhookDelivery,
+    responses=NOT_FOUND_RESPONSES,
+)
+def get_webhook_delivery(
+    delivery_id: Annotated[str, Path(description="Webhook delivery identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> WebhookDelivery:
+    return _handle(lambda: container.webhooks.get_delivery(delivery_id, context))
+
+
+@router.post(
+    "/webhook-deliveries/{delivery_id}/retry",
+    tags=["Webhooks"],
+    summary="Retry a webhook delivery",
+    description="Retries one failed or pending webhook delivery immediately.",
+    response_model=WebhookDelivery,
+    responses=WRITE_RESPONSES,
+)
+def retry_webhook_delivery(
+    delivery_id: Annotated[str, Path(description="Webhook delivery identifier.")],
+    context: AuthDep,
+    container: ContainerDep,
+) -> WebhookDelivery:
+    return _handle(lambda: container.webhooks.retry_delivery(delivery_id, context))
 
 
 def _json(value: Any) -> Any:
@@ -194,9 +418,10 @@ def get_component(
 def put_component(
     component_id: Annotated[str, Path(description="Component identifier.")],
     component: Component,
+    context: AuthDep,
     container: ContainerDep,
 ) -> Component:
-    return _handle(lambda: container.components.put(component.model_copy(update={"component_id": component_id})))
+    return _handle(lambda: container.components.put(component.model_copy(update={"component_id": component_id}), context))
 
 
 @router.get(
@@ -237,10 +462,11 @@ def get_component_set(
 def put_component_set(
     component_set_id: Annotated[str, Path(description="ComponentSet identifier.")],
     component_set: ComponentSet,
+    context: AuthDep,
     container: ContainerDep,
 ) -> ComponentSet:
     updated = component_set.model_copy(update={"component_set_id": component_set_id})
-    return _handle(lambda: container.component_sets.put(updated))
+    return _handle(lambda: container.component_sets.put(updated, context))
 
 
 @router.get(
@@ -282,8 +508,8 @@ def get_release(
     response_model=Release,
     responses=WRITE_RESPONSES,
 )
-def create_release(release: Release, container: ContainerDep) -> Release:
-    return _handle(lambda: container.releases.create(release))
+def create_release(release: Release, context: AuthDep, container: ContainerDep) -> Release:
+    return _handle(lambda: container.releases.create(release, context))
 
 
 @router.get(
@@ -306,8 +532,8 @@ def list_release_sources(container: ContainerDep) -> list[ReleaseSource]:
     response_model=ReleaseSourceCreateResult,
     responses=WRITE_RESPONSES,
 )
-def post_release_source(request: ReleaseSourceCreateRequest, container: ContainerDep) -> ReleaseSourceCreateResult:
-    return _handle(lambda: container.release_sources.create(request))
+def post_release_source(request: ReleaseSourceCreateRequest, context: AuthDep, container: ContainerDep) -> ReleaseSourceCreateResult:
+    return _handle(lambda: container.release_sources.create(request, context))
 
 
 @router.get(
@@ -336,10 +562,11 @@ def get_release_source(
 def put_release_source(
     release_source_id: Annotated[str, Path(description="Release source identifier.")],
     release_source: ReleaseSource,
+    context: AuthDep,
     container: ContainerDep,
 ) -> ReleaseSource:
     updated = release_source.model_copy(update={"release_source_id": release_source_id})
-    return _handle(lambda: container.release_sources.put(updated))
+    return _handle(lambda: container.release_sources.put(updated, context))
 
 
 @router.post(
@@ -352,9 +579,10 @@ def put_release_source(
 )
 def rotate_release_source_token(
     release_source_id: Annotated[str, Path(description="Release source identifier.")],
+    context: AuthDep,
     container: ContainerDep,
 ) -> RotateTokenResult:
-    return _handle(lambda: container.release_sources.rotate_token(release_source_id))
+    return _handle(lambda: container.release_sources.rotate_token(release_source_id, context))
 
 
 @router.post(
@@ -368,9 +596,10 @@ def rotate_release_source_token(
 def publish_release_from_source(
     release_source_id: Annotated[str, Path(description="Release source identifier.")],
     release: Release,
+    context: AuthDep,
     container: ContainerDep,
 ) -> Release:
-    return _handle(lambda: container.release_sources.publish_release(release_source_id, release))
+    return _handle(lambda: container.release_sources.publish_release(release_source_id, release, context))
 
 
 @router.get(
@@ -408,8 +637,8 @@ def get_deployset(
     response_model=DeploySetCreateResult,
     responses=WRITE_RESPONSES,
 )
-def create_deployset(request: DeploySetCreateRequest, container: ContainerDep) -> DeploySetCreateResult:
-    return _handle(lambda: container.deploysets.create(request))
+def create_deployset(request: DeploySetCreateRequest, context: AuthDep, container: ContainerDep) -> DeploySetCreateResult:
+    return _handle(lambda: container.deploysets.create(request, context))
 
 
 @router.get(
@@ -450,10 +679,11 @@ def get_environment(
 def put_environment(
     environment_id: Annotated[str, Path(description="Environment identifier.")],
     environment: Environment,
+    context: AuthDep,
     container: ContainerDep,
 ) -> Environment:
     updated = environment.model_copy(update={"environment_id": environment_id})
-    return _handle(lambda: container.environments.put(updated))
+    return _handle(lambda: container.environments.put(updated, context))
 
 
 @router.get(
@@ -521,7 +751,7 @@ def get_deployment_execution(
     response_model=DeploymentPlan,
     responses=WRITE_RESPONSES,
 )
-def plan_deployment(request: PlanDeploymentRequest, container: ContainerDep) -> DeploymentPlan:
+def plan_deployment(request: PlanDeploymentRequest, context: AuthDep, container: ContainerDep) -> DeploymentPlan:
     return _handle(
         lambda: container.plan_deployment.execute(
             environment_id=request.environment_id,
@@ -539,13 +769,13 @@ def plan_deployment(request: PlanDeploymentRequest, container: ContainerDep) -> 
     response_model=CreateDeploymentResponse,
     responses=WRITE_RESPONSES,
 )
-def create_deployment(request: CreateDeploymentRequest, container: ContainerDep) -> CreateDeploymentResponse:
+def create_deployment(request: CreateDeploymentRequest, context: AuthDep, container: ContainerDep) -> CreateDeploymentResponse:
     return _handle(
         lambda: {
             "deploymentExecutionId": container.create_deployment.execute(
                 environment_id=request.environment_id,
                 deployset_id=request.deployset_id,
-                requested_by=request.requested_by,
+                context=context,
                 notes=request.notes,
                 force=request.force,
                 tags=request.tags,
@@ -575,8 +805,8 @@ def list_deployment_runners(container: ContainerDep) -> list[DeploymentRunner]:
     response_model=DeploymentRunnerCreateResult,
     responses=WRITE_RESPONSES,
 )
-def post_deployment_runner(request: DeploymentRunnerCreateRequest, container: ContainerDep) -> DeploymentRunnerCreateResult:
-    return _handle(lambda: container.deployment_runners.create(request))
+def post_deployment_runner(request: DeploymentRunnerCreateRequest, context: AuthDep, container: ContainerDep) -> DeploymentRunnerCreateResult:
+    return _handle(lambda: container.deployment_runners.create(request, context))
 
 
 @router.get(
@@ -605,10 +835,11 @@ def get_deployment_runner(
 def put_deployment_runner(
     runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     runner: DeploymentRunner,
+    context: AuthDep,
     container: ContainerDep,
 ) -> DeploymentRunner:
     updated = runner.model_copy(update={"runner_id": runner_id})
-    return _handle(lambda: container.deployment_runners.put(updated))
+    return _handle(lambda: container.deployment_runners.put(updated, context))
 
 
 @router.post(
@@ -621,9 +852,10 @@ def put_deployment_runner(
 )
 def rotate_deployment_runner_token(
     runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    context: AuthDep,
     container: ContainerDep,
 ) -> RotateTokenResult:
-    return _handle(lambda: container.deployment_runners.rotate_token(runner_id))
+    return _handle(lambda: container.deployment_runners.rotate_token(runner_id, context))
 
 
 @router.post(
@@ -636,9 +868,10 @@ def rotate_deployment_runner_token(
 )
 def heartbeat_deployment_runner(
     runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
+    context: AuthDep,
     container: ContainerDep,
 ) -> DeploymentRunner:
-    return _handle(lambda: container.deployment_runners.heartbeat(runner_id))
+    return _handle(lambda: container.deployment_runners.heartbeat(runner_id, context))
 
 
 @router.get(
@@ -668,9 +901,10 @@ def claim_runner_execution(
     runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     request: ClaimExecutionRequest,
+    context: AuthDep,
     container: ContainerDep,
 ) -> DeploymentExecution:
-    return _handle(lambda: container.deployment_runners.claim(runner_id, deployment_execution_id, request.lease_seconds))
+    return _handle(lambda: container.deployment_runners.claim(runner_id, deployment_execution_id, context, request.lease_seconds))
 
 
 @router.post(
@@ -686,6 +920,7 @@ def report_runner_item_status(
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     component_id: Annotated[str, Path(description="Component identifier.")],
     request: ReportExecutionItemStatusRequest,
+    context: AuthDep,
     container: ContainerDep,
 ) -> DeploymentExecution:
     return _handle(
@@ -695,6 +930,7 @@ def report_runner_item_status(
             component_id=component_id,
             status=request.status,
             reported_action=request.reported_action,
+            context=context,
             reported_by=request.reported_by,
             runner_reason=request.runner_reason,
             message=request.message,
@@ -715,8 +951,7 @@ def report_runner_execution_status(
     runner_id: Annotated[str, Path(description="Deployment runner identifier.")],
     deployment_execution_id: Annotated[str, Path(description="Deployment execution identifier.")],
     request: ReportExecutionStatusRequest,
+    context: AuthDep,
     container: ContainerDep,
 ) -> DeploymentExecution:
-    return _handle(lambda: container.deployment_runners.report_execution_status(runner_id, deployment_execution_id, request.status))
-
-
+    return _handle(lambda: container.deployment_runners.report_execution_status(runner_id, deployment_execution_id, request.status, context))
