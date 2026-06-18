@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -72,13 +73,13 @@ function ComponentSetDetailsView({ componentSet, relatedDeploysets }: { componen
                   {componentSet.components.map((component) => (
                     <TableRow key={component.componentId}>
                       <TableCell>
-                        <Link
+                        <EntityLink
+                          kind="component"
                           to="/components/$componentId"
                           params={{ componentId: component.componentId }}
-                          className="font-semibold text-blue-700 hover:text-blue-800"
                         >
                           {component.componentId}
-                        </Link>
+                        </EntityLink>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -116,15 +117,15 @@ function ComponentSetDetailsView({ componentSet, relatedDeploysets }: { componen
               <ScrollFade className="h-full" contentClassName="space-y-2 px-4 pb-4">
                 {relatedDeploysets.length ? (
                   relatedDeploysets.map((deployset) => (
-                    <Link
+                    <div
                       key={deployset.deploySetId}
-                      to="/deploysets/$deploySetId"
-                      params={{ deploySetId: deployset.deploySetId }}
                       className="block rounded-lg bg-white px-3 py-2 transition-colors hover:bg-blue-50/40"
                     >
-                      <div className="font-semibold text-blue-700">{deployset.deploySetId}</div>
+                      <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: deployset.deploySetId }}>
+                        {deployset.deploySetId}
+                      </EntityLink>
                       <div className="mt-1 text-xs text-slate-500">{formatDateTime(deployset.createdAt)}</div>
-                    </Link>
+                    </div>
                   ))
                 ) : (
                   <p className="text-sm text-slate-500">No DeploySets use this Component Set yet.</p>

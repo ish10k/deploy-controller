@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCheck, Copy, Filter, Plus, Search, X } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { NotesCard } from "@/components/ui/notes-card";
 import { ScrollFade } from "@/components/ui/scroll-fade";
@@ -264,15 +264,19 @@ function DeploysetsTable({ rows }: { rows: ApiDeploySet[] }) {
         {rows.map((deployset) => (
           <TableRow key={deployset.deploySetId} className="hover:bg-blue-50/40">
             <TableCell>
-              <Link
+              <EntityLink
+                kind="deployset"
                 to="/deploysets/$deploySetId"
                 params={{ deploySetId: deployset.deploySetId }}
-                className="font-semibold text-blue-700 hover:text-blue-800"
               >
                 {deployset.deploySetId}
-              </Link>
+              </EntityLink>
             </TableCell>
-            <TableCell className="font-medium text-slate-900">{deployset.componentSetId}</TableCell>
+            <TableCell>
+              <EntityLink kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }}>
+                {deployset.componentSetId}
+              </EntityLink>
+            </TableCell>
             <TableCell>{deployset.createdBy}</TableCell>
             <TableCell>{formatDateTime(deployset.createdAt)}</TableCell>
             <TableCell>

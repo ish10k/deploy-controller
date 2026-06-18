@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Filter, Plus, Search, Trash2 } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { Select } from "@/components/ui/select";
@@ -123,13 +123,13 @@ export function ComponentSetsPage() {
                 {filteredComponentSets.map((componentSet) => (
                   <TableRow key={componentSet.componentSetId} className="hover:bg-slate-50">
                     <TableCell>
-                      <Link
+                      <EntityLink
+                        kind="componentSet"
                         to="/component-sets/$componentSetId"
                         params={{ componentSetId: componentSet.componentSetId }}
-                        className="font-semibold text-blue-700 hover:text-blue-800"
                       >
                         {componentSet.componentSetId}
-                      </Link>
+                      </EntityLink>
                     </TableCell>
                     <TableCell>{componentSet.components.length}</TableCell>
                     <TableCell>{formatDateTime(componentSet.createdAt)}</TableCell>

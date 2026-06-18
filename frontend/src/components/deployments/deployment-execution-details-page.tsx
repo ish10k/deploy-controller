@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -123,18 +124,18 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
                 icon={Box}
                 label="DeploySet"
                 value={
-                  <Link to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                  <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
                     {execution.deploySetId}
-                  </Link>
+                  </EntityLink>
                 }
               />
               <MetaRow
                 icon={Package}
                 label="Environment"
                 value={
-                  <Link to="/environments/$environmentId" params={{ environmentId: execution.environmentId }} className="font-bold text-blue-700 hover:text-blue-800">
+                  <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: execution.environmentId }}>
                     {execution.environmentId}
-                  </Link>
+                  </EntityLink>
                 }
               />
               <MetaRow icon={UserRound} label="Requested by" value={execution.requestedBy} />
@@ -217,12 +218,15 @@ export function ComponentActionsTable({ rows }: { rows: ApiDeploymentExecutionIt
         {rows.map((row) => (
           <TableRow key={row.componentId}>
             <TableCell className="font-semibold">
-              <span className="flex items-center gap-2">
-                {row.componentId.includes("lambda") ? <Zap className="h-4 w-4 text-orange-500" /> : <Network className="h-4 w-4 text-slate-600" />}
+              <EntityLink kind="component" to="/components/$componentId" params={{ componentId: row.componentId }}>
                 {row.componentId}
-              </span>
+              </EntityLink>
             </TableCell>
-            <TableCell>{row.version}</TableCell>
+            <TableCell>
+              <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: row.componentId, version: row.version }}>
+                {row.version}
+              </EntityLink>
+            </TableCell>
             <TableCell>
               <ActionBadge action={row.requestedAction} version={row.version} />
             </TableCell>

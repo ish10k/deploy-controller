@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarClock, FileText, GitBranch, Package, Tag, UserRound 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { TagList } from "@/components/ui/tag-list";
 import { getRelease, type ApiRelease } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
@@ -66,22 +67,22 @@ function ReleaseDetailsView({ release }: { release: ApiRelease }) {
               icon={Package}
               label="Component"
               value={
-                <Link to="/components/$componentId" params={{ componentId: release.componentId }} className="font-bold text-blue-700 hover:text-blue-800">
+                <EntityLink kind="component" to="/components/$componentId" params={{ componentId: release.componentId }}>
                   {release.componentId}
-                </Link>
+                </EntityLink>
               }
             />
             <MetaRow
               icon={Package}
               label="Version"
               value={
-                <Link
+                <EntityLink
+                  kind="release"
                   to="/releases/$componentId/$version"
                   params={{ componentId: release.componentId, version: release.version }}
-                  className="font-bold text-blue-700 hover:text-blue-800"
                 >
                   {release.version}
-                </Link>
+                </EntityLink>
               }
             />
             <MetaRow icon={UserRound} label="Created by" value={release.createdBy} />

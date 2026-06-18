@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { Select } from "@/components/ui/select";
@@ -117,17 +117,27 @@ export function ComponentsPage() {
                   return (
                     <TableRow key={component.componentId} className="hover:bg-slate-50">
                       <TableCell>
-                        <Link
+                        <EntityLink
+                          kind="component"
                           to="/components/$componentId"
                           params={{ componentId: component.componentId }}
-                          className="font-semibold text-blue-700 hover:text-blue-800"
                         >
                           {component.componentId}
-                        </Link>
+                        </EntityLink>
                       </TableCell>
                       <TableCell>{component.type ?? "-"}</TableCell>
                       <TableCell>
-                        {latestRelease ? <span className="font-semibold text-slate-900">{latestRelease.version}</span> : <span className="text-slate-400">-</span>}
+                        {latestRelease ? (
+                          <EntityLink
+                            kind="release"
+                            to="/releases/$componentId/$version"
+                            params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
+                          >
+                            {latestRelease.version}
+                          </EntityLink>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <TagList tags={component.tags} limit={3} />

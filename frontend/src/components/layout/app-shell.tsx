@@ -1,33 +1,15 @@
 import {
   Bell,
-  Rocket,
-  Boxes,
-  ClipboardList,
-  Component,
-  Folder,
-  GitBranch,
   HelpCircle,
-  Home,
-  KeyRound,
-  Link2,
   Menu,
-  PackageCheck,
-  Unplug,
-  Search,
   Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
-  Server,
-  Package,
-  Puzzle,
-  Dock,
   Shield,
-  Mail,
   CircleFadingArrowUp,
   Play,
+  Rocket,
   Webhook,
   LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -35,38 +17,48 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { LoadingPanel } from "@/components/common/api-state";
+import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { useAuth } from "@/lib/auth-context";
+import { canViewUsers } from "@/lib/user-permissions";
 import { cn } from "@/lib/utils";
 
-const navGroups = [
-  {
-    label: "Operations",
-    items: [
-      { label: "Deployments", icon: Rocket, to: "/deployments" },
-      { label: "DeploySets", icon: PackageCheck, to: "/deploysets" },
-      { label: "Environments", icon: Server, to: "/environments" },
-      { label: "Releases", icon: Package, to: "/releases" },
-      { label: "Components", icon: Puzzle, to: "/components" },
-      { label: "Component Sets", icon: Dock, to: "/component-sets" },
-    ],
-  },
-  {
-    label: "Integrations",
-    items: [
-      { label: "Release Sources", icon: CircleFadingArrowUp, to: "/unsupported/release-sources" },
-      { label: "Runners", icon: Play, to: "/deployment-runners" },
-      { label: "Webhooks", icon: Webhook, to: "/webhooks" },
-    ],
-  },
+type NavItem = {
+  label: string;
+  icon: LucideIcon;
+  to: string;
+  hidden?: boolean;
+};
+
+function navGroups(showUsers: boolean): Array<{ label: string; items: NavItem[] }> {
+  return [
+    {
+      label: "Operations",
+      items: [
+        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments" },
+        { label: "DeploySets", icon: ENTITY_ICONS.deployset, to: "/deploysets" },
+        { label: "Environments", icon: ENTITY_ICONS.environment, to: "/environments" },
+        { label: "Releases", icon: ENTITY_ICONS.release, to: "/releases" },
+        { label: "Components", icon: ENTITY_ICONS.component, to: "/components" },
+        { label: "Component Sets", icon: ENTITY_ICONS.componentSet, to: "/component-sets" },
+      ],
+    },
+    {
+      label: "Integrations",
+      items: [
+        { label: "Release Sources", icon: CircleFadingArrowUp, to: "/unsupported/release-sources" },
+        { label: "Runners", icon: Play, to: "/deployment-runners" },
+        { label: "Webhooks", icon: Webhook, to: "/webhooks" },
+      ],
+    },
     {
       label: "Governance",
       items: [
-        { label: "Admin", icon: ShieldCheck, to: "/admin" },
-        { label: "Auth", icon: UserRound, to: "/unsupported/auth" },
+        { label: "Users", icon: ENTITY_ICONS.user, to: "/users", hidden: !showUsers },
         { label: "Audit", icon: Shield, to: "/unsupported/audit" },
       ],
-  },
-];
+    },
+  ];
+}
 
 const headerActions = [
   { label: "Notifications", icon: Bell },
@@ -105,13 +97,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     .map((part) => part[0]?.toUpperCase())
     .join("") || "U";
   const primaryRole = auth.user?.roles[0] ?? "user";
+  const groups = navGroups(canViewUsers(auth.user));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="fixed inset-x-0 top-0 z-40 flex h-[60px] items-center border-b border-slate-900 bg-[#07111f] px-5 text-white shadow-sm">
         <div className="flex w-[230px] shrink-0 items-center gap-1">
           <div className="flex h-7 w-7 items-center justify-center">
-            <Rocket className="h-5 w-5" />
+            <ENTITY_ICONS.deployment className="h-5 w-5" />
           </div>
           <div className="flex items-baseline gap-3">
             <span className="text-xl font-bold tracking-normal">Deploy Controller</span>
@@ -151,13 +144,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <aside className="fixed bottom-0 left-0 top-[60px] z-30 flex w-[235px] flex-col border-r border-slate-200 bg-white">
         <nav className="flex-1 overflow-y-auto px-4 py-6">
-          {navGroups.map((group, groupIndex) => (
+          {groups.map((group, groupIndex) => (
             <div key={group.label || "main"} className={cn(groupIndex > 0 && "border-t border-slate-200 pt-5", "mb-5")}>
               {group.label ? (
                 <div className="mb-3 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">{group.label}</div>
               ) : null}
               <div className="space-y-1">
-                {group.items.map((item) => {
+                {group.items.filter((item) => !item.hidden).map((item) => {
                   const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
                   return (
                     <Link

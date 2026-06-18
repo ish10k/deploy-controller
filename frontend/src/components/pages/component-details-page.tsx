@@ -5,6 +5,7 @@ import { ArrowLeft, Boxes, CalendarClock, FileText, Package, Server, Tag } from 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -86,13 +87,13 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
                     {releases.map((release) => (
                       <TableRow key={release.version}>
                         <TableCell>
-                          <Link
+                          <EntityLink
+                            kind="release"
                             to="/releases/$componentId/$version"
                             params={{ componentId: release.componentId, version: release.version }}
-                            className="font-semibold text-blue-700 hover:text-blue-800"
                           >
                             {release.version}
-                          </Link>
+                          </EntityLink>
                         </TableCell>
                         <TableCell>{formatDateTime(release.createdAt)}</TableCell>
                         <TableCell className="max-w-[260px] truncate">{release.artifact.key}</TableCell>
@@ -122,13 +123,13 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
               label="Latest"
               value={
                 latestRelease ? (
-                  <Link
+                  <EntityLink
+                    kind="release"
                     to="/releases/$componentId/$version"
                     params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
-                    className="font-bold text-blue-700 hover:text-blue-800"
                   >
                     {latestRelease.version}
-                  </Link>
+                  </EntityLink>
                 ) : (
                   "None"
                 )

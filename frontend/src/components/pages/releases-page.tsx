@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Filter, Plus, Search } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { NotesCard } from "@/components/ui/notes-card";
 import { RequiredMark } from "@/components/ui/required-mark";
@@ -123,22 +123,22 @@ export function ReleasesPage() {
                   {filteredReleases.map((release) => (
                     <TableRow key={`${release.componentId}:${release.version}`} className="hover:bg-slate-50">
                       <TableCell>
-                        <Link
+                        <EntityLink
+                          kind="component"
                           to="/components/$componentId"
                           params={{ componentId: release.componentId }}
-                          className="font-semibold text-blue-700 hover:text-blue-800"
                         >
                           {release.componentId}
-                        </Link>
+                        </EntityLink>
                       </TableCell>
                       <TableCell>
-                        <Link
+                        <EntityLink
+                          kind="release"
                           to="/releases/$componentId/$version"
                           params={{ componentId: release.componentId, version: release.version }}
-                          className="font-semibold text-blue-700 hover:text-blue-800"
                         >
                           {release.version}
-                        </Link>
+                        </EntityLink>
                       </TableCell>
                       <TableCell>{formatDateTime(release.createdAt)}</TableCell>
                       <TableCell className="max-w-[420px] truncate">{release.notes ?? "-"}</TableCell>

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchDashboardData, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
@@ -281,17 +282,31 @@ function ExecutionTable({
         header: "Execution ID",
         accessorKey: "deploymentExecutionId",
         cell: ({ row }) => (
-          <Link
+          <EntityLink
+            kind="deployment"
             to="/deployments/$deploymentExecutionId"
             params={{ deploymentExecutionId: row.original.deploymentExecutionId }}
-            className="font-semibold text-blue-700 hover:text-blue-800"
           >
             {row.original.deploymentExecutionId}
-          </Link>
+          </EntityLink>
         ),
       },
-      { header: "DeploySet", accessorKey: "deploySetId" },
-      { header: "Environment", accessorKey: "environmentId" },
+      {
+        header: "DeploySet",
+        cell: ({ row }) => (
+          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: row.original.deploySetId }}>
+            {row.original.deploySetId}
+          </EntityLink>
+        ),
+      },
+      {
+        header: "Environment",
+        cell: ({ row }) => (
+          <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: row.original.environmentId }}>
+            {row.original.environmentId}
+          </EntityLink>
+        ),
+      },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       { header: "Claimed By", cell: ({ row }) => row.original.claimedBy ?? "-" },
       { header: "Started", cell: ({ row }) => formatDateTime(row.original.startedAt) },

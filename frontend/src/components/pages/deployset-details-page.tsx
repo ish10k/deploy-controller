@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -118,9 +119,9 @@ function DeploySetDetailsView({
                 icon={Layers3}
                 label="Component Set"
                 value={
-                  <Link to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                  <EntityLink kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }}>
                     {deployset.componentSetId}
-                  </Link>
+                  </EntityLink>
                 }
               />
               <MetaRow
@@ -128,9 +129,9 @@ function DeploySetDetailsView({
                 label="Base DeploySet"
                 value={
                   deployset.baseDeploySetId ? (
-                    <Link to="/deploysets/$deploySetId" params={{ deploySetId: deployset.baseDeploySetId }} className="font-bold text-blue-700 hover:text-blue-800">
+                    <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: deployset.baseDeploySetId }}>
                       {deployset.baseDeploySetId}
-                    </Link>
+                    </EntityLink>
                   ) : (
                     "None"
                   )
@@ -141,9 +142,9 @@ function DeploySetDetailsView({
                 label="Base Environment"
                 value={
                   deployset.baseEnvironmentId ? (
-                    <Link to="/environments/$environmentId" params={{ environmentId: deployset.baseEnvironmentId }} className="font-bold text-blue-700 hover:text-blue-800">
+                    <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: deployset.baseEnvironmentId }}>
                       {deployset.baseEnvironmentId}
-                    </Link>
+                    </EntityLink>
                   ) : (
                     "None"
                   )
@@ -171,21 +172,20 @@ function DeploySetDetailsView({
                 {relatedExecutions.length ? (
                   <div className="space-y-2">
                     {relatedExecutions.slice(0, 8).map((execution) => (
-                      <div>
-                        <Link
-                          key={execution.deploymentExecutionId}
-                          to="/deployments/$deploymentExecutionId"
-                          params={{ deploymentExecutionId: execution.deploymentExecutionId }}
+                      <div key={execution.deploymentExecutionId}>
+                        <div
                           className="block rounded-lg bg-white px-3 py-2 transition-colors hover:border-blue-200 hover:bg-blue-50/40"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-semibold text-blue-700">{execution.deploymentExecutionId}</span>
+                            <EntityLink kind="deployment" to="/deployments/$deploymentExecutionId" params={{ deploymentExecutionId: execution.deploymentExecutionId }}>
+                              {execution.deploymentExecutionId}
+                            </EntityLink>
                             <StatusBadge status={execution.status} />
                           </div>
                           <div className="mt-1 text-xs text-slate-500">
                             {execution.environmentId} | {formatDateTime(execution.startedAt)}
                           </div>
-                        </Link>
+                        </div>
                         <hr></hr>
                       </div>
                     ))}
@@ -216,18 +216,18 @@ function DeploySetItemsTable({ deployset }: { deployset: ApiDeploySet }) {
         {deployset.items.map((item) => (
           <TableRow key={item.componentId}>
             <TableCell>
-              <Link to="/components/$componentId" params={{ componentId: item.componentId }} className="font-semibold text-blue-700 hover:text-blue-800">
+              <EntityLink kind="component" to="/components/$componentId" params={{ componentId: item.componentId }}>
                 {item.componentId}
-              </Link>
+              </EntityLink>
             </TableCell>
             <TableCell>
-              <Link
+              <EntityLink
+                kind="release"
                 to="/releases/$componentId/$version"
                 params={{ componentId: item.componentId, version: item.version }}
-                className="font-semibold text-blue-700 hover:text-blue-800"
               >
                 {item.version}
-              </Link>
+              </EntityLink>
             </TableCell>
             <TableCell>
               <Badge variant={item.source === "explicit" ? "blue" : "slate"}>{item.source}</Badge>

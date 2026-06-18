@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { ScrollFade } from "@/components/ui/scroll-fade";
@@ -95,13 +96,13 @@ export function DeploymentRunnersPage() {
                 {query.data.map((runner) => (
                   <TableRow key={runner.runnerId} className="hover:bg-slate-50">
                     <TableCell>
-                      <Link
+                      <EntityLink
+                        kind="runner"
                         to="/deployment-runners/$runnerId"
                         params={{ runnerId: runner.runnerId }}
-                        className="font-semibold text-blue-700 hover:text-blue-800"
                       >
                         {runner.runnerId}
-                      </Link>
+                      </EntityLink>
                     </TableCell>
                     <TableCell>{runner.displayName}</TableCell>
                     <TableCell>{runner.principalId}</TableCell>
@@ -412,16 +413,24 @@ function DeploymentRunnerDetailsView({
                     {pendingExecutions.map((execution) => (
                       <TableRow key={execution.deploymentExecutionId}>
                         <TableCell>
-                          <Link
+                          <EntityLink
+                            kind="deployment"
                             to="/deployments/$deploymentExecutionId"
                             params={{ deploymentExecutionId: execution.deploymentExecutionId }}
-                            className="font-semibold text-blue-700 hover:text-blue-800"
                           >
                             {execution.deploymentExecutionId}
-                          </Link>
+                          </EntityLink>
                         </TableCell>
-                        <TableCell>{execution.deploySetId}</TableCell>
-                        <TableCell>{execution.environmentId}</TableCell>
+                        <TableCell>
+                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
+                            {execution.deploySetId}
+                          </EntityLink>
+                        </TableCell>
+                        <TableCell>
+                          <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: execution.environmentId }}>
+                            {execution.environmentId}
+                          </EntityLink>
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={execution.status} />
                         </TableCell>

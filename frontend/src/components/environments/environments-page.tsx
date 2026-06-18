@@ -23,6 +23,8 @@ import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityLink } from "@/components/ui/entity-link";
+import { type EntityIconKind } from "@/lib/entity-icons";
 import { Input } from "@/components/ui/input";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { ScrollFade } from "@/components/ui/scroll-fade";
@@ -262,15 +264,19 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
                     {row.recentExecutions.slice(0, 8).map((execution) => (
                       <TableRow key={execution.deploymentExecutionId}>
                         <TableCell className="font-semibold">
-                          <Link
+                          <EntityLink
+                            kind="deployment"
                             to="/deployments/$deploymentExecutionId"
                             params={{ deploymentExecutionId: execution.deploymentExecutionId }}
-                            className="text-blue-700 hover:text-blue-800"
                           >
                             {execution.deploymentExecutionId}
-                          </Link>
+                          </EntityLink>
                         </TableCell>
-                        <TableCell>{execution.deploySetId}</TableCell>
+                        <TableCell>
+                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
+                            {execution.deploySetId}
+                          </EntityLink>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={execution.status === "failed" ? "red" : execution.status === "succeeded" ? "green" : "slate"}>{execution.status}</Badge>
                         </TableCell>
@@ -576,10 +582,11 @@ function ResourceLink({
   if (!label) {
     return <span className="text-slate-500">-</span>;
   }
+  const kind: EntityIconKind = to.includes("component-sets") ? "componentSet" : "deployset";
   return (
-    <Link to={to} params={params} className="font-bold text-blue-700 hover:text-blue-800">
+    <EntityLink kind={kind} to={to} params={params}>
       {label}
-    </Link>
+    </EntityLink>
   );
 }
 

@@ -1,16 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import type { ApiWhoAmI } from "@/lib/api-types";
 
 let mockUser: ApiWhoAmI | null = {
-  principalId: "user:admin",
+  principalId: "user:ops",
   type: "user",
   authMethod: "oidc",
-  displayName: "Admin User",
-  email: "admin@example.local",
+  displayName: "Ops User",
+  email: "ops@example.local",
   roles: ["platform-admin"],
   permissions: ["principals:read"],
 };
@@ -35,24 +35,40 @@ vi.mock("@/lib/auth-context", () => ({
 describe("AppShell", () => {
   beforeEach(() => {
     mockUser = {
-      principalId: "user:admin",
+      principalId: "user:ops",
       type: "user",
       authMethod: "oidc",
-      displayName: "Admin User",
-      email: "admin@example.local",
+      displayName: "Ops User",
+      email: "ops@example.local",
       roles: ["platform-admin"],
       permissions: ["principals:read"],
     };
   });
 
-  it("shows the admin route in governance navigation", () => {
+  it("shows users navigation when the principal can view users", () => {
     render(
       <AppShell>
         <div>content</div>
       </AppShell>,
     );
 
-    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
+  });
+
+  it("hides users navigation without user view permission", () => {
+    mockUser = {
+      ...mockUser!,
+      permissions: ["deployments:read"],
+    };
+
+    render(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
   });
 });
