@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -29,6 +28,8 @@ import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { useAuth } from "@/lib/auth-context";
 import {
   createPrincipal,
@@ -95,7 +96,7 @@ export function UsersPage({
 } = {}) {
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const canView = canViewUsers(auth.user);

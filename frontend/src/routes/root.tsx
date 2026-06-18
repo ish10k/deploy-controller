@@ -18,7 +18,9 @@ import { RegistryPage } from "@/components/pages/registry-page";
 import { RoleDetailsPage } from "@/components/pages/roles-page";
 import { UserDetailsPage } from "@/components/pages/users-page";
 import { WebhookDeliveryDetailsPage, WebhookDetailsPage, WebhooksPage } from "@/components/pages/webhooks-page";
+import { WorkspaceSelectorPage } from "@/components/pages/workspace-selector-page";
 import { ModalProvider } from "@/components/ui/modal";
+import { workspaceAppPath } from "@/lib/workspace-routes";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -30,48 +32,48 @@ const rootRoute = createRootRoute({
   ),
 });
 
-const indexRoute = createRoute({
+const workspaceHomeRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/",
+  path: "/workspaces/$workspaceId",
+  component: DeploymentsPage,
+});
+const workspaceDeploymentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/workspaces/$workspaceId/deployments",
   component: DeploymentsPage,
 });
 
-const deploymentsRoute = createRoute({
+const workspaceDeploymentExecutionDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/deployments",
-  component: DeploymentsPage,
-});
-
-const deploymentExecutionDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/deployments/$deploymentExecutionId",
+  path: "/workspaces/$workspaceId/deployments/$deploymentExecutionId",
   component: () => {
-    const { deploymentExecutionId } = deploymentExecutionDetailRoute.useParams();
+    const { deploymentExecutionId } = workspaceDeploymentExecutionDetailRoute.useParams();
     return <DeploymentExecutionDetailsPage deploymentExecutionId={deploymentExecutionId} />;
   },
 });
 
-const planRoute = createRoute({
+const workspacePlanRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/deployments/plan",
+  path: "/workspaces/$workspaceId/deployments/plan",
   component: () => {
     const navigate = useNavigate();
-    return <DeploymentsPage initialPlanOpen onPlanClose={() => navigate({ to: "/deployments" })} />;
+    const { workspaceId } = workspacePlanRoute.useParams();
+    return <DeploymentsPage initialPlanOpen onPlanClose={() => navigate({ to: workspaceAppPath(workspaceId, "/deployments") })} />;
   },
 });
 
-const registryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/registry", component: RegistryPage });
-const authRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth", component: AuthPage });
-const componentsRoute = createRoute({
+const workspaceRegistryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/registry", component: RegistryPage });
+const workspaceUsersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/users", component: AuthPage });
+const workspaceComponentsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/components",
+  path: "/workspaces/$workspaceId/components",
   component: () => <RegistryPage initialView="components" />,
 });
-const componentDetailRoute = createRoute({
+const workspaceComponentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/components/$componentId",
+  path: "/workspaces/$workspaceId/components/$componentId",
   component: () => {
-    const { componentId } = componentDetailRoute.useParams();
+    const { componentId } = workspaceComponentDetailRoute.useParams();
     return <ComponentDetailsPage componentId={componentId} />;
   },
 });
@@ -79,117 +81,117 @@ const componentDetailRoute = createRoute({
 const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/callback", component: AuthCallbackPage });
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
 const forbiddenRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forbidden", component: ForbiddenPage });
-const componentSetsRoute = createRoute({
+const workspaceSelectorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/select", component: WorkspaceSelectorPage });
+const workspaceComponentSetsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/component-sets",
+  path: "/workspaces/$workspaceId/component-sets",
   component: () => <RegistryPage initialView="component-sets" />,
 });
-const componentSetDetailRoute = createRoute({
+const workspaceComponentSetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/component-sets/$componentSetId",
+  path: "/workspaces/$workspaceId/component-sets/$componentSetId",
   component: () => {
-    const { componentSetId } = componentSetDetailRoute.useParams();
+    const { componentSetId } = workspaceComponentSetDetailRoute.useParams();
     return <ComponentSetDetailsPage componentSetId={componentSetId} />;
   },
 });
-const releasesRoute = createRoute({
+const workspaceReleasesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/releases",
+  path: "/workspaces/$workspaceId/releases",
   component: () => <RegistryPage initialView="releases" />,
 });
-const releaseSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/release-sources", component: ReleaseSourcesPage });
-const releaseSourceDetailRoute = createRoute({
+const workspaceReleaseSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/release-sources", component: ReleaseSourcesPage });
+const workspaceReleaseSourceDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/release-sources/$releaseSourceId",
+  path: "/workspaces/$workspaceId/release-sources/$releaseSourceId",
   component: () => {
-    const { releaseSourceId } = releaseSourceDetailRoute.useParams();
+    const { releaseSourceId } = workspaceReleaseSourceDetailRoute.useParams();
     return <ReleaseSourceDetailsPage releaseSourceId={releaseSourceId} />;
   },
 });
-const releaseDetailRoute = createRoute({
+const workspaceReleaseDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/releases/$componentId/$version",
+  path: "/workspaces/$workspaceId/releases/$componentId/$version",
   component: () => {
-    const { componentId, version } = releaseDetailRoute.useParams();
+    const { componentId, version } = workspaceReleaseDetailRoute.useParams();
     return <ReleaseDetailsPage componentId={componentId} version={version} />;
   },
 });
-const deploysetsRoute = createRoute({
+const workspaceDeploysetsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/deploysets",
+  path: "/workspaces/$workspaceId/deploysets",
   component: () => <DeploymentsPage initialView="deploysets" />,
 });
-const deploysetDetailRoute = createRoute({
+const workspaceDeploysetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/deploysets/$deploySetId",
+  path: "/workspaces/$workspaceId/deploysets/$deploySetId",
   component: () => {
-    const { deploySetId } = deploysetDetailRoute.useParams();
+    const { deploySetId } = workspaceDeploysetDetailRoute.useParams();
     return <DeploySetDetailsPage deploySetId={deploySetId} />;
   },
 });
-const environmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/environments", component: EnvironmentsPage });
-const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/users", component: () => <AuthPage initialView="users" /> });
-const rolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/roles", component: () => <AuthPage initialView="roles" /> });
-const roleDetailRoute = createRoute({
+const workspaceEnvironmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/environments", component: EnvironmentsPage });
+const workspaceRolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/roles", component: () => <AuthPage initialView="roles" /> });
+const workspaceRoleDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/roles/$roleId",
+  path: "/workspaces/$workspaceId/roles/$roleId",
   component: () => {
-    const { roleId } = roleDetailRoute.useParams();
+    const { roleId } = workspaceRoleDetailRoute.useParams();
     return <RoleDetailsPage roleId={roleId} />;
   },
 });
-const auditRoute = createRoute({ getParentRoute: () => rootRoute, path: "/audit", component: EventLogPage });
-const webhooksRoute = createRoute({ getParentRoute: () => rootRoute, path: "/webhooks", component: WebhooksPage });
-const webhookDetailRoute = createRoute({
+const workspaceAuditRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/audit", component: EventLogPage });
+const workspaceWebhooksRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/webhooks", component: WebhooksPage });
+const workspaceWebhookDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/webhooks/$webhookId",
+  path: "/workspaces/$workspaceId/webhooks/$webhookId",
   component: () => {
-    const { webhookId } = webhookDetailRoute.useParams();
+    const { webhookId } = workspaceWebhookDetailRoute.useParams();
     return <WebhookDetailsPage webhookId={webhookId} />;
   },
 });
-const webhookDeliveryDetailRoute = createRoute({
+const workspaceWebhookDeliveryDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/webhook-deliveries/$deliveryId",
+  path: "/workspaces/$workspaceId/webhook-deliveries/$deliveryId",
   component: () => {
-    const { deliveryId } = webhookDeliveryDetailRoute.useParams();
+    const { deliveryId } = workspaceWebhookDeliveryDetailRoute.useParams();
     return <WebhookDeliveryDetailsPage deliveryId={deliveryId} />;
   },
 });
-const userDetailRoute = createRoute({
+const workspaceUserDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/users/$principalId",
+  path: "/workspaces/$workspaceId/users/$principalId",
   component: () => {
-    const { principalId } = userDetailRoute.useParams();
+    const { principalId } = workspaceUserDetailRoute.useParams();
     return <UserDetailsPage principalId={principalId} />;
   },
 });
-const environmentDetailRoute = createRoute({
+const workspaceEnvironmentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/environments/$environmentId",
+  path: "/workspaces/$workspaceId/environments/$environmentId",
   component: () => {
-    const { environmentId } = environmentDetailRoute.useParams();
+    const { environmentId } = workspaceEnvironmentDetailRoute.useParams();
     return <EnvironmentsPage routeEnvironmentId={environmentId} />;
   },
 });
-const executionsRoute = createRoute({
+const workspaceExecutionsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/executions",
+  path: "/workspaces/$workspaceId/executions",
   component: () => <DeploymentsPage initialView="executions" />,
 });
-const deploymentRunnersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/deployment-runners", component: DeploymentRunnersPage });
-const deploymentRunnerDetailRoute = createRoute({
+const workspaceDeploymentRunnersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/deployment-runners", component: DeploymentRunnersPage });
+const workspaceDeploymentRunnerDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/deployment-runners/$runnerId",
+  path: "/workspaces/$workspaceId/deployment-runners/$runnerId",
   component: () => {
-    const { runnerId } = deploymentRunnerDetailRoute.useParams();
+    const { runnerId } = workspaceDeploymentRunnerDetailRoute.useParams();
     return <DeploymentRunnerDetailsPage runnerId={runnerId} />;
   },
 });
 
-const unsupportedRoute = createRoute({
+const workspaceUnsupportedRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/unsupported/$feature",
+  path: "/workspaces/$workspaceId/unsupported/$feature",
   component: () => <UnsupportedPage title="Not exposed by current API" />,
 });
 
@@ -197,36 +199,36 @@ export const routeTree = rootRoute.addChildren([
   authCallbackRoute,
   loginRoute,
   forbiddenRoute,
-  indexRoute,
-  registryRoute,
-  authRoute,
-  usersRoute,
-  rolesRoute,
-  roleDetailRoute,
-  auditRoute,
-  webhooksRoute,
-  webhookDetailRoute,
-  webhookDeliveryDetailRoute,
-  userDetailRoute,
-  deploymentsRoute,
-  deploymentExecutionDetailRoute,
-  planRoute,
-  componentsRoute,
-  componentDetailRoute,
-  componentSetsRoute,
-  componentSetDetailRoute,
-  releasesRoute,
-  releaseSourcesRoute,
-  releaseSourceDetailRoute,
-  releaseDetailRoute,
-  deploysetsRoute,
-  deploysetDetailRoute,
-  environmentsRoute,
-  environmentDetailRoute,
-  executionsRoute,
-  deploymentRunnersRoute,
-  deploymentRunnerDetailRoute,
-  unsupportedRoute,
+  workspaceSelectorRoute,
+  workspaceHomeRoute,
+  workspaceRegistryRoute,
+  workspaceUsersRoute,
+  workspaceRolesRoute,
+  workspaceRoleDetailRoute,
+  workspaceAuditRoute,
+  workspaceWebhooksRoute,
+  workspaceWebhookDetailRoute,
+  workspaceWebhookDeliveryDetailRoute,
+  workspaceUserDetailRoute,
+  workspaceDeploymentsRoute,
+  workspaceDeploymentExecutionDetailRoute,
+  workspacePlanRoute,
+  workspaceComponentsRoute,
+  workspaceComponentDetailRoute,
+  workspaceComponentSetsRoute,
+  workspaceComponentSetDetailRoute,
+  workspaceReleasesRoute,
+  workspaceReleaseSourcesRoute,
+  workspaceReleaseSourceDetailRoute,
+  workspaceReleaseDetailRoute,
+  workspaceDeploysetsRoute,
+  workspaceDeploysetDetailRoute,
+  workspaceEnvironmentsRoute,
+  workspaceEnvironmentDetailRoute,
+  workspaceExecutionsRoute,
+  workspaceDeploymentRunnersRoute,
+  workspaceDeploymentRunnerDetailRoute,
+  workspaceUnsupportedRoute,
 ]);
 
 export const router = createRouter({ routeTree });

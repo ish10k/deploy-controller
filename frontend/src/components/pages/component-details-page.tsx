@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Boxes, CalendarClock, FileText, GitCommitHorizontal, Package, Server, Tag } from "lucide-react";
 
@@ -11,6 +10,8 @@ import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { createRelease, getComponent, listReleases, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -36,7 +37,7 @@ export function ComponentDetailsPage({ componentId }: { componentId: string }) {
 
 function ComponentDetailsView({ component, releases }: { component: ApiComponent; releases: ApiRelease[] }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [releaseOpen, setReleaseOpen] = useState(false);
   const latestRelease = releases[0];
   const latestReleaseByComponent = useMemo(() => {

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Plus } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { PlanItems } from "@/components/pages/deployment-plan-items";
@@ -24,6 +23,7 @@ import { useAppContext } from "@/lib/app-context";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { useModal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 
 export function DeploymentWorkflowPage({
   onCreated,
@@ -47,7 +47,7 @@ export function DeploymentWorkflowPage({
   showHeader?: boolean;
 } = {}) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const toast = useToast();
   const { openModal, closeModal } = useModal();
   const { environmentId: defaultEnvironmentId, environments, environmentsLoading } = useAppContext();

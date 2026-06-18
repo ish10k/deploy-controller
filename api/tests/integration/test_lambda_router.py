@@ -8,6 +8,7 @@ from src.infrastructure.memory.repositories import MemoryRepositories
 from src.interfaces.lambda_api.router import route
 
 TOKEN = "settle_pat_test_admin"
+WORKSPACE = "/workspaces/default"
 
 
 def event(method: str, path: str, body: dict[str, object] | None = None, authenticated: bool = False) -> dict[str, object]:
@@ -36,12 +37,12 @@ def test_lambda_component_round_trip() -> None:
     container = authenticated_container()
 
     response = route(
-        event("PUT", "/components/api", {"componentId": "ignored", "type": "ecs", "active": True}, authenticated=True),
+        event("PUT", f"{WORKSPACE}/components/api", {"componentId": "ignored", "type": "ecs", "active": True}, authenticated=True),
         container,
     )
     assert response["statusCode"] == 200
 
-    response = route(event("GET", "/components/api"), container)
+    response = route(event("GET", f"{WORKSPACE}/components/api"), container)
     assert response["statusCode"] == 200
     assert json.loads(response["body"])["componentId"] == "api"
 
@@ -52,7 +53,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
     release_response = route(
         event(
             "POST",
-            "/releases",
+            f"{WORKSPACE}/releases",
             {
                 "componentId": "api",
                 "version": "9.9.9",
@@ -73,7 +74,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
     response = route(
         event(
             "POST",
-            "/deployments",
+            f"{WORKSPACE}/deployments",
             {
                 "environmentId": "prod",
                 "deploySetId": "prod-default",
@@ -89,10 +90,10 @@ def test_lambda_deployment_notes_round_trip() -> None:
 
     execution_id = json.loads(response["body"])["deploymentExecutionId"]
     assert re.fullmatch(r"[0-9a-f]{8}", execution_id)
-    detail_response = route(event("GET", f"/deployment-executions/{execution_id}"), container)
+    detail_response = route(event("GET", f"{WORKSPACE}/deployment-executions/{execution_id}"), container)
     assert detail_response["statusCode"] == 200
     assert json.loads(detail_response["body"])["notes"] == "Lambda deployment note coverage."
 
-    cancel_response = route(event("POST", f"/deployment-executions/{execution_id}/cancel", authenticated=True), container)
+    cancel_response = route(event("POST", f"{WORKSPACE}/deployment-executions/{execution_id}/cancel", authenticated=True), container)
     assert cancel_response["statusCode"] == 200
     assert json.loads(cancel_response["body"])["status"] == "cancelled"

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Save, ShieldCheck } from "lucide-react";
 
@@ -12,6 +11,8 @@ import { RequiredMark } from "@/components/ui/required-mark";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { canChangeRoles, canViewRoles } from "@/lib/user-permissions";
@@ -67,7 +68,7 @@ export function RolesPage({
 } = {}) {
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const canView = canViewRoles(auth.user);

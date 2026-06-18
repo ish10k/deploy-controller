@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Filter, RefreshCcw } from "lucide-react";
 
@@ -6,10 +6,11 @@ import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/component
 import { JsonDetail } from "@/components/common/json-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SideDrawer } from "@/components/ui/side-drawer";
+import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listEvents, queryKeys, type ApiEventLogEntry, type EventLogFilters } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
@@ -26,6 +27,29 @@ const EMPTY_FILTERS: EventLogFilterDraft = {
   from: "",
   to: "",
 };
+
+const RESOURCE_TYPE_OPTIONS = [
+  ["", "Any resource"],
+  ["component", "Component"],
+  ["componentSet", "Component Set"],
+  ["release", "Release"],
+  ["releaseSource", "Release Source"],
+  ["deployset", "DeploySet"],
+  ["deploymentExecution", "Deployment"],
+  ["deploymentRunner", "Runner"],
+  ["environment", "Environment"],
+  ["principal", "User"],
+  ["role", "Role"],
+  ["webhook", "Webhook"],
+  ["eventlog", "Event Log"],
+] as const;
+
+const ORIGIN_OPTIONS = [
+  ["", "Any origin"],
+  ["user", "User"],
+  ["service", "Service"],
+  ["system", "System"],
+] as const;
 
 export function EventLogPage() {
   const [draft, setDraft] = useState<EventLogFilterDraft>(EMPTY_FILTERS);
@@ -63,17 +87,18 @@ export function EventLogPage() {
         <CardContent className="p-3">
           <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
             <FilterInput label="Actor" value={draft.actorPrincipalId} onChange={(value) => setDraft((current) => ({ ...current, actorPrincipalId: value }))} />
-            <FilterInput label="Resource type" value={draft.resourceType} onChange={(value) => setDraft((current) => ({ ...current, resourceType: value }))} />
+            <FilterSelect label="Resource type" value={draft.resourceType} options={RESOURCE_TYPE_OPTIONS} onChange={(value) => setDraft((current) => ({ ...current, resourceType: value }))} />
             <FilterInput label="Resource ID" value={draft.resourceId} onChange={(value) => setDraft((current) => ({ ...current, resourceId: value }))} />
             <FilterInput label="Category" value={draft.category} onChange={(value) => setDraft((current) => ({ ...current, category: value }))} />
             <FilterInput label="Action" value={draft.action} onChange={(value) => setDraft((current) => ({ ...current, action: value }))} />
             <div>
-              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Origin</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Origin</label>
               <Select variant="light" value={draft.origin} onChange={(event) => setDraft((current) => ({ ...current, origin: event.target.value }))}>
-                <option value="">Any</option>
-                <option value="user">User</option>
-                <option value="service">Service</option>
-                <option value="system">System</option>
+                {ORIGIN_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </Select>
             </div>
             <FilterInput label="From" type="datetime-local" value={draft.from} onChange={(value) => setDraft((current) => ({ ...current, from: value }))} />
@@ -147,8 +172,33 @@ export function EventLogPage() {
 function FilterInput({ label, type = "text", value, onChange }: { label: string; type?: string; value: string; onChange: (value: string) => void }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</label>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly (readonly [string, string])[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <Select variant="light" value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -159,6 +209,8 @@ function SeverityBadge({ severity }: { severity: ApiEventLogEntry["severity"] })
 }
 
 function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClose: () => void }) {
+  const metadata = event ? splitMetadata(event.metadata) : null;
+
   return (
     <SideDrawer
       open={Boolean(event)}
@@ -170,23 +222,39 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
       {event ? (
         <div className="grid gap-4">
           <Card>
-            <CardContent className="grid gap-3 p-4 text-sm">
+            <CardHeader>
+              <CardTitle>Event details</CardTitle>
+            </CardHeader>
+              <CardContent className="grid gap-3 p-4 text-sm">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Detail label="Event ID" value={event.eventId} />
+                  <Detail label="Origin" value={event.origin} />
+                  <Detail label="Actor type" value={event.actorType} />
+                  <Detail label="Resource" value={`${event.resourceType}:${event.resourceId}`} />
+                  <Detail label="Correlation ID" value={event.correlationId ?? "-"} />
+                  <Detail label="Request ID" value={event.requestId ?? "-"} />
+                </div>
+                <Detail label="Summary" value={event.summary} />
+              </CardContent>
+            </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Metadata</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-4 text-sm">
               <div className="grid gap-3 md:grid-cols-2">
-                <Detail label="Event ID" value={event.eventId} />
-                <Detail label="Origin" value={event.origin} />
-                <Detail label="Actor type" value={event.actorType} />
-                <Detail label="Resource" value={`${event.resourceType}:${event.resourceId}`} />
-                <Detail label="Correlation ID" value={event.correlationId ?? "-"} />
-                <Detail label="Request ID" value={event.requestId ?? "-"} />
+                <Detail label="Tags" value={<TagList tags={metadata?.tags ?? null} emptyLabel="No tags" />} />
+                <Detail label="Roles" value={<RoleList roles={metadata?.roles ?? []} />} />
               </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Summary</div>
-                <div className="mt-1 text-slate-900">{event.summary}</div>
-              </div>
+              {metadata?.rest && Object.keys(metadata.rest).length ? <JsonDetail title="Other metadata" value={metadata.rest} /> : null}
             </CardContent>
           </Card>
 
           <Card>
+            <CardHeader>
+              <CardTitle>Changes</CardTitle>
+            </CardHeader>
             <CardContent className="p-3">
               {event.changes.length ? (
                 <Table>
@@ -201,8 +269,12 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
                     {event.changes.map((change) => (
                       <TableRow key={change.field}>
                         <TableCell className="font-mono text-[11px]">{change.field}</TableCell>
-                        <TableCell className="max-w-[320px] whitespace-normal font-mono text-[11px]">{formatValue(change.before)}</TableCell>
-                        <TableCell className="max-w-[320px] whitespace-normal font-mono text-[11px]">{formatValue(change.after)}</TableCell>
+                        <TableCell className="max-w-[320px] whitespace-normal font-mono text-[11px]">
+                          {renderChangeValue(change.field, change.before)}
+                        </TableCell>
+                        <TableCell className="max-w-[320px] whitespace-normal font-mono text-[11px]">
+                          {renderChangeValue(change.field, change.after)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -213,20 +285,47 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
             </CardContent>
           </Card>
 
-          <JsonDetail title="Metadata" value={{ metadata: event.metadata, relatedResources: event.relatedResources }} />
+          <JsonDetail title="Related resources" value={event.relatedResources} />
         </div>
       ) : null}
     </SideDrawer>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string; value: string | ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 break-all font-mono text-xs text-slate-900">{value}</div>
+      <div className="text-sm font-medium text-slate-700">{label}</div>
+      <div className="mt-1 min-w-0 text-xs text-slate-900">{value}</div>
     </div>
   );
+}
+
+function RoleList({ roles }: { roles: unknown }) {
+  if (!Array.isArray(roles) || !roles.length) {
+    return <span className="text-slate-400">No roles</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {roles.filter((role): role is string => typeof role === "string" && Boolean(role.trim())).map((role) => (
+        <span key={role} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+          {role}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function splitMetadata(metadata: Record<string, unknown>) {
+  const tags = isRecord(metadata.tags) ? (metadata.tags as Record<string, string>) : null;
+  const roles = Array.isArray(metadata.roles) ? metadata.roles : [];
+  const { tags: _tags, roles: _roles, ...rest } = metadata;
+  return { tags, roles, rest };
+}
+
+function isRecord(value: unknown): value is Record<string, string> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function formatValue(value: unknown) {
@@ -237,4 +336,26 @@ function formatValue(value: unknown) {
     return value;
   }
   return JSON.stringify(value);
+}
+
+function renderChangeValue(field: string, value: unknown) {
+  const normalized = field.toLowerCase();
+
+  if (normalized.includes("tag") && isRecord(value)) {
+    return <TagList tags={value as Record<string, string>} emptyLabel="-" />;
+  }
+
+  if (normalized.includes("role") && Array.isArray(value)) {
+    return <RoleList roles={value} />;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length ? value.map((entry, index) => <div key={index}>{formatValue(entry)}</div>) : "-";
+  }
+
+  if (isRecord(value)) {
+    return <span className="break-all">{formatValue(value)}</span>;
+  }
+
+  return formatValue(value);
 }

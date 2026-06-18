@@ -37,6 +37,10 @@ resource "aws_iam_role_policy" "lambda" {
           "dynamodb:Scan"
         ]
         Resource = [
+          aws_dynamodb_table.organizations.arn,
+          aws_dynamodb_table.workspaces.arn,
+          aws_dynamodb_table.organization_memberships.arn,
+          aws_dynamodb_table.workspace_memberships.arn,
           aws_dynamodb_table.components.arn,
           aws_dynamodb_table.component_sets.arn,
           aws_dynamodb_table.releases.arn,

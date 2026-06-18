@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, CheckCheck, Copy, Plus, Search, X } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api-state";
@@ -30,6 +29,7 @@ import {
   type ApiRelease,
 } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 
 type DeploySetItemDraft = {
   id: string;
@@ -67,17 +67,21 @@ const defaultForm = (): DeploySetFormState => ({
 
 export function DeploysetsPage({
   embedded = false,
+  drawerOnly = false,
   createSignal = 0,
+  onCreateSignalHandled,
   search: externalSearch,
   refreshSignal = 0,
 }: {
   embedded?: boolean;
+  drawerOnly?: boolean;
   createSignal?: number;
+  onCreateSignalHandled?: () => void;
   search?: string;
   refreshSignal?: number;
 } = {}) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const toast = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
@@ -108,8 +112,9 @@ export function DeploysetsPage({
   useEffect(() => {
     if (createSignal > 0) {
       openDrawer();
+      onCreateSignalHandled?.();
     }
-  }, [createSignal]);
+  }, [createSignal, onCreateSignalHandled]);
   useEffect(() => {
     if (refreshSignal > 0) {
       void deploysetsQuery.refetch();
@@ -203,6 +208,25 @@ export function DeploysetsPage({
     return <ApiErrorPanel error={deploysetsQuery.error} onRetry={() => deploysetsQuery.refetch()} />;
   }
 
+  const drawer = drawerMounted ? (
+    <CreateDeploySetDrawer
+      open={drawerEntered}
+      componentSets={componentSetsQuery.data ?? []}
+      deploysets={deploysets}
+      environments={environmentsQuery.data ?? []}
+      environmentState={environmentStateQuery.data ?? []}
+      releases={releasesQuery.data ?? []}
+      pending={createMutation.isPending}
+      error={createMutation.error}
+      onClose={closeDrawer}
+      onSubmit={(request) => createMutation.mutate(request)}
+    />
+  ) : null;
+
+  if (drawerOnly) {
+    return <>{drawer}</>;
+  }
+
   return (
     <div className={embedded ? "flex min-h-0 flex-col overflow-hidden" : "flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden"}>
       {!embedded ? (
@@ -268,20 +292,7 @@ export function DeploysetsPage({
         </Card>
       )}
 
-      {drawerMounted ? (
-        <CreateDeploySetDrawer
-          open={drawerEntered}
-          componentSets={componentSetsQuery.data ?? []}
-          deploysets={deploysets}
-          environments={environmentsQuery.data ?? []}
-          environmentState={environmentStateQuery.data ?? []}
-          releases={releasesQuery.data ?? []}
-          pending={createMutation.isPending}
-          error={createMutation.error}
-          onClose={closeDrawer}
-          onSubmit={(request) => createMutation.mutate(request)}
-        />
-      ) : null}
+      {drawer}
     </div>
   );
 }

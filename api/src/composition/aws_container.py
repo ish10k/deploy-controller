@@ -13,6 +13,7 @@ from src.application.use_cases.registry import (
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.roles import RoleUseCases
+from src.application.use_cases.tenancy import OrganizationUseCases, WorkspaceUseCases
 from src.application.use_cases.webhooks import WebhookUseCases
 from src.composition.container import Container
 from src.infrastructure.dynamodb.repositories import (
@@ -25,10 +26,14 @@ from src.infrastructure.dynamodb.repositories import (
     DynamoEnvironmentStateRepository,
     DynamoEventLogRepository,
     DynamoBootstrapStateRepository,
+    DynamoOrganizationMembershipRepository,
+    DynamoOrganizationRepository,
     DynamoPrincipalRepository,
     DynamoReleaseRepository,
     DynamoReleaseSourceRepository,
     DynamoRoleRepository,
+    DynamoWorkspaceMembershipRepository,
+    DynamoWorkspaceRepository,
     DynamoWebhookDeliveryRepository,
     DynamoWebhookRepository,
 )
@@ -44,6 +49,10 @@ def build_aws_container() -> Container:
     deploysets = DynamoDeploySetRepository(os.environ["DEPLOYSETS_TABLE"])
     environments = DynamoEnvironmentRepository(os.environ["ENVIRONMENTS_TABLE"])
     runners = DynamoDeploymentRunnerRepository(os.environ["DEPLOYMENT_RUNNERS_TABLE"])
+    organization_repo = DynamoOrganizationRepository(os.environ["ORGANIZATIONS_TABLE"])
+    workspace_repo = DynamoWorkspaceRepository(os.environ["WORKSPACES_TABLE"])
+    organization_memberships = DynamoOrganizationMembershipRepository(os.environ["ORGANIZATION_MEMBERSHIPS_TABLE"])
+    workspace_memberships = DynamoWorkspaceMembershipRepository(os.environ["WORKSPACE_MEMBERSHIPS_TABLE"])
     principals = DynamoPrincipalRepository(os.environ["PRINCIPALS_TABLE"])
     role_repo = DynamoRoleRepository(os.environ["ROLES_TABLE"])
     bootstrap = DynamoBootstrapStateRepository(os.environ["BOOTSTRAP_TABLE"])
@@ -63,7 +72,26 @@ def build_aws_container() -> Container:
     events = EventLogUseCases(events=event_log, clock=clock, id_generator=EventIdGenerator(), on_append=webhooks.enqueue_for_event)
     webhooks.set_event_log(events)
     roles = RoleUseCases(roles=role_repo, events=events)
-    identity = PrincipalUseCases(principals=principals, roles=role_repo, bootstrap=bootstrap, clock=clock, events=events)
+    organizations = OrganizationUseCases(
+        organizations=organization_repo,
+        workspaces=workspace_repo,
+        organization_memberships=organization_memberships,
+        workspace_memberships=workspace_memberships,
+        clock=clock,
+    )
+    workspaces = WorkspaceUseCases(workspaces=workspace_repo, memberships=workspace_memberships, clock=clock)
+    identity = PrincipalUseCases(
+        principals=principals,
+        roles=role_repo,
+        bootstrap=bootstrap,
+        clock=clock,
+        events=events,
+        organizations=organization_repo,
+        workspaces=workspace_repo,
+        organization_memberships=organization_memberships,
+        workspace_memberships=workspace_memberships,
+        bootstrap_tenancy=organizations,
+    )
     planner = PlanDeploymentUseCase(
         deploysets=deploysets,
         releases=releases,
@@ -112,6 +140,8 @@ def build_aws_container() -> Container:
         ),
         principals=identity,
         roles=roles,
+        organizations=organizations,
+        workspaces=workspaces,
         events=events,
         webhooks=webhooks,
     )

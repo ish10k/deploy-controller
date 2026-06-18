@@ -12,10 +12,10 @@ import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { fetchDashboardData, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
 import { formatRelativeTime } from "@/lib/format";
-import { Link } from "@tanstack/react-router";
 
 type DeploymentsPageProps = {
   initialView?: DeploymentWorkspaceView;
@@ -101,8 +101,10 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     setPlanEntered(false);
   };
   const openDeploysetDrawer = () => {
-    setView("deploysets");
     setDeploysetCreateSignal((value) => value + 1);
+  };
+  const clearDeploysetCreateSignal = () => {
+    setDeploysetCreateSignal(0);
   };
   const changeView = (nextView: DeploymentWorkspaceView) => {
     if (nextView === "deploysets") {
@@ -189,9 +191,24 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
             </div>
           )
         ) : (
-          <DeploysetsPage embedded createSignal={deploysetCreateSignal} search={search} refreshSignal={refreshSignal} />
+          <DeploysetsPage
+            embedded
+            createSignal={deploysetCreateSignal}
+            onCreateSignalHandled={clearDeploysetCreateSignal}
+            search={search}
+            refreshSignal={refreshSignal}
+          />
         )}
       </SwitchableCard>
+
+      {view !== "deploysets" ? (
+        <DeploysetsPage
+          drawerOnly
+          createSignal={deploysetCreateSignal}
+          onCreateSignalHandled={clearDeploysetCreateSignal}
+          refreshSignal={refreshSignal}
+        />
+      ) : null}
 
       {planMounted ? (
         <div className="fixed inset-0 z-50">

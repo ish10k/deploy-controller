@@ -70,6 +70,15 @@ class EventSeverity(StrEnum):
 
 
 class Permission(StrEnum):
+    ORGANIZATIONS_READ = "organizations:read"
+    ORGANIZATIONS_WRITE = "organizations:write"
+    WORKSPACES_READ = "workspaces:read"
+    WORKSPACES_WRITE = "workspaces:write"
+    WORKSPACES_CREATE = "workspaces:create"
+    ORGANIZATION_MEMBERSHIPS_READ = "organization_memberships:read"
+    ORGANIZATION_MEMBERSHIPS_WRITE = "organization_memberships:write"
+    WORKSPACE_MEMBERSHIPS_READ = "workspace_memberships:read"
+    WORKSPACE_MEMBERSHIPS_WRITE = "workspace_memberships:write"
     COMPONENTS_READ = "components:read"
     COMPONENTS_WRITE = "components:write"
     COMPONENT_SETS_READ = "component_sets:read"

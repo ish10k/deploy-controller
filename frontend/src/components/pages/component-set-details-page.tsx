@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Boxes, CalendarClock, FileText, Layers3, PackageCheck, Tag, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
@@ -10,6 +9,7 @@ import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { listComponentSets, listDeploysets, type ApiComponentSet, type ApiDeploySet } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 

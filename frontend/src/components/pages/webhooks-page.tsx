@@ -1,4 +1,3 @@
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, Plus, RefreshCw, Search, Send, Tag, Webhook } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -18,6 +17,8 @@ import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { useAuth } from "@/lib/auth-context";
 import {
   createWebhook,
@@ -49,7 +50,7 @@ export function WebhooksPage() {
   const canView = canViewWebhooks(auth.user);
   const canManage = canManageWebhooks(auth.user);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);

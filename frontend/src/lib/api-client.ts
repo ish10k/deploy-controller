@@ -16,6 +16,8 @@ import type {
   ApiEnvironmentState,
   ApiEventLogEntry,
   ApiEventLogListResult,
+  ApiOrganization,
+  ApiOrganizationMembership,
   ApiPlanDeploymentRequest,
   ApiBootstrapState,
   ApiPrincipal,
@@ -32,10 +34,13 @@ import type {
   ApiWebhookDelivery,
   ApiWebhookFilter,
   ApiWebhookSubscription,
+  ApiWorkspace,
+  ApiWorkspaceMembership,
 } from "@/lib/api-types";
 import { getAccessToken } from "@/lib/auth-token";
 
 const API_BASE = "/api";
+let activeWorkspaceId: string | null = null;
 
 export class ApiRequestError extends Error {
   status: number;
@@ -59,6 +64,17 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
 };
+
+export function setActiveWorkspaceId(workspaceId: string | null) {
+  activeWorkspaceId = workspaceId;
+}
+
+function workspacePath(path: string) {
+  if (!activeWorkspaceId) {
+    throw new ApiRequestError("No active workspace is selected.", 400);
+  }
+  return `/workspaces/${encodeURIComponent(activeWorkspaceId)}${path}`;
+}
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getAccessToken();
@@ -88,32 +104,37 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const queryKeys = {
-  components: ["components"] as const,
-  componentSets: ["component-sets"] as const,
-  releases: (componentId?: string) => ["releases", componentId ?? "all"] as const,
+  organizations: ["organizations"] as const,
+  organization: (organizationId: string) => ["organizations", organizationId] as const,
+  organizationWorkspaces: (organizationId: string) => ["organizations", organizationId, "workspaces"] as const,
+  workspace: (workspaceId: string) => ["workspaces", workspaceId] as const,
+  workspaceMemberships: (workspaceId: string) => ["workspaces", workspaceId, "memberships"] as const,
+  components: ["workspace", "components"] as const,
+  componentSets: ["workspace", "component-sets"] as const,
+  releases: (componentId?: string) => ["workspace", "releases", componentId ?? "all"] as const,
   principals: ["principals"] as const,
-  roles: ["roles"] as const,
-  role: (roleId: string) => ["roles", roleId] as const,
-  releaseSources: ["release-sources"] as const,
-  releaseSource: (releaseSourceId: string) => ["release-sources", releaseSourceId] as const,
-  deploysets: ["deploysets"] as const,
-  deployset: (deploySetId: string) => ["deploysets", deploySetId] as const,
-  environments: ["environments"] as const,
-  environmentState: ["environment-state"] as const,
-  environmentCenter: ["environment-center"] as const,
-  executions: (environmentId?: string) => ["deployment-executions", environmentId ?? "all"] as const,
-  execution: (deploymentExecutionId: string) => ["deployment-executions", deploymentExecutionId] as const,
+  roles: ["workspace", "roles"] as const,
+  role: (roleId: string) => ["workspace", "roles", roleId] as const,
+  releaseSources: ["workspace", "release-sources"] as const,
+  releaseSource: (releaseSourceId: string) => ["workspace", "release-sources", releaseSourceId] as const,
+  deploysets: ["workspace", "deploysets"] as const,
+  deployset: (deploySetId: string) => ["workspace", "deploysets", deploySetId] as const,
+  environments: ["workspace", "environments"] as const,
+  environmentState: ["workspace", "environment-state"] as const,
+  environmentCenter: ["workspace", "environment-center"] as const,
+  executions: (environmentId?: string) => ["workspace", "deployment-executions", environmentId ?? "all"] as const,
+  execution: (deploymentExecutionId: string) => ["workspace", "deployment-executions", deploymentExecutionId] as const,
   deploymentPlan: (environmentId: string, deploySetId: string, force: boolean) =>
-    ["deployment-plan", environmentId || "none", deploySetId || "none", force ? "force" : "normal"] as const,
-  dashboard: (environmentId: string) => ["dashboard", environmentId] as const,
-  deploymentRunners: ["deployment-runners"] as const,
-  pendingExecutions: ["runner-pending-executions"] as const,
+    ["workspace", "deployment-plan", environmentId || "none", deploySetId || "none", force ? "force" : "normal"] as const,
+  dashboard: (environmentId: string) => ["workspace", "dashboard", environmentId] as const,
+  deploymentRunners: ["workspace", "deployment-runners"] as const,
+  pendingExecutions: ["workspace", "runner-pending-executions"] as const,
   events: (filters?: EventLogFilters) => ["events", filters ?? {}] as const,
   event: (eventId: string) => ["events", eventId] as const,
-  webhooks: ["webhooks"] as const,
-  webhook: (webhookId: string) => ["webhooks", webhookId] as const,
-  webhookDeliveries: (filters?: WebhookDeliveryFilters) => ["webhook-deliveries", filters ?? {}] as const,
-  webhookDelivery: (deliveryId: string) => ["webhook-deliveries", deliveryId] as const,
+  webhooks: ["workspace", "webhooks"] as const,
+  webhook: (webhookId: string) => ["workspace", "webhooks", webhookId] as const,
+  webhookDeliveries: (filters?: WebhookDeliveryFilters) => ["workspace", "webhook-deliveries", filters ?? {}] as const,
+  webhookDelivery: (deliveryId: string) => ["workspace", "webhook-deliveries", deliveryId] as const,
 } as const;
 
 export type EventLogFilters = {
@@ -148,31 +169,90 @@ function queryString(params: Record<string, string | number | null | undefined>)
   return value ? `?${value}` : "";
 }
 
+export async function listOrganizations() {
+  return request<ApiOrganization[]>("/organizations");
+}
+
+export async function getOrganization(organizationId: string) {
+  return request<ApiOrganization>(`/organizations/${encodeURIComponent(organizationId)}`);
+}
+
+export async function putOrganization(organizationId: string, organization: ApiOrganization) {
+  return request<ApiOrganization>(`/organizations/${encodeURIComponent(organizationId)}`, {
+    method: "PUT",
+    body: organization,
+  });
+}
+
+export async function listOrganizationWorkspaces(organizationId: string) {
+  return request<ApiWorkspace[]>(`/organizations/${encodeURIComponent(organizationId)}/workspaces`);
+}
+
+export async function createOrganizationWorkspace(organizationId: string, workspace: ApiWorkspace) {
+  return request<ApiWorkspace>(`/organizations/${encodeURIComponent(organizationId)}/workspaces`, {
+    method: "POST",
+    body: workspace,
+  });
+}
+
+export async function getWorkspace(workspaceId: string) {
+  return request<ApiWorkspace>(`/workspaces/${encodeURIComponent(workspaceId)}`);
+}
+
+export async function putWorkspace(workspaceId: string, workspace: ApiWorkspace) {
+  return request<ApiWorkspace>(`/workspaces/${encodeURIComponent(workspaceId)}`, {
+    method: "PUT",
+    body: workspace,
+  });
+}
+
+export async function listWorkspaceMemberships(workspaceId: string) {
+  return request<ApiWorkspaceMembership[]>(`/workspaces/${encodeURIComponent(workspaceId)}/memberships`);
+}
+
+export async function putWorkspaceMembership(workspaceId: string, principalId: string, membership: ApiWorkspaceMembership) {
+  return request<ApiWorkspaceMembership>(`/workspaces/${encodeURIComponent(workspaceId)}/memberships/${encodeURIComponent(principalId)}`, {
+    method: "PUT",
+    body: membership,
+  });
+}
+
+export async function listOrganizationMemberships(organizationId: string) {
+  return request<ApiOrganizationMembership[]>(`/organizations/${encodeURIComponent(organizationId)}/memberships`);
+}
+
+export async function putOrganizationMembership(organizationId: string, principalId: string, membership: ApiOrganizationMembership) {
+  return request<ApiOrganizationMembership>(`/organizations/${encodeURIComponent(organizationId)}/memberships/${encodeURIComponent(principalId)}`, {
+    method: "PUT",
+    body: membership,
+  });
+}
+
 export async function listComponents() {
-  return request<ApiComponent[]>("/components");
+  return request<ApiComponent[]>(workspacePath("/components"));
 }
 
 export async function getComponent(componentId: string) {
-  return request<ApiComponent>(`/components/${encodeURIComponent(componentId)}`);
+  return request<ApiComponent>(workspacePath(`/components/${encodeURIComponent(componentId)}`));
 }
 
 export async function putComponent(componentId: string, component: ApiComponent) {
-  return request<ApiComponent>(`/components/${encodeURIComponent(componentId)}`, {
+  return request<ApiComponent>(workspacePath(`/components/${encodeURIComponent(componentId)}`), {
     method: "PUT",
     body: component,
   });
 }
 
 export async function listComponentSets() {
-  return request<ApiComponentSet[]>("/component-sets");
+  return request<ApiComponentSet[]>(workspacePath("/component-sets"));
 }
 
 export async function getComponentSet(componentSetId: string) {
-  return request<ApiComponentSet>(`/component-sets/${encodeURIComponent(componentSetId)}`);
+  return request<ApiComponentSet>(workspacePath(`/component-sets/${encodeURIComponent(componentSetId)}`));
 }
 
 export async function putComponentSet(componentSetId: string, componentSet: ApiComponentSet) {
-  return request<ApiComponentSet>(`/component-sets/${encodeURIComponent(componentSetId)}`, {
+  return request<ApiComponentSet>(workspacePath(`/component-sets/${encodeURIComponent(componentSetId)}`), {
     method: "PUT",
     body: componentSet,
   });
@@ -180,116 +260,116 @@ export async function putComponentSet(componentSetId: string, componentSet: ApiC
 
 export async function listReleases(componentId?: string) {
   const query = componentId ? `?componentId=${encodeURIComponent(componentId)}` : "";
-  return request<ApiRelease[]>(`/releases${query}`);
+  return request<ApiRelease[]>(workspacePath(`/releases${query}`));
 }
 
 export async function getRelease(componentId: string, version: string) {
-  return request<ApiRelease>(`/releases/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`);
+  return request<ApiRelease>(workspacePath(`/releases/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`));
 }
 
 export async function createRelease(release: ApiRelease) {
-  return request<ApiRelease>("/releases", {
+  return request<ApiRelease>(workspacePath("/releases"), {
     method: "POST",
     body: release,
   });
 }
 
 export async function listReleaseSources() {
-  return request<ApiReleaseSource[]>("/release-sources");
+  return request<ApiReleaseSource[]>(workspacePath("/release-sources"));
 }
 
 export async function getReleaseSource(releaseSourceId: string) {
-  return request<ApiReleaseSource>(`/release-sources/${encodeURIComponent(releaseSourceId)}`);
+  return request<ApiReleaseSource>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}`));
 }
 
 export async function createReleaseSource(payload: ApiReleaseSourceCreateRequest) {
-  return request<ApiReleaseSourceCreateResult>("/release-sources", {
+  return request<ApiReleaseSourceCreateResult>(workspacePath("/release-sources"), {
     method: "POST",
     body: payload,
   });
 }
 
 export async function rotateReleaseSourceToken(releaseSourceId: string) {
-  return request<ApiRotateTokenResult>(`/release-sources/${encodeURIComponent(releaseSourceId)}/rotate-token`, {
+  return request<ApiRotateTokenResult>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}/rotate-token`), {
     method: "POST",
   });
 }
 
 export async function putReleaseSource(releaseSourceId: string, releaseSource: ApiReleaseSource) {
-  return request<ApiReleaseSource>(`/release-sources/${encodeURIComponent(releaseSourceId)}`, {
+  return request<ApiReleaseSource>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}`), {
     method: "PUT",
     body: releaseSource,
   });
 }
 
 export async function publishReleaseFromSource(releaseSourceId: string, release: ApiRelease) {
-  return request<ApiRelease>(`/release-sources/${encodeURIComponent(releaseSourceId)}/releases`, {
+  return request<ApiRelease>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}/releases`), {
     method: "POST",
     body: release,
   });
 }
 
 export async function listDeploysets() {
-  return request<ApiDeploySet[]>("/deploysets");
+  return request<ApiDeploySet[]>(workspacePath("/deploysets"));
 }
 
 export async function getDeployset(deploySetId: string) {
-  return request<ApiDeploySet>(`/deploysets/${encodeURIComponent(deploySetId)}`);
+  return request<ApiDeploySet>(workspacePath(`/deploysets/${encodeURIComponent(deploySetId)}`));
 }
 
 export async function createDeployset(payload: ApiDeploySetCreateRequest) {
-  return request<ApiDeploySetCreateResult>("/deploysets", {
+  return request<ApiDeploySetCreateResult>(workspacePath("/deploysets"), {
     method: "POST",
     body: payload,
   });
 }
 
 export async function listEnvironments() {
-  return request<ApiEnvironment[]>("/environments");
+  return request<ApiEnvironment[]>(workspacePath("/environments"));
 }
 
 export async function putEnvironment(environmentId: string, environment: ApiEnvironment) {
-  return request<ApiEnvironment>(`/environments/${encodeURIComponent(environmentId)}`, {
+  return request<ApiEnvironment>(workspacePath(`/environments/${encodeURIComponent(environmentId)}`), {
     method: "PUT",
     body: environment,
   });
 }
 
 export async function listEnvironmentState() {
-  return request<ApiEnvironmentState[]>("/environment-state");
+  return request<ApiEnvironmentState[]>(workspacePath("/environment-state"));
 }
 
 export async function listDeploymentExecutions(environmentId?: string) {
   const query = environmentId ? `?environmentId=${encodeURIComponent(environmentId)}` : "";
-  return request<ApiDeploymentExecution[]>(`/deployment-executions${query}`);
+  return request<ApiDeploymentExecution[]>(workspacePath(`/deployment-executions${query}`));
 }
 
 export async function getDeploymentExecution(deploymentExecutionId: string) {
-  return request<ApiDeploymentExecution>(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}`);
+  return request<ApiDeploymentExecution>(workspacePath(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}`));
 }
 
 export async function cancelDeploymentExecution(deploymentExecutionId: string) {
-  return request<ApiDeploymentExecution>(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}/cancel`, {
+  return request<ApiDeploymentExecution>(workspacePath(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}/cancel`), {
     method: "POST",
   });
 }
 
 export async function planDeployment(payload: ApiPlanDeploymentRequest) {
-  return request<ApiDeploymentPlan>("/deployments/plan", {
+  return request<ApiDeploymentPlan>(workspacePath("/deployments/plan"), {
     method: "POST",
     body: payload,
   });
 }
 
 export async function createDeployment(payload: ApiCreateDeploymentRequest) {
-  return request<ApiCreateDeploymentResponse>("/deployments", {
+  return request<ApiCreateDeploymentResponse>(workspacePath("/deployments"), {
     method: "POST",
     body: payload,
   });
 }
 
 export async function listDeploymentRunners() {
-  return request<ApiDeploymentRunner[]>("/deployment-runners");
+  return request<ApiDeploymentRunner[]>(workspacePath("/deployment-runners"));
 }
 
 export async function whoami() {
@@ -305,15 +385,15 @@ export async function listPrincipals() {
 }
 
 export async function listRoles() {
-  return request<ApiRole[]>("/roles");
+  return request<ApiRole[]>(workspacePath("/roles"));
 }
 
 export async function getRole(roleId: string) {
-  return request<ApiRole>(`/roles/${encodeURIComponent(roleId)}`);
+  return request<ApiRole>(workspacePath(`/roles/${encodeURIComponent(roleId)}`));
 }
 
 export async function putRole(roleId: string, role: ApiRole) {
-  return request<ApiRole>(`/roles/${encodeURIComponent(roleId)}`, {
+  return request<ApiRole>(workspacePath(`/roles/${encodeURIComponent(roleId)}`), {
     method: "PUT",
     body: role,
   });
@@ -328,37 +408,37 @@ export async function getEvent(eventId: string) {
 }
 
 export async function listWebhooks() {
-  return request<ApiWebhook[]>("/webhooks");
+  return request<ApiWebhook[]>(workspacePath("/webhooks"));
 }
 
 export async function getWebhook(webhookId: string) {
-  return request<ApiWebhook>(`/webhooks/${encodeURIComponent(webhookId)}`);
+  return request<ApiWebhook>(workspacePath(`/webhooks/${encodeURIComponent(webhookId)}`));
 }
 
 export async function putWebhook(webhookId: string, webhook: ApiWebhook) {
-  return request<ApiWebhook>(`/webhooks/${encodeURIComponent(webhookId)}`, {
+  return request<ApiWebhook>(workspacePath(`/webhooks/${encodeURIComponent(webhookId)}`), {
     method: "PUT",
     body: webhook,
   });
 }
 
 export async function createWebhook(webhook: ApiWebhook) {
-  return request<ApiWebhook>("/webhooks", {
+  return request<ApiWebhook>(workspacePath("/webhooks"), {
     method: "POST",
     body: webhook,
   });
 }
 
 export async function listWebhookDeliveries(filters: WebhookDeliveryFilters = {}) {
-  return request<ApiWebhookDelivery[]>(`/webhook-deliveries${queryString(filters)}`);
+  return request<ApiWebhookDelivery[]>(workspacePath(`/webhook-deliveries${queryString(filters)}`));
 }
 
 export async function getWebhookDelivery(deliveryId: string) {
-  return request<ApiWebhookDelivery>(`/webhook-deliveries/${encodeURIComponent(deliveryId)}`);
+  return request<ApiWebhookDelivery>(workspacePath(`/webhook-deliveries/${encodeURIComponent(deliveryId)}`));
 }
 
 export async function retryWebhookDelivery(deliveryId: string) {
-  return request<ApiWebhookDelivery>(`/webhook-deliveries/${encodeURIComponent(deliveryId)}/retry`, {
+  return request<ApiWebhookDelivery>(workspacePath(`/webhook-deliveries/${encodeURIComponent(deliveryId)}/retry`), {
     method: "POST",
   });
 }
@@ -382,31 +462,31 @@ export async function putPrincipal(principalId: string, principal: ApiPrincipal)
 }
 
 export async function getDeploymentRunner(runnerId: string) {
-  return request<ApiDeploymentRunner>(`/deployment-runners/${encodeURIComponent(runnerId)}`);
+  return request<ApiDeploymentRunner>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}`));
 }
 
 export async function createDeploymentRunner(runner: ApiDeploymentRunnerCreateRequest) {
-  return request<ApiDeploymentRunnerCreateResult>("/deployment-runners", {
+  return request<ApiDeploymentRunnerCreateResult>(workspacePath("/deployment-runners"), {
     method: "POST",
     body: runner,
   });
 }
 
 export async function putDeploymentRunner(runnerId: string, runner: ApiDeploymentRunner) {
-  return request<ApiDeploymentRunner>(`/deployment-runners/${encodeURIComponent(runnerId)}`, {
+  return request<ApiDeploymentRunner>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}`), {
     method: "PUT",
     body: runner,
   });
 }
 
 export async function rotateDeploymentRunnerToken(runnerId: string) {
-  return request<ApiRotateTokenResult>(`/deployment-runners/${encodeURIComponent(runnerId)}/rotate-token`, {
+  return request<ApiRotateTokenResult>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/rotate-token`), {
     method: "POST",
   });
 }
 
 export async function listPendingRunnerExecutions(runnerId: string) {
-  return request<ApiDeploymentExecution[]>(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`);
+  return request<ApiDeploymentExecution[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
 }
 
 export async function listPendingExecutions() {
@@ -421,7 +501,7 @@ export async function listPendingExecutions() {
 
 export async function claimExecution(runnerId: string, deploymentExecutionId: string, leaseSeconds = 900) {
   const payload: ApiClaimExecutionRequest = { leaseSeconds };
-  return request<ApiDeploymentExecution>(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/claim`, {
+  return request<ApiDeploymentExecution>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/claim`), {
     method: "POST",
     body: payload,
   });
@@ -429,7 +509,7 @@ export async function claimExecution(runnerId: string, deploymentExecutionId: st
 
 export async function reportExecutionStatus(runnerId: string, deploymentExecutionId: string, status: ApiReportExecutionStatusRequest["status"]) {
   const payload: ApiReportExecutionStatusRequest = { status };
-  return request<ApiDeploymentExecution>(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/status`, {
+  return request<ApiDeploymentExecution>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/status`), {
     method: "POST",
     body: payload,
   });
@@ -442,7 +522,7 @@ export async function reportExecutionItemStatus(
   payload: ApiReportExecutionItemStatusRequest,
 ) {
   return request<ApiDeploymentExecution>(
-    `/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/items/${encodeURIComponent(componentId)}/status`,
+    workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/items/${encodeURIComponent(componentId)}/status`),
     {
       method: "POST",
       body: payload,
@@ -492,6 +572,8 @@ export type {
   ApiEnvironmentState,
   ApiEventLogEntry,
   ApiEventLogListResult,
+  ApiOrganization,
+  ApiOrganizationMembership,
   ApiBootstrapState,
   ApiPrincipal,
   ApiRelease,
@@ -505,4 +587,6 @@ export type {
   ApiWebhookDelivery,
   ApiWebhookFilter,
   ApiWebhookSubscription,
+  ApiWorkspace,
+  ApiWorkspaceMembership,
 } from "@/lib/api-types";

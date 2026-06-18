@@ -18,7 +18,7 @@ let mockUser: ApiWhoAmI | null = {
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
   useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) =>
-    select({ location: { pathname: "/deployments" } }),
+    select({ location: { pathname: "/workspaces/default/deployments" } }),
   useNavigate: () => vi.fn(),
 }));
 
@@ -30,6 +30,15 @@ vi.mock("@/lib/auth-context", () => ({
     login: vi.fn(),
     logout: vi.fn(),
     refresh: vi.fn(),
+  }),
+}));
+
+vi.mock("@/lib/app-context", () => ({
+  useAppContext: () => ({
+    workspace: { workspaceId: "default", organizationId: "default", displayName: "Default workspace", roles: ["admin"] },
+    workspaceId: "default",
+    workspaces: [{ workspaceId: "default", organizationId: "default", displayName: "Default workspace", roles: ["admin"] }],
+    setWorkspaceId: vi.fn(),
   }),
 }));
 
@@ -55,12 +64,13 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getByRole("link", { name: "Auth" })).toHaveAttribute("href", "/auth");
-    expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/audit");
-    expect(screen.getByRole("link", { name: "Release Sources" })).toHaveAttribute("href", "/release-sources");
-    expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/webhooks");
-    expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/deployments");
-    expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/registry");
+    expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/workspaces/default/users");
+    expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/workspaces/default/audit");
+    expect(screen.getByRole("link", { name: "Release Sources" })).toHaveAttribute("href", "/workspaces/default/release-sources");
+    expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/workspaces/default/webhooks");
+    expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/workspaces/default/deployments");
+    expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/workspaces/default/registry");
+    expect(screen.getByRole("link", { name: /Change workspace/ })).toHaveAttribute("href", "/workspaces/select");
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Roles" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Components" })).not.toBeInTheDocument();
@@ -80,7 +90,7 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.queryByRole("link", { name: "Auth" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
   });
 });

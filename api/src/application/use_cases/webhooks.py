@@ -46,24 +46,25 @@ class WebhookUseCases:
     def set_event_log(self, events: Any) -> None:
         self.events = events
 
-    def list(self, context: AuthContext) -> list[Webhook]:
+    def list(self, context: AuthContext, workspace_id: str = "default") -> list[Webhook]:
         self._require_read(context)
-        return self.webhooks.list()
+        return self.webhooks.list(workspace_id)
 
-    def get(self, webhook_id: str, context: AuthContext) -> Webhook:
+    def get(self, webhook_id: str, context: AuthContext, workspace_id: str = "default") -> Webhook:
         self._require_read(context)
-        webhook = self.webhooks.get(webhook_id)
+        webhook = self.webhooks.get(webhook_id, workspace_id)
         if webhook is None:
             raise NotFoundError(f"Webhook not found: {webhook_id}")
         return webhook
 
-    def put(self, webhook_id: str, webhook: Webhook, context: AuthContext) -> Webhook:
+    def put(self, webhook_id: str, webhook: Webhook, context: AuthContext, workspace_id: str = "default") -> Webhook:
         require_permission(context, Permission.WEBHOOKS_WRITE)
-        existing = self.webhooks.get(webhook_id)
+        existing = self.webhooks.get(webhook_id, workspace_id)
         now = self.clock.now()
         updated = webhook.model_copy(
             update={
                 "webhook_id": webhook_id,
+                "workspace_id": workspace_id,
                 "created_at": existing.created_at if existing else webhook.created_at,
                 "created_by": existing.created_by if existing else context.principal_id,
                 "updated_at": now if existing else webhook.updated_at,
@@ -92,6 +93,7 @@ class WebhookUseCases:
         status: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
+        workspace_id: str = "default",
     ) -> list[WebhookDelivery]:
         self._require_delivery_read(context)
         return self.deliveries.list(
@@ -100,21 +102,22 @@ class WebhookUseCases:
             status=status,
             resource_type=resource_type,
             resource_id=resource_id,
+            workspace_id=workspace_id,
         )
 
-    def get_delivery(self, delivery_id: str, context: AuthContext) -> WebhookDelivery:
+    def get_delivery(self, delivery_id: str, context: AuthContext, workspace_id: str = "default") -> WebhookDelivery:
         self._require_delivery_read(context)
-        delivery = self.deliveries.get(delivery_id)
+        delivery = self.deliveries.get(delivery_id, workspace_id)
         if delivery is None:
             raise NotFoundError(f"Webhook delivery not found: {delivery_id}")
         return delivery
 
-    def retry_delivery(self, delivery_id: str, context: AuthContext) -> WebhookDelivery:
+    def retry_delivery(self, delivery_id: str, context: AuthContext, workspace_id: str = "default") -> WebhookDelivery:
         require_permission(context, Permission.WEBHOOK_DELIVERIES_RETRY)
-        delivery = self.deliveries.get(delivery_id)
+        delivery = self.deliveries.get(delivery_id, workspace_id)
         if delivery is None:
             raise NotFoundError(f"Webhook delivery not found: {delivery_id}")
-        webhook = self.webhooks.get(delivery.webhook_id)
+        webhook = self.webhooks.get(delivery.webhook_id, delivery.workspace_id)
         if webhook is None:
             raise NotFoundError(f"Webhook not found: {delivery.webhook_id}")
         reset = delivery.model_copy(update={"status": WebhookDeliveryStatus.PENDING, "next_attempt_at": None, "last_error": None})
@@ -123,7 +126,7 @@ class WebhookUseCases:
 
     def enqueue_for_event(self, event: EventLogEntry) -> list[WebhookDelivery]:
         created: list[WebhookDelivery] = []
-        for webhook in self.webhooks.list():
+        for webhook in self.webhooks.list(event.workspace_id):
             if not webhook.active:
                 continue
             for subscription in webhook.subscriptions:
@@ -132,6 +135,7 @@ class WebhookUseCases:
                 delivery_id = self.delivery_ids.new_id()
                 now = self.clock.now()
                 envelope = WebhookEnvelope(
+                    workspaceId=event.workspace_id,
                     deliveryId=delivery_id,
                     webhookId=webhook.webhook_id,
                     subscriptionId=subscription.subscription_id,
@@ -148,6 +152,7 @@ class WebhookUseCases:
                     metadata=event.metadata,
                 )
                 delivery = WebhookDelivery(
+                    workspaceId=event.workspace_id,
                     webhookDeliveryId=delivery_id,
                     webhookId=webhook.webhook_id,
                     subscriptionId=subscription.subscription_id,

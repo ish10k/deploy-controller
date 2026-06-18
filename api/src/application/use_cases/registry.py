@@ -43,9 +43,10 @@ class ComponentUseCases:
         self.components = components
         self.events = events
 
-    def put(self, component: Component, context: AuthContext) -> Component:
+    def put(self, component: Component, context: AuthContext, workspace_id: str = "default") -> Component:
         require_permission(context, Permission.COMPONENTS_WRITE)
-        existing = self.components.get(component.component_id)
+        component = component.model_copy(update={"workspace_id": workspace_id})
+        existing = self.components.get(component.component_id, workspace_id)
         self.components.put(component)
         if self.events:
             self.events.append_actor(
@@ -60,14 +61,14 @@ class ComponentUseCases:
             )
         return component
 
-    def get(self, component_id: str) -> Component:
-        component = self.components.get(component_id)
+    def get(self, component_id: str, workspace_id: str = "default") -> Component:
+        component = self.components.get(component_id, workspace_id)
         if component is None:
             raise NotFoundError(f"Component not found: {component_id}")
         return component
 
-    def list(self) -> list[Component]:
-        return self.components.list()
+    def list(self, workspace_id: str = "default") -> list[Component]:
+        return self.components.list(workspace_id)
 
 
 class ComponentSetUseCases:
@@ -75,9 +76,10 @@ class ComponentSetUseCases:
         self.component_sets = component_sets
         self.events = events
 
-    def put(self, component_set: ComponentSet, context: AuthContext) -> ComponentSet:
+    def put(self, component_set: ComponentSet, context: AuthContext, workspace_id: str = "default") -> ComponentSet:
         require_permission(context, Permission.COMPONENT_SETS_WRITE)
-        existing = self.component_sets.get(component_set.component_set_id)
+        component_set = component_set.model_copy(update={"workspace_id": workspace_id})
+        existing = self.component_sets.get(component_set.component_set_id, workspace_id)
         if existing is None:
             component_set = component_set.model_copy(update={"created_by": context.principal_id})
         self.component_sets.put(component_set)
@@ -94,14 +96,14 @@ class ComponentSetUseCases:
             )
         return component_set
 
-    def get(self, component_set_id: str) -> ComponentSet:
-        component_set = self.component_sets.get(component_set_id)
+    def get(self, component_set_id: str, workspace_id: str = "default") -> ComponentSet:
+        component_set = self.component_sets.get(component_set_id, workspace_id)
         if component_set is None:
             raise NotFoundError(f"ComponentSet not found: {component_set_id}")
         return component_set
 
-    def list(self) -> list[ComponentSet]:
-        return self.component_sets.list()
+    def list(self, workspace_id: str = "default") -> list[ComponentSet]:
+        return self.component_sets.list(workspace_id)
 
 
 class ReleaseUseCases:
@@ -109,10 +111,10 @@ class ReleaseUseCases:
         self.releases = releases
         self.events = events
 
-    def create(self, release: Release, context: AuthContext) -> Release:
+    def create(self, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
         require_permission(context, Permission.RELEASES_CREATE)
-        release = release.model_copy(update={"created_by": context.principal_id})
-        existing = self.releases.get(release.component_id, release.version)
+        release = release.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
+        existing = self.releases.get(release.component_id, release.version, workspace_id)
         if existing is not None:
             if _same(existing, release):
                 return existing
@@ -133,14 +135,14 @@ class ReleaseUseCases:
             )
         return release
 
-    def get(self, component_id: str, version: str) -> Release:
-        release = self.releases.get(component_id, version)
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release:
+        release = self.releases.get(component_id, version, workspace_id)
         if release is None:
             raise NotFoundError(f"Release not found: {component_id}/{version}")
         return release
 
-    def list(self, component_id: str | None = None) -> list[Release]:
-        return self.releases.list_by_component(component_id)
+    def list(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
+        return self.releases.list_by_component(component_id, workspace_id)
 
 
 class ReleaseSourceUseCases:
@@ -161,17 +163,18 @@ class ReleaseSourceUseCases:
         self.principals = principals
         self.events = events
 
-    def create(self, request: ReleaseSourceCreateRequest, context: AuthContext) -> ReleaseSourceCreateResult:
+    def create(self, request: ReleaseSourceCreateRequest, context: AuthContext, workspace_id: str = "default") -> ReleaseSourceCreateResult:
         require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        existing = self.release_sources.get(request.release_source_id)
+        existing = self.release_sources.get(request.release_source_id, workspace_id)
         if existing is not None:
             raise ConflictError(f"ReleaseSource already exists: {request.release_source_id}")
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
         release_source = ReleaseSource(
+            workspace_id=workspace_id,
             release_source_id=request.release_source_id,
             display_name=request.display_name,
-            principal_id=f"service:release-source:{request.release_source_id}",
+            principal_id=f"service:workspace:{workspace_id}:release-source:{request.release_source_id}",
             auth_method="pat",
             token_hash=token_hash,
             token_prefix=token_prefix,
@@ -204,9 +207,10 @@ class ReleaseSourceUseCases:
             )
         return ReleaseSourceCreateResult(release_source=release_source, token=token)
 
-    def put(self, release_source: ReleaseSource, context: AuthContext) -> ReleaseSource:
+    def put(self, release_source: ReleaseSource, context: AuthContext, workspace_id: str = "default") -> ReleaseSource:
         require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        existing = self.release_sources.get(release_source.release_source_id)
+        release_source = release_source.model_copy(update={"workspace_id": workspace_id})
+        existing = self.release_sources.get(release_source.release_source_id, workspace_id)
         if existing is None:
             release_source = release_source.model_copy(update={"created_by": context.principal_id})
         self.release_sources.put(release_source)
@@ -223,18 +227,18 @@ class ReleaseSourceUseCases:
             )
         return release_source
 
-    def get(self, release_source_id: str) -> ReleaseSource:
-        release_source = self.release_sources.get(release_source_id)
+    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource:
+        release_source = self.release_sources.get(release_source_id, workspace_id)
         if release_source is None:
             raise NotFoundError(f"ReleaseSource not found: {release_source_id}")
         return release_source
 
-    def list(self) -> list[ReleaseSource]:
-        return self.release_sources.list()
+    def list(self, workspace_id: str = "default") -> list[ReleaseSource]:
+        return self.release_sources.list(workspace_id)
 
-    def rotate_token(self, release_source_id: str, context: AuthContext) -> RotateTokenResult:
+    def rotate_token(self, release_source_id: str, context: AuthContext, workspace_id: str = "default") -> RotateTokenResult:
         require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        release_source = self.get(release_source_id)
+        release_source = self.get(release_source_id, workspace_id)
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
         updated = release_source.model_copy(
@@ -261,9 +265,9 @@ class ReleaseSourceUseCases:
             )
         return RotateTokenResult(token=token)
 
-    def publish_release(self, release_source_id: str, release: Release, context: AuthContext) -> Release:
+    def publish_release(self, release_source_id: str, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
         require_permission(context, Permission.RELEASE_SOURCES_PUBLISH)
-        release_source = self.get(release_source_id)
+        release_source = self.get(release_source_id, workspace_id)
         if context.principal_id.startswith("service:") and context.principal_id != release_source.principal_id:
             raise ForbiddenError(f"ReleaseSource token cannot publish for another source: {release_source_id}")
         if not release_source.active:
@@ -271,8 +275,8 @@ class ReleaseSourceUseCases:
         if not self._allows_component(release_source, release.component_id):
             raise ValidationError(f"ReleaseSource scope does not allow component: {release.component_id}")
 
-        release = release.model_copy(update={"created_by": context.principal_id})
-        existing = self.releases.get(release.component_id, release.version)
+        release = release.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
+        existing = self.releases.get(release.component_id, release.version, workspace_id)
         if existing is not None:
             if _same(existing, release):
                 return existing
@@ -300,7 +304,7 @@ class ReleaseSourceUseCases:
         if component_id in scope.component_ids:
             return True
         for component_set_id in scope.component_set_ids:
-            component_set = self.component_sets.get(component_set_id)
+            component_set = self.component_sets.get(component_set_id, release_source.workspace_id)
             if component_set and any(item.component_id == component_id for item in component_set.components):
                 return True
         return False
@@ -324,7 +328,7 @@ class DeploySetUseCases:
         self.clock = clock
         self.events = events
 
-    def create(self, request: DeploySet | DeploySetCreateRequest | dict[str, object], context: AuthContext) -> DeploySetCreateResult:
+    def create(self, request: DeploySet | DeploySetCreateRequest | dict[str, object], context: AuthContext, workspace_id: str = "default") -> DeploySetCreateResult:
         require_permission(context, Permission.DEPSETS_CREATE)
         if isinstance(request, dict):
             request = DeploySetCreateRequest.model_validate(request)
@@ -332,8 +336,8 @@ class DeploySetUseCases:
             request = request.model_copy(update={"created_by": context.principal_id})
         if isinstance(request, DeploySet):
             request = request.model_copy(update={"created_by": context.principal_id})
-        deployset, warnings = self._expand(request)
-        existing = self.deploysets.get(deployset.deployset_id)
+        deployset, warnings = self._expand(request, workspace_id)
+        existing = self.deploysets.get(deployset.deployset_id, workspace_id)
         if existing is not None:
             if _same(existing, deployset):
                 return DeploySetCreateResult(deployset=existing, warnings=warnings)
@@ -352,12 +356,13 @@ class DeploySetUseCases:
             )
         return DeploySetCreateResult(deployset=deployset, warnings=warnings)
 
-    def _expand(self, request: DeploySet | DeploySetCreateRequest) -> tuple[DeploySet, list[str]]:
+    def _expand(self, request: DeploySet | DeploySetCreateRequest, workspace_id: str) -> tuple[DeploySet, list[str]]:
         if isinstance(request, DeploySet):
-            self._validate_complete(request)
+            request = request.model_copy(update={"workspace_id": workspace_id})
+            self._validate_complete(request, workspace_id)
             return request, []
 
-        component_set = self.component_sets.get(request.component_set_id)
+        component_set = self.component_sets.get(request.component_set_id, workspace_id)
         if component_set is None:
             raise NotFoundError(f"ComponentSet not found: {request.component_set_id}")
 
@@ -377,6 +382,7 @@ class DeploySetUseCases:
                 missing=missing,
                 base_deployset_id=request.base_deployset_id,
                 base_environment_id=request.base_environment_id,
+                workspace_id=workspace_id,
             )
 
         items = [
@@ -396,7 +402,7 @@ class DeploySetUseCases:
             )
             for component_id in missing
         )
-        self._validate_releases(items)
+        self._validate_releases(items, workspace_id)
         warnings = []
         if inferred_versions:
             source = (
@@ -411,6 +417,7 @@ class DeploySetUseCases:
 
         return (
             DeploySet(
+                workspace_id=workspace_id,
                 deployset_id=request.deployset_id,
                 component_set_id=request.component_set_id,
                 schema_version=1,
@@ -431,14 +438,15 @@ class DeploySetUseCases:
         missing: list[str],
         base_deployset_id: str | None,
         base_environment_id: str | None,
+        workspace_id: str,
     ) -> dict[str, str]:
         if base_deployset_id is not None:
-            base = self.deploysets.get(base_deployset_id)
+            base = self.deploysets.get(base_deployset_id, workspace_id)
             if base is None:
                 raise NotFoundError(f"Base DeploySet not found: {base_deployset_id}")
             base_versions = {item.component_id: item.version for item in base.items}
         else:
-            executions = self.executions.list_by_environment(base_environment_id)
+            executions = self.executions.list_by_environment(base_environment_id, workspace_id)
             successful = next(
                 (execution for execution in executions if execution.status == ExecutionStatus.SUCCEEDED),
                 None,
@@ -459,8 +467,8 @@ class DeploySetUseCases:
             inferred[component_id] = version
         return inferred
 
-    def _validate_complete(self, deployset: DeploySet) -> None:
-        component_set = self.component_sets.get(deployset.component_set_id)
+    def _validate_complete(self, deployset: DeploySet, workspace_id: str) -> None:
+        component_set = self.component_sets.get(deployset.component_set_id, workspace_id)
         if component_set is None:
             raise NotFoundError(f"ComponentSet not found: {deployset.component_set_id}")
         expected = {item.component_id for item in component_set.components}
@@ -468,21 +476,21 @@ class DeploySetUseCases:
         missing = sorted(expected - present)
         if missing:
             raise ValidationError(f"DeploySet is missing ComponentSet components: {', '.join(missing)}")
-        self._validate_releases(deployset.items)
+        self._validate_releases(deployset.items, workspace_id)
 
-    def _validate_releases(self, items: list[DeploySetItem]) -> None:
+    def _validate_releases(self, items: list[DeploySetItem], workspace_id: str) -> None:
         for item in items:
-            if self.releases.get(item.component_id, item.version) is None:
+            if self.releases.get(item.component_id, item.version, workspace_id) is None:
                 raise NotFoundError(f"Release not found: {item.component_id}/{item.version}")
 
-    def get(self, deployset_id: str) -> DeploySet:
-        deployset = self.deploysets.get(deployset_id)
+    def get(self, deployset_id: str, workspace_id: str = "default") -> DeploySet:
+        deployset = self.deploysets.get(deployset_id, workspace_id)
         if deployset is None:
             raise NotFoundError(f"DeploySet not found: {deployset_id}")
         return deployset
 
-    def list(self) -> list[DeploySet]:
-        return self.deploysets.list()
+    def list(self, workspace_id: str = "default") -> list[DeploySet]:
+        return self.deploysets.list(workspace_id)
 
 
 class EnvironmentUseCases:
@@ -490,9 +498,10 @@ class EnvironmentUseCases:
         self.environments = environments
         self.events = events
 
-    def put(self, environment: Environment, context: AuthContext) -> Environment:
+    def put(self, environment: Environment, context: AuthContext, workspace_id: str = "default") -> Environment:
         require_permission(context, Permission.ENVIRONMENTS_WRITE)
-        existing = self.environments.get(environment.environment_id)
+        environment = environment.model_copy(update={"workspace_id": workspace_id})
+        existing = self.environments.get(environment.environment_id, workspace_id)
         self.environments.put(environment)
         if self.events:
             self.events.append_actor(
@@ -507,14 +516,14 @@ class EnvironmentUseCases:
             )
         return environment
 
-    def get(self, environment_id: str) -> Environment:
-        environment = self.environments.get(environment_id)
+    def get(self, environment_id: str, workspace_id: str = "default") -> Environment:
+        environment = self.environments.get(environment_id, workspace_id)
         if environment is None:
             raise NotFoundError(f"Environment not found: {environment_id}")
         return environment
 
-    def list(self) -> list[Environment]:
-        return self.environments.list()
+    def list(self, workspace_id: str = "default") -> list[Environment]:
+        return self.environments.list(workspace_id)
 
 
 class ReadOnlyUseCases:
@@ -526,20 +535,20 @@ class ReadOnlyUseCases:
         self.states = states
         self.executions = executions
 
-    def get_environment_state(self, environment_id: str) -> EnvironmentState:
-        state = self.states.get(environment_id)
+    def get_environment_state(self, environment_id: str, workspace_id: str = "default") -> EnvironmentState:
+        state = self.states.get(environment_id, workspace_id)
         if state is None:
             raise NotFoundError(f"EnvironmentState not found: {environment_id}")
         return state
 
-    def list_environment_states(self) -> list[EnvironmentState]:
-        return self.states.list()
+    def list_environment_states(self, workspace_id: str = "default") -> list[EnvironmentState]:
+        return self.states.list(workspace_id)
 
-    def get_deployment_execution(self, deployment_execution_id: str) -> DeploymentExecution:
-        execution = self.executions.get(deployment_execution_id)
+    def get_deployment_execution(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution:
+        execution = self.executions.get(deployment_execution_id, workspace_id)
         if execution is None:
             raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
         return execution
 
-    def list_deployment_executions(self, environment_id: str | None = None) -> list[DeploymentExecution]:
-        return self.executions.list_by_environment(environment_id)
+    def list_deployment_executions(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
+        return self.executions.list_by_environment(environment_id, workspace_id)

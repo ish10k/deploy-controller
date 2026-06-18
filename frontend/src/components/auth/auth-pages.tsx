@@ -1,13 +1,27 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { LockKeyhole, RefreshCcw, ShieldAlert } from "lucide-react";
+import { RefreshCcw, ShieldAlert, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { completeLogin } from "@/lib/oidc-client";
 import { useAuth } from "@/lib/auth-context";
 
-let loginCompletion: Promise<string> | null = null;
+let loginCompletion: Promise<{ returnTo: string; explicitReturnTo: boolean }> | null = null;
+
+function workspaceSelectorPath(returnTo: string) {
+  if (
+    !returnTo ||
+    returnTo === "/" ||
+    returnTo.startsWith("/auth/") ||
+    returnTo.startsWith("/login") ||
+    returnTo.startsWith("/forbidden") ||
+    returnTo.startsWith("/workspaces/select")
+  ) {
+    return "/workspaces/select";
+  }
+  return `/workspaces/select?returnTo=${encodeURIComponent(returnTo)}`;
+}
 
 export function LoginPage() {
   const auth = useAuth();
@@ -16,15 +30,17 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-6 text-white">
       <Card className="w-full max-w-md border-white/10 bg-white text-slate-950 shadow-2xl">
-        <CardContent className="p-7">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-            <LockKeyhole className="h-6 w-6" />
+        <CardContent className="p-8">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+            <UserRound className="h-6 w-6" />
           </div>
-          <h1 className="mt-5 text-2xl font-bold">Sign in to Settle</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Human users authenticate with OIDC. Machine actors use PATs and do not sign in here.</p>
+          <h1 className="mt-5 text-2xl font-bold">Welcome back</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Sign in with your work account. We’ll take you to your workspaces next.
+          </p>
           {auth.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{auth.error}</p> : null}
           <Button className="mt-6 w-full" onClick={() => void auth.login(returnTo)}>
-            Continue with OIDC
+            Continue
           </Button>
         </CardContent>
       </Card>
@@ -41,21 +57,21 @@ export function AuthCallbackPage() {
     let cancelled = false;
     loginCompletion ??= completeLogin(window.location.href);
     loginCompletion
-      .then(async (returnTo) => {
+      .then(async ({ returnTo, explicitReturnTo }) => {
         if (cancelled) return;
         const result = await auth.refresh();
         if (result.status !== "authenticated") {
           loginCompletion = null;
-          setError(result.error ?? "Settle rejected the OIDC session. Please sign in again.");
+          setError(result.error ?? "We could not finish signing you in. Please try again.");
           return;
         }
         loginCompletion = null;
-        await navigate({ to: returnTo, replace: true });
+        await navigate({ to: explicitReturnTo ? returnTo : workspaceSelectorPath(returnTo), replace: true });
       })
       .catch((caught) => {
         if (cancelled) return;
         loginCompletion = null;
-        setError(caught instanceof Error ? caught.message : "Login callback failed.");
+        setError(caught instanceof Error ? caught.message : "We could not finish signing you in.");
       });
     return () => {
       cancelled = true;
@@ -69,7 +85,7 @@ export function AuthCallbackPage() {
           {error ? (
             <>
               <ShieldAlert className="h-8 w-8 text-red-600" />
-              <h1 className="mt-4 text-xl font-bold">Login failed</h1>
+              <h1 className="mt-4 text-xl font-bold">Sign in did not finish</h1>
               <p className="mt-2 text-sm text-slate-600">{error}</p>
               <Button className="mt-5" onClick={() => void auth.login()}>
                 Try again
@@ -78,8 +94,8 @@ export function AuthCallbackPage() {
           ) : (
             <>
               <RefreshCcw className="h-8 w-8 animate-spin text-blue-600" />
-              <h1 className="mt-4 text-xl font-bold">Completing sign in...</h1>
-              <p className="mt-2 text-sm text-slate-600">Exchanging your OIDC authorization code for a Settle session.</p>
+              <h1 className="mt-4 text-xl font-bold">Signing you in...</h1>
+              <p className="mt-2 text-sm text-slate-600">One moment while we get your account ready.</p>
             </>
           )}
         </CardContent>

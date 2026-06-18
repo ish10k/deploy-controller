@@ -22,6 +22,7 @@ from src.domain.models import (
     DeploymentRunnerScope,
     Environment,
     EnvironmentState,
+    Organization,
     Principal,
     Release,
     ReleaseSource,
@@ -35,6 +36,7 @@ from src.domain.models import (
     WebhookResource,
     WebhookRetryPolicy,
     WebhookSubscription,
+    Workspace,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
 
@@ -115,6 +117,28 @@ def _seed_execution(store: MemoryRepositories, execution: DeploymentExecution, s
 def seed_local_data(store: MemoryRepositories) -> None:
     if store.components:
         return
+
+    store.put_organization(
+        Organization(
+            organizationId="default",
+            displayName="Default",
+            active=True,
+            tags={"plan": "local"},
+            createdAt="2026-04-01T09:00:00Z",
+            createdBy="system:local-seed",
+        )
+    )
+    store.put_workspace(
+        Workspace(
+            workspaceId="default",
+            organizationId="default",
+            displayName="Default",
+            active=True,
+            tags={"team": "platform"},
+            createdAt="2026-04-01T09:00:00Z",
+            createdBy="system:local-seed",
+        )
+    )
 
     # Components
     store.put_component(

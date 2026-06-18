@@ -22,7 +22,53 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+DEFAULT_ORGANIZATION_ID = "default"
+DEFAULT_WORKSPACE_ID = "default"
+
+
+class Organization(ApiModel):
+    organization_id: str = Field(alias="organizationId")
+    display_name: str = Field(alias="displayName")
+    active: bool = True
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
+class Workspace(ApiModel):
+    workspace_id: str = Field(alias="workspaceId")
+    organization_id: str = Field(alias="organizationId")
+    display_name: str = Field(alias="displayName")
+    active: bool = True
+    tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
+class OrganizationMembership(ApiModel):
+    organization_id: str = Field(alias="organizationId")
+    principal_id: str = Field(alias="principalId")
+    roles: list[str] = Field(default_factory=list)
+    active: bool = True
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
+class WorkspaceMembership(ApiModel):
+    workspace_id: str = Field(alias="workspaceId")
+    principal_id: str = Field(alias="principalId")
+    roles: list[str] = Field(default_factory=list)
+    active: bool = True
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
 class Component(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     component_id: str = Field(alias="componentId")
     type: str | None = None
     active: bool = True
@@ -34,6 +80,7 @@ class ComponentSetItem(ApiModel):
 
 
 class ComponentSet(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     component_set_id: str = Field(alias="componentSetId")
     description: str | None = None
     components: list[ComponentSetItem]
@@ -59,6 +106,7 @@ class Artifact(ApiModel):
 
 
 class Release(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     component_id: str = Field(alias="componentId")
     version: str
     description: str | None = None
@@ -79,6 +127,7 @@ class ReleaseSourceScope(ApiModel):
 
 
 class ReleaseSource(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     release_source_id: str = Field(alias="releaseSourceId")
     display_name: str = Field(alias="displayName")
     principal_id: str = Field(alias="principalId")
@@ -117,6 +166,7 @@ class DeploySetItem(ApiModel):
 
 
 class DeploySet(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     deployset_id: str = Field(alias="deploySetId")
     component_set_id: str = Field(alias="componentSetId")
     schema_version: int = Field(alias="schemaVersion")
@@ -152,6 +202,7 @@ class DeploySetCreateResult(ApiModel):
 
 
 class Environment(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     environment_id: str = Field(alias="environmentId")
     active: bool = True
     tags: dict[str, str] = Field(default_factory=dict)
@@ -163,6 +214,7 @@ class DeploymentRunnerScope(ApiModel):
 
 
 class DeploymentRunner(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     runner_id: str = Field(alias="runnerId")
     display_name: str = Field(alias="displayName")
     principal_id: str = Field(alias="principalId")
@@ -225,6 +277,7 @@ class BootstrapState(ApiModel):
 
 
 class Role(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     role_id: str = Field(alias="roleId")
     permissions: list[Permission]
     description: str | None = None
@@ -249,6 +302,21 @@ class WhoAmI(ApiModel):
     email: str | None = None
     roles: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
+    organizations: list["WhoAmIOrganization"] = Field(default_factory=list)
+    workspaces: list["WhoAmIWorkspace"] = Field(default_factory=list)
+
+
+class WhoAmIOrganization(ApiModel):
+    organization_id: str = Field(alias="organizationId")
+    display_name: str = Field(alias="displayName")
+    roles: list[str] = Field(default_factory=list)
+
+
+class WhoAmIWorkspace(ApiModel):
+    workspace_id: str = Field(alias="workspaceId")
+    organization_id: str = Field(alias="organizationId")
+    display_name: str = Field(alias="displayName")
+    roles: list[str] = Field(default_factory=list)
 
 
 class EventResourceRef(ApiModel):
@@ -263,6 +331,7 @@ class EventChange(ApiModel):
 
 
 class EventLogEntry(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     event_id: str = Field(alias="eventId")
     occurred_at: str = Field(alias="occurredAt")
     actor_principal_id: str = Field(alias="actorPrincipalId")
@@ -306,6 +375,7 @@ class WebhookSubscription(ApiModel):
 
 
 class Webhook(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     webhook_id: str = Field(alias="webhookId")
     display_name: str = Field(alias="displayName")
     url: str
@@ -332,6 +402,7 @@ class WebhookResource(ApiModel):
 
 class WebhookEnvelope(ApiModel):
     schema_version: str = Field(default="webhook.v1", alias="schemaVersion")
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     delivery_id: str = Field(alias="deliveryId")
     webhook_id: str = Field(alias="webhookId")
     subscription_id: str = Field(alias="subscriptionId")
@@ -349,6 +420,7 @@ class WebhookEnvelope(ApiModel):
 
 
 class WebhookDelivery(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     webhook_delivery_id: str = Field(alias="webhookDeliveryId")
     webhook_id: str = Field(alias="webhookId")
     subscription_id: str = Field(alias="subscriptionId")
@@ -366,6 +438,7 @@ class WebhookDelivery(ApiModel):
 
 
 class EnvironmentState(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     environment_id: str = Field(alias="environmentId")
     deployset_id: str | None = Field(default=None, alias="deploySetId")
     status: EnvironmentStatus = EnvironmentStatus.IDLE
@@ -390,6 +463,7 @@ class DeploymentExecutionItem(ApiModel):
 
 
 class DeploymentExecution(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     deployment_execution_id: str = Field(alias="deploymentExecutionId")
     environment_id: str = Field(alias="environmentId")
     deployset_id: str = Field(alias="deploySetId")
@@ -405,6 +479,7 @@ class DeploymentExecution(ApiModel):
 
 
 class DeploymentPlan(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     environment_id: str = Field(alias="environmentId")
     deployset_id: str = Field(alias="deploySetId")
     items: list[DeploymentExecutionItem]

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, Rocket, Server, Tag, UserRound } from "lucide-react";
 
@@ -13,6 +12,7 @@ import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import {
   listComponentSets,
   listDeploymentExecutions,

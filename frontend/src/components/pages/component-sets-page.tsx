@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { Plus, Search, Trash2 } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
@@ -14,6 +13,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { listComponents, listComponentSets, putComponentSet, queryKeys, type ApiComponentSet } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
 
@@ -31,7 +31,7 @@ export function ComponentSetsPage({
   onCreateComponent?: () => void;
 } = {}) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [componentFilter, setComponentFilter] = useState("all");

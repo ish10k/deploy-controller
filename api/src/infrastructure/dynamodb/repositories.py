@@ -16,10 +16,14 @@ from src.domain.models import (
     EnvironmentState,
     EventLogEntry,
     BootstrapState,
+    Organization,
+    OrganizationMembership,
     Principal,
     Release,
     ReleaseSource,
     Role,
+    Workspace,
+    WorkspaceMembership,
     Webhook,
     WebhookDelivery,
 )
@@ -44,14 +48,75 @@ def _create(table: Any, item: dict[str, Any], condition: str) -> None:
         raise
 
 
+class DynamoOrganizationRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, organization_id: str) -> Organization | None:
+        item = self.table.get_item(Key={"organizationId": organization_id}).get("Item")
+        return Organization.model_validate(item) if item else None
+    def list(self) -> list[Organization]:
+        return [Organization.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def put(self, organization: Organization) -> None:
+        self.table.put_item(Item=_dump(organization))
+
+
+class DynamoWorkspaceRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, workspace_id: str) -> Workspace | None:
+        item = self.table.get_item(Key={"workspaceId": workspace_id}).get("Item")
+        return Workspace.model_validate(item) if item else None
+    def list(self, organization_id: str | None = None) -> list[Workspace]:
+        items = self.table.scan().get("Items", [])
+        if organization_id:
+            items = [item for item in items if item.get("organizationId") == organization_id]
+        return [Workspace.model_validate(item) for item in items]
+    def put(self, workspace: Workspace) -> None:
+        self.table.put_item(Item=_dump(workspace))
+
+
+class DynamoOrganizationMembershipRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, organization_id: str, principal_id: str) -> OrganizationMembership | None:
+        item = self.table.get_item(Key={"organizationId": organization_id, "principalId": principal_id}).get("Item")
+        return OrganizationMembership.model_validate(item) if item else None
+    def list(self, organization_id: str | None = None, principal_id: str | None = None) -> list[OrganizationMembership]:
+        items = self.table.scan().get("Items", [])
+        if organization_id:
+            items = [item for item in items if item.get("organizationId") == organization_id]
+        if principal_id:
+            items = [item for item in items if item.get("principalId") == principal_id]
+        return [OrganizationMembership.model_validate(item) for item in items]
+    def put(self, membership: OrganizationMembership) -> None:
+        self.table.put_item(Item=_dump(membership))
+
+
+class DynamoWorkspaceMembershipRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, workspace_id: str, principal_id: str) -> WorkspaceMembership | None:
+        item = self.table.get_item(Key={"workspaceId": workspace_id, "principalId": principal_id}).get("Item")
+        return WorkspaceMembership.model_validate(item) if item else None
+    def list(self, workspace_id: str | None = None, principal_id: str | None = None) -> list[WorkspaceMembership]:
+        items = self.table.scan().get("Items", [])
+        if workspace_id:
+            items = [item for item in items if item.get("workspaceId") == workspace_id]
+        if principal_id:
+            items = [item for item in items if item.get("principalId") == principal_id]
+        return [WorkspaceMembership.model_validate(item) for item in items]
+    def put(self, membership: WorkspaceMembership) -> None:
+        self.table.put_item(Item=_dump(membership))
+
+
 class DynamoComponentRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, component_id: str) -> Component | None:
+    def get(self, component_id: str, workspace_id: str = "default") -> Component | None:
         item = self.table.get_item(Key={"componentId": component_id}).get("Item")
-        return Component.model_validate(item) if item else None
-    def list(self) -> list[Component]:
-        return [Component.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return Component.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[Component]:
+        return [Component.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, component: Component) -> None:
         self.table.put_item(Item=_dump(component))
 
@@ -59,11 +124,11 @@ class DynamoComponentRepository:
 class DynamoComponentSetRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, component_set_id: str) -> ComponentSet | None:
+    def get(self, component_set_id: str, workspace_id: str = "default") -> ComponentSet | None:
         item = self.table.get_item(Key={"componentSetId": component_set_id}).get("Item")
-        return ComponentSet.model_validate(item) if item else None
-    def list(self) -> list[ComponentSet]:
-        return [ComponentSet.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return ComponentSet.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[ComponentSet]:
+        return [ComponentSet.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, component_set: ComponentSet) -> None:
         self.table.put_item(Item=_dump(component_set))
 
@@ -71,27 +136,27 @@ class DynamoComponentSetRepository:
 class DynamoReleaseRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, component_id: str, version: str) -> Release | None:
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None:
         item = self.table.get_item(Key={"componentId": component_id, "version": version}).get("Item")
-        return Release.model_validate(item) if item else None
+        return Release.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
     def create(self, release: Release) -> None:
         _create(self.table, _dump(release), "attribute_not_exists(componentId) AND attribute_not_exists(version)")
-    def list_by_component(self, component_id: str | None = None) -> list[Release]:
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
         if component_id is None:
             items = self.table.scan().get("Items", [])
         else:
             items = self.table.query(KeyConditionExpression=Key("componentId").eq(component_id)).get("Items", [])
-        return [Release.model_validate(item) for item in items]
+        return [Release.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
 
 
 class DynamoReleaseSourceRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, release_source_id: str) -> ReleaseSource | None:
+    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource | None:
         item = self.table.get_item(Key={"releaseSourceId": release_source_id}).get("Item")
-        return ReleaseSource.model_validate(item) if item else None
-    def list(self) -> list[ReleaseSource]:
-        return [ReleaseSource.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return ReleaseSource.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[ReleaseSource]:
+        return [ReleaseSource.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, release_source: ReleaseSource) -> None:
         self.table.put_item(Item=_dump(release_source))
 
@@ -99,23 +164,23 @@ class DynamoReleaseSourceRepository:
 class DynamoDeploySetRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, deployset_id: str) -> DeploySet | None:
+    def get(self, deployset_id: str, workspace_id: str = "default") -> DeploySet | None:
         item = self.table.get_item(Key={"deploySetId": deployset_id}).get("Item")
-        return DeploySet.model_validate(item) if item else None
+        return DeploySet.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
     def create(self, deployset: DeploySet) -> None:
         _create(self.table, _dump(deployset), "attribute_not_exists(deploySetId)")
-    def list(self) -> list[DeploySet]:
-        return [DeploySet.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def list(self, workspace_id: str = "default") -> list[DeploySet]:
+        return [DeploySet.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
 
 
 class DynamoEnvironmentRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, environment_id: str) -> Environment | None:
+    def get(self, environment_id: str, workspace_id: str = "default") -> Environment | None:
         item = self.table.get_item(Key={"environmentId": environment_id}).get("Item")
-        return Environment.model_validate(item) if item else None
-    def list(self) -> list[Environment]:
-        return [Environment.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return Environment.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[Environment]:
+        return [Environment.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, environment: Environment) -> None:
         self.table.put_item(Item=_dump(environment))
 
@@ -123,11 +188,11 @@ class DynamoEnvironmentRepository:
 class DynamoDeploymentRunnerRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, runner_id: str) -> DeploymentRunner | None:
+    def get(self, runner_id: str, workspace_id: str = "default") -> DeploymentRunner | None:
         item = self.table.get_item(Key={"runnerId": runner_id}).get("Item")
-        return DeploymentRunner.model_validate(item) if item else None
-    def list(self) -> list[DeploymentRunner]:
-        return [DeploymentRunner.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return DeploymentRunner.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[DeploymentRunner]:
+        return [DeploymentRunner.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, runner: DeploymentRunner) -> None:
         self.table.put_item(Item=_dump(runner))
 
@@ -157,11 +222,11 @@ class DynamoPrincipalRepository:
 class DynamoRoleRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, role_id: str) -> Role | None:
+    def get(self, role_id: str, workspace_id: str = "default") -> Role | None:
         item = self.table.get_item(Key={"roleId": role_id}).get("Item")
-        return Role.model_validate(item) if item else None
-    def list(self) -> list[Role]:
-        return [Role.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return Role.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[Role]:
+        return [Role.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, role: Role) -> None:
         self.table.put_item(Item=_dump(role))
 
@@ -181,11 +246,11 @@ class DynamoBootstrapStateRepository:
 class DynamoEnvironmentStateRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, environment_id: str) -> EnvironmentState | None:
+    def get(self, environment_id: str, workspace_id: str = "default") -> EnvironmentState | None:
         item = self.table.get_item(Key={"environmentId": environment_id}).get("Item")
-        return EnvironmentState.model_validate(item) if item else None
-    def list(self) -> list[EnvironmentState]:
-        return [EnvironmentState.model_validate(item) for item in self.table.scan().get("Items", [])]
+        return EnvironmentState.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[EnvironmentState]:
+        return [EnvironmentState.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
     def put(self, state: EnvironmentState) -> None:
         self.table.put_item(Item=_dump(state))
 
@@ -193,14 +258,15 @@ class DynamoEnvironmentStateRepository:
 class DynamoDeploymentExecutionRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, deployment_execution_id: str) -> DeploymentExecution | None:
+    def get(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
         response = self.table.query(
             IndexName="deploymentExecutionId-index",
             KeyConditionExpression=Key("deploymentExecutionId").eq(deployment_execution_id),
             Limit=1,
         )
         items = response.get("Items", [])
-        return DeploymentExecution.model_validate(items[0]) if items else None
+        item = items[0] if items else None
+        return DeploymentExecution.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
     def create(self, execution: DeploymentExecution) -> None:
         item = _dump(execution)
         item["executionSortKey"] = f"{execution.started_at}#{execution.deployment_execution_id}"
@@ -209,7 +275,7 @@ class DynamoDeploymentExecutionRepository:
         item = _dump(execution)
         item["executionSortKey"] = f"{execution.started_at}#{execution.deployment_execution_id}"
         self.table.put_item(Item=item)
-    def list_by_environment(self, environment_id: str | None = None) -> list[DeploymentExecution]:
+    def list_by_environment(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
         if environment_id is None:
             items = self.table.scan().get("Items", [])
         else:
@@ -217,21 +283,22 @@ class DynamoDeploymentExecutionRepository:
                 KeyConditionExpression=Key("environmentId").eq(environment_id),
                 ScanIndexForward=False,
             ).get("Items", [])
-        return [DeploymentExecution.model_validate(item) for item in items]
-    def latest_for_environment(self, environment_id: str) -> DeploymentExecution | None:
+        return [DeploymentExecution.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
+    def latest_for_environment(self, environment_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
         response = self.table.query(
             KeyConditionExpression=Key("environmentId").eq(environment_id),
             ScanIndexForward=False,
             Limit=1,
         )
         items = response.get("Items", [])
+        items = [item for item in items if item.get("workspaceId", "default") == workspace_id]
         return DeploymentExecution.model_validate(items[0]) if items else None
-    def list_pending(self) -> list[DeploymentExecution]:
+    def list_pending(self, workspace_id: str = "default") -> list[DeploymentExecution]:
         items = self.table.scan().get("Items", [])
         return [
             DeploymentExecution.model_validate(item)
             for item in items
-            if item.get("status") == ExecutionStatus.PENDING
+            if item.get("status") == ExecutionStatus.PENDING and item.get("workspaceId", "default") == workspace_id
         ]
 
 
@@ -316,12 +383,12 @@ class DynamoWebhookRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
 
-    def get(self, webhook_id: str) -> Webhook | None:
+    def get(self, webhook_id: str, workspace_id: str = "default") -> Webhook | None:
         item = self.table.get_item(Key={"webhookId": webhook_id}).get("Item")
-        return Webhook.model_validate(item) if item else None
+        return Webhook.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
 
-    def list(self) -> list[Webhook]:
-        return [Webhook.model_validate(item) for item in self.table.scan().get("Items", [])]
+    def list(self, workspace_id: str = "default") -> list[Webhook]:
+        return [Webhook.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
 
     def put(self, webhook: Webhook) -> None:
         self.table.put_item(Item=_dump(webhook))
@@ -331,9 +398,9 @@ class DynamoWebhookDeliveryRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
 
-    def get(self, webhook_delivery_id: str) -> WebhookDelivery | None:
+    def get(self, webhook_delivery_id: str, workspace_id: str = "default") -> WebhookDelivery | None:
         item = self.table.get_item(Key={"webhookDeliveryId": webhook_delivery_id}).get("Item")
-        return WebhookDelivery.model_validate(item) if item else None
+        return WebhookDelivery.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
 
     def list(
         self,
@@ -343,8 +410,9 @@ class DynamoWebhookDeliveryRepository:
         status: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
+        workspace_id: str = "default",
     ) -> list[WebhookDelivery]:
-        deliveries = [WebhookDelivery.model_validate(item) for item in self.table.scan().get("Items", [])]
+        deliveries = [WebhookDelivery.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
         if webhook_id:
             deliveries = [delivery for delivery in deliveries if delivery.webhook_id == webhook_id]
         if event_id:

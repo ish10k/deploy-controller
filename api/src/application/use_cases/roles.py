@@ -111,37 +111,41 @@ class RoleUseCases:
             if not existing.permissions_editable:
                 self.roles.put(role)
 
-    def list(self, context: AuthContext) -> list[Role]:
+    def list(self, context: AuthContext, workspace_id: str = "default") -> list[Role]:
         require_permission(context, Permission.ROLES_READ)
-        return self.list_unchecked()
+        return self.list_unchecked(workspace_id)
 
-    def list_unchecked(self) -> list[Role]:
+    def list_unchecked(self, workspace_id: str = "default") -> list[Role]:
         return sorted(
-            [role for role in self.roles.list() if role.role_id != LEGACY_PLATFORM_ADMIN],
+            [
+                role.model_copy(update={"workspace_id": workspace_id}) if role.role_id in DEFAULT_ROLES else role
+                for role in self.roles.list(workspace_id)
+                if role.role_id != LEGACY_PLATFORM_ADMIN
+            ],
             key=lambda role: role.role_id,
         )
 
-    def get(self, role_id: str, context: AuthContext) -> Role:
+    def get(self, role_id: str, context: AuthContext, workspace_id: str = "default") -> Role:
         require_permission(context, Permission.ROLES_READ)
-        role = self.roles.get(role_id)
+        role = self.roles.get(role_id, workspace_id)
         if role is None and role_id == ADMIN_ROLE:
-            role = self.roles.get(LEGACY_PLATFORM_ADMIN)
+            role = self.roles.get(LEGACY_PLATFORM_ADMIN, workspace_id)
         if role is None:
             raise NotFoundError(f"Role not found: {role_id}")
         if role.role_id == LEGACY_PLATFORM_ADMIN:
             role = role.model_copy(update={"role_id": ADMIN_ROLE})
         return role
 
-    def put(self, role_id: str, role: Role, context: AuthContext) -> Role:
+    def put(self, role_id: str, role: Role, context: AuthContext, workspace_id: str = "default") -> Role:
         require_permission(context, Permission.ROLES_WRITE)
         role_id = ADMIN_ROLE if role_id == LEGACY_PLATFORM_ADMIN else role_id
-        existing = self.roles.get(role_id)
+        existing = self.roles.get(role_id, workspace_id)
         if existing and not existing.permissions_editable:
             raise ConflictError(f"Role permissions are system-managed: {role_id}")
         if role_id in ADMIN_ROLE_ALIASES:
             raise ConflictError("The admin role is system-managed.")
 
-        updated = role.model_copy(update={"role_id": role_id, "system": existing.system if existing else False, "permissions_editable": True})
+        updated = role.model_copy(update={"workspace_id": workspace_id, "role_id": role_id, "system": existing.system if existing else False, "permissions_editable": True})
         self.roles.put(updated)
         if self.events:
             self.events.append_actor(

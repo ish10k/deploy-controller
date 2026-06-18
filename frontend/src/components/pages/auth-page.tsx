@@ -34,7 +34,7 @@ export function AuthPage({ initialView = "users" }: { initialView?: AuthView } =
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title="Auth"
+        title="Users"
         subtitle="Human principals and RBAC role definitions."
         action={
           <div className="flex gap-2">

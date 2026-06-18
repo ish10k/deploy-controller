@@ -1,3 +1,59 @@
+resource "aws_dynamodb_table" "organizations" {
+  name         = "${var.name_prefix}-organizations"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "organizationId"
+
+  attribute {
+    name = "organizationId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "workspaces" {
+  name         = "${var.name_prefix}-workspaces"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "workspaceId"
+
+  attribute {
+    name = "workspaceId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "organization_memberships" {
+  name         = "${var.name_prefix}-organization-memberships"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "organizationId"
+  range_key    = "principalId"
+
+  attribute {
+    name = "organizationId"
+    type = "S"
+  }
+
+  attribute {
+    name = "principalId"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "workspace_memberships" {
+  name         = "${var.name_prefix}-workspace-memberships"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "workspaceId"
+  range_key    = "principalId"
+
+  attribute {
+    name = "workspaceId"
+    type = "S"
+  }
+
+  attribute {
+    name = "principalId"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "components" {
   name         = "${var.name_prefix}-components"
   billing_mode = "PAY_PER_REQUEST"

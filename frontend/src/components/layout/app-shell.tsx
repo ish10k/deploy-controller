@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   Bell,
   HatGlasses,
   HelpCircle,
@@ -10,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,12 @@ import { ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { LoadingPanel } from "@/components/common/api-state";
 import { listEvents, queryKeys, type ApiEventLogEntry } from "@/lib/api-client";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
+import { useAppContext } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
 import { canViewEvents, canViewRoles, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { workspaceAppPath, workspaceIdFromPath, workspaceRelativePath } from "@/lib/workspace-routes";
 
 type NavItem = {
   label: string;
@@ -53,7 +56,7 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
     {
       label: "Governance",
       items: [
-        { label: "Auth", icon: ENTITY_ICONS.user, to: "/auth", aliases: ["/users", "/roles"], hidden: !showUsers && !showRoles },
+        { label: "Users", icon: ENTITY_ICONS.user, to: "/users", aliases: ["/roles"], hidden: !showUsers && !showRoles },
         { label: "Audit", icon: HatGlasses, to: "/audit" },
       ],
     },
@@ -67,8 +70,35 @@ const headerActions = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
   const auth = useAuth();
+  const app = useAppContext();
   const isAuthRoute = pathname === "/login" || pathname === "/auth/callback" || pathname === "/forbidden";
+  const isWorkspaceSelectorRoute = pathname === "/workspaces/select";
+  const routeWorkspaceId = workspaceIdFromPath(pathname);
+  const routeWorkspaceKnown = routeWorkspaceId ? app.workspaces.some((workspace) => workspace.workspaceId === routeWorkspaceId) : false;
+  const redirectTarget =
+    auth.status === "authenticated" && app.workspace && !isAuthRoute && !isWorkspaceSelectorRoute
+      ? routeWorkspaceId && !routeWorkspaceKnown
+        ? workspaceAppPath(app.workspaceId, workspaceRelativePath(pathname))
+        : null
+      : null;
+
+  useEffect(() => {
+    if (auth.status !== "authenticated" || isAuthRoute || isWorkspaceSelectorRoute) {
+      return;
+    }
+    if (routeWorkspaceId && routeWorkspaceKnown && routeWorkspaceId !== app.workspaceId) {
+      app.setWorkspaceId(routeWorkspaceId);
+    }
+  }, [app, auth.status, isAuthRoute, isWorkspaceSelectorRoute, routeWorkspaceId, routeWorkspaceKnown]);
+
+  useEffect(() => {
+    if (!redirectTarget) {
+      return;
+    }
+    void navigate({ to: redirectTarget, replace: true });
+  }, [navigate, redirectTarget]);
 
   if (isAuthRoute) {
     return <>{children}</>;
@@ -88,6 +118,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (auth.status === "forbidden") {
     return <ForbiddenPage />;
   }
+  if (isWorkspaceSelectorRoute) {
+    return <>{children}</>;
+  }
+  if (!app.workspace) {
+    return <WorkspaceRequired />;
+  }
+  if (routeWorkspaceId && routeWorkspaceId !== app.workspaceId) {
+    return <WorkspaceSwitching />;
+  }
+  if (redirectTarget) {
+    return <WorkspaceSwitching />;
+  }
 
   const initials = auth.user?.displayName
     .split(/\s+/)
@@ -97,6 +139,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     .join("") || "U";
   const primaryRole = auth.user?.roles[0] ?? "user";
   const groups = navGroups(canViewUsers(auth.user), canViewRoles(auth.user), canViewWebhooks(auth.user));
+  const activePath = routeWorkspaceId ? workspaceRelativePath(pathname) : pathname;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -143,6 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <aside className="fixed bottom-0 left-0 top-[60px] z-30 flex w-[235px] flex-col border-r border-slate-200 bg-white">
+        <WorkspaceSidebarControl workspaceName={app.workspace.displayName} />
         <nav className="flex-1 overflow-y-auto px-4 py-6">
           {groups.map((group, groupIndex) => (
             <div key={group.label || "main"} className={cn(groupIndex > 0 && "border-t border-slate-200 pt-5", "mb-5")}>
@@ -153,12 +197,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {group.items.filter((item) => !item.hidden).map((item) => {
                   const active =
                     item.to === "/"
-                      ? pathname === "/"
-                      : pathname.startsWith(item.to) || (item.aliases ?? []).some((alias) => pathname.startsWith(alias));
+                      ? activePath === "/"
+                      : activePath.startsWith(item.to) || (item.aliases ?? []).some((alias) => activePath.startsWith(alias));
                   return (
                     <Link
                       key={item.label}
-                      to={item.to}
+                      to={workspaceAppPath(app.workspaceId, item.to)}
                       className={cn(
                         "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-700 transition-colors",
                         active ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50 hover:text-slate-950",
@@ -188,6 +232,43 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="min-h-screen pl-[235px] pt-[60px]">
         <div className="px-9 py-6">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function WorkspaceSidebarControl({ workspaceName }: { workspaceName: string }) {
+  return (
+    <div className="border-b border-slate-200 px-4 py-4">
+      <Link
+        to="/workspaces/select"
+        className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950"
+      >
+        <ArrowLeft className="h-5 w-5 shrink-0" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold text-slate-800">{workspaceName}</span>
+          <span className="block text-xs font-medium text-slate-500">Change workspace</span>
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+function WorkspaceRequired() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+      <div className="w-full max-w-md">
+        <LoadingPanel label="Select a workspace to continue..." />
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceSwitching() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+      <div className="w-full max-w-md">
+        <LoadingPanel label="Loading workspace..." />
+      </div>
     </div>
   );
 }

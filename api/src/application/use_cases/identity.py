@@ -1,12 +1,24 @@
 from __future__ import annotations
 
-from src.application.ports import BootstrapStateRepository, Clock, PrincipalRepository, RoleRepository
+from src.application.ports import (
+    BootstrapStateRepository,
+    Clock,
+    OrganizationMembershipRepository,
+    OrganizationRepository,
+    PrincipalRepository,
+    RoleRepository,
+    WorkspaceMembershipRepository,
+    WorkspaceRepository,
+)
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.roles import ADMIN_ROLE, has_admin_role, normalize_roles, permissions_for_roles
 from src.domain.enums import Permission, PrincipalType
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError
-from src.domain.models import AuthContext, BootstrapState, Principal, Role, WhoAmI
+from src.domain.models import AuthContext, BootstrapState, Principal, Role, WhoAmI, WhoAmIOrganization, WhoAmIWorkspace
+
+if False:  # pragma: no cover
+    from src.application.use_cases.tenancy import OrganizationUseCases
 
 class PrincipalUseCases:
     def __init__(
@@ -17,12 +29,22 @@ class PrincipalUseCases:
         bootstrap: BootstrapStateRepository,
         clock: Clock,
         events: EventLogUseCases | None = None,
+        organizations: OrganizationRepository | None = None,
+        workspaces: WorkspaceRepository | None = None,
+        organization_memberships: OrganizationMembershipRepository | None = None,
+        workspace_memberships: WorkspaceMembershipRepository | None = None,
+        bootstrap_tenancy: "OrganizationUseCases | None" = None,
     ) -> None:
         self.principals = principals
         self.roles = roles
         self.bootstrap = bootstrap
         self.clock = clock
         self.events = events
+        self.organizations = organizations
+        self.workspaces = workspaces
+        self.organization_memberships = organization_memberships
+        self.workspace_memberships = workspace_memberships
+        self.bootstrap_tenancy = bootstrap_tenancy
 
     def create(self, principal: Principal, context: AuthContext) -> Principal:
         require_permission(context, Permission.PRINCIPALS_WRITE)
@@ -84,6 +106,8 @@ class PrincipalUseCases:
 
     def whoami(self, context: AuthContext) -> WhoAmI:
         principal = self.get(context.principal_id)
+        organization_memberships = self.organization_memberships.list(principal_id=principal.principal_id) if self.organization_memberships else []
+        workspace_memberships = self.workspace_memberships.list(principal_id=principal.principal_id) if self.workspace_memberships else []
         return WhoAmI(
             principal_id=principal.principal_id,
             type=principal.type,
@@ -92,6 +116,25 @@ class PrincipalUseCases:
             email=principal.email,
             roles=normalize_roles(principal.roles),
             permissions=self._permissions_for_roles(principal.roles),
+            organizations=[
+                WhoAmIOrganization(
+                    organization_id=membership.organization_id,
+                    display_name=self.organizations.get(membership.organization_id).display_name if self.organizations and self.organizations.get(membership.organization_id) else membership.organization_id,
+                    roles=membership.roles,
+                )
+                for membership in organization_memberships
+                if membership.active
+            ],
+            workspaces=[
+                WhoAmIWorkspace(
+                    workspace_id=membership.workspace_id,
+                    organization_id=self.workspaces.get(membership.workspace_id).organization_id if self.workspaces and self.workspaces.get(membership.workspace_id) else "default",
+                    display_name=self.workspaces.get(membership.workspace_id).display_name if self.workspaces and self.workspaces.get(membership.workspace_id) else membership.workspace_id,
+                    roles=membership.roles,
+                )
+                for membership in workspace_memberships
+                if membership.active
+            ],
         )
 
     def authenticate_oidc(
@@ -130,6 +173,8 @@ class PrincipalUseCases:
                 last_seen_at=now,
             )
             self.principals.put(principal)
+            if self.bootstrap_tenancy:
+                self.bootstrap_tenancy.ensure_default(principal_id, now)
             self.bootstrap.put(BootstrapState(completed=True, completed_at=now, completed_by=principal_id))
             if self.events:
                 self.events.append_system(

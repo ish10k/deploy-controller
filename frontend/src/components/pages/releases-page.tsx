@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
@@ -14,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { createRelease, listComponents, listReleases, queryKeys, type ApiRelease } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -34,7 +34,7 @@ export function ReleasesPage({
   const [componentFilter, setComponentFilter] = useState("");
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const query = useQuery({ queryKey: queryKeys.releases(componentFilter || undefined), queryFn: () => listReleases(componentFilter || undefined) });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const allReleasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });

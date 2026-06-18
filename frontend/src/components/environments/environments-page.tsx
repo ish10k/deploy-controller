@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   AlertTriangle,
@@ -48,6 +47,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
+import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 
 type EnvironmentStatusKind = "healthy" | "failed" | "pending" | "idle";
 type EnvironmentDetailView = "deployments" | "current-components";
@@ -73,7 +74,7 @@ type EnvironmentRow = {
 
 export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: string }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | EnvironmentStatusKind>("all");
   const [open, setOpen] = useState(false);

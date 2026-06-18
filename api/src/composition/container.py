@@ -13,6 +13,7 @@ from src.application.use_cases.registry import (
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.roles import RoleUseCases
+from src.application.use_cases.tenancy import OrganizationUseCases, WorkspaceUseCases
 from src.application.use_cases.webhooks import WebhookUseCases
 
 
@@ -30,5 +31,7 @@ class Container:
     deployment_runners: DeploymentRunnerUseCases
     principals: PrincipalUseCases
     roles: RoleUseCases
+    organizations: OrganizationUseCases
+    workspaces: WorkspaceUseCases
     events: EventLogUseCases
     webhooks: WebhookUseCases

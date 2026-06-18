@@ -30,7 +30,49 @@ export interface Source {
   digest: string;
 }
 
+export interface ApiOrganization {
+  organizationId: string;
+  displayName: string;
+  active: boolean;
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
+export interface ApiWorkspace {
+  workspaceId: string;
+  organizationId: string;
+  displayName: string;
+  active: boolean;
+  tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
+export interface ApiOrganizationMembership {
+  organizationId: string;
+  principalId: string;
+  roles: string[];
+  active: boolean;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
+export interface ApiWorkspaceMembership {
+  workspaceId: string;
+  principalId: string;
+  roles: string[];
+  active: boolean;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
 export interface ApiComponent {
+  workspaceId?: string;
   componentId: string;
   type: string | null;
   active: boolean;
@@ -42,6 +84,7 @@ export interface ApiComponentSetItem {
 }
 
 export interface ApiComponentSet {
+  workspaceId?: string;
   componentSetId: string;
   description: string | null;
   components: ApiComponentSetItem[];
@@ -51,6 +94,7 @@ export interface ApiComponentSet {
 }
 
 export interface ApiRelease {
+  workspaceId?: string;
   componentId: string;
   version: string;
   description: string | null;
@@ -68,6 +112,7 @@ export interface ApiReleaseSourceScope {
 }
 
 export interface ApiReleaseSource {
+  workspaceId?: string;
   releaseSourceId: string;
   displayName: string;
   principalId: string;
@@ -104,6 +149,7 @@ export interface ApiDeploySetItem {
 }
 
 export interface ApiDeploySet {
+  workspaceId?: string;
   deploySetId: string;
   componentSetId: string;
   schemaVersion: number;
@@ -139,6 +185,7 @@ export interface ApiDeploySetCreateResult {
 }
 
 export interface ApiEnvironment {
+  workspaceId?: string;
   environmentId: string;
   active: boolean;
   tags: Record<string, string>;
@@ -150,6 +197,7 @@ export interface ApiDeploymentRunnerScope {
 }
 
 export interface ApiDeploymentRunner {
+  workspaceId?: string;
   runnerId: string;
   displayName: string;
   principalId: string;
@@ -217,9 +265,12 @@ export interface ApiWhoAmI {
   email: string | null;
   roles: string[];
   permissions: string[];
+  organizations?: Array<{ organizationId: string; displayName: string; roles: string[] }>;
+  workspaces?: Array<{ workspaceId: string; organizationId: string; displayName: string; roles: string[] }>;
 }
 
 export interface ApiRole {
+  workspaceId?: string;
   roleId: string;
   permissions: ApiPermission[];
   description: string | null;
@@ -239,6 +290,7 @@ export interface ApiEventChange {
 }
 
 export interface ApiEventLogEntry {
+  workspaceId?: string;
   eventId: string;
   occurredAt: string;
   actorPrincipalId: string;
@@ -282,6 +334,7 @@ export interface ApiWebhookSubscription {
 }
 
 export interface ApiWebhook {
+  workspaceId?: string;
   webhookId: string;
   displayName: string;
   url: string;
@@ -297,6 +350,7 @@ export interface ApiWebhook {
 
 export interface ApiWebhookEnvelope {
   schemaVersion: "webhook.v1";
+  workspaceId?: string;
   deliveryId: string;
   webhookId: string;
   subscriptionId: string;
@@ -314,6 +368,7 @@ export interface ApiWebhookEnvelope {
 }
 
 export interface ApiWebhookDelivery {
+  workspaceId?: string;
   webhookDeliveryId: string;
   webhookId: string;
   subscriptionId: string;
@@ -331,6 +386,7 @@ export interface ApiWebhookDelivery {
 }
 
 export interface ApiEnvironmentState {
+  workspaceId?: string;
   environmentId: string;
   deploySetId: string | null;
   status: EnvironmentStatus;
@@ -355,6 +411,7 @@ export interface ApiDeploymentExecutionItem {
 }
 
 export interface ApiDeploymentExecution {
+  workspaceId?: string;
   deploymentExecutionId: string;
   environmentId: string;
   deploySetId: string;
@@ -370,6 +427,7 @@ export interface ApiDeploymentExecution {
 }
 
 export interface ApiDeploymentPlan {
+  workspaceId?: string;
   environmentId: string;
   deploySetId: string;
   items: ApiDeploymentExecutionItem[];

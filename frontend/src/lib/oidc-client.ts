@@ -39,15 +39,17 @@ async function discovery() {
 }
 
 function safeReturnTo(value: string) {
-  return value.startsWith("/auth/") || value === "/login" || value === "/forbidden" ? "/" : value;
+  return value.startsWith("/auth/") || value.startsWith("/login") || value.startsWith("/forbidden") ? "/" : value;
 }
 
-export async function startLogin(returnTo = safeReturnTo(window.location.pathname + window.location.search)) {
+export async function startLogin(returnTo?: string) {
+  const resolvedReturnTo = returnTo === undefined ? safeReturnTo(window.location.pathname + window.location.search) : safeReturnTo(returnTo);
+  const explicitReturnTo = returnTo !== undefined;
   const config = await discovery();
   const state = randomString();
   const verifier = randomString(64);
   const challenge = base64Url(await sha256(verifier));
-  window.sessionStorage.setItem(OIDC_STATE_KEY, JSON.stringify({ state, returnTo }));
+  window.sessionStorage.setItem(OIDC_STATE_KEY, JSON.stringify({ state, returnTo: resolvedReturnTo, explicitReturnTo }));
   window.sessionStorage.setItem(OIDC_VERIFIER_KEY, verifier);
 
   const params = new URLSearchParams({
@@ -66,7 +68,7 @@ export async function completeLogin(callbackUrl: string) {
   const url = new URL(callbackUrl);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const storedState = JSON.parse(window.sessionStorage.getItem(OIDC_STATE_KEY) || "null") as { state: string; returnTo: string } | null;
+  const storedState = JSON.parse(window.sessionStorage.getItem(OIDC_STATE_KEY) || "null") as { state: string; returnTo: string; explicitReturnTo?: boolean } | null;
   const verifier = window.sessionStorage.getItem(OIDC_VERIFIER_KEY);
   window.sessionStorage.removeItem(OIDC_STATE_KEY);
   window.sessionStorage.removeItem(OIDC_VERIFIER_KEY);
@@ -101,7 +103,10 @@ export async function completeLogin(callbackUrl: string) {
     idToken: payload.id_token ?? null,
     expiresAt: Date.now() + payload.expires_in * 1000,
   });
-  return safeReturnTo(storedState.returnTo || "/");
+  return {
+    returnTo: safeReturnTo(storedState.returnTo || "/"),
+    explicitReturnTo: Boolean(storedState.explicitReturnTo),
+  };
 }
 
 export async function logout() {
