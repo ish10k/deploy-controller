@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Trash2 } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
@@ -37,6 +37,7 @@ export function ComponentSetsPage({
   const [componentFilter, setComponentFilter] = useState("all");
   const query = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: (componentSet: ApiComponentSet) => putComponentSet(componentSet.componentSetId, componentSet),
     onSuccess: async (componentSet) => {
@@ -133,16 +134,20 @@ export function ComponentSetsPage({
       </div> : null}
 
       {embedded ? (
-        filteredComponentSets.length ? (
-          <Table>
-            <ComponentSetsTableContent rows={filteredComponentSets} />
-          </Table>
-        ) : (
-          <EmptyPanel label="No component sets match the current filters." />
-        )
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {filteredComponentSets.length ? (
+            <Table>
+              <ComponentSetsTableContent rows={filteredComponentSets} />
+            </Table>
+          ) : (
+            <EmptyPanel label="No component sets match the current filters." />
+          )}
+        </div>
       ) : (
-        <Card className="mt-4">
+        <Card className="relative mt-4 overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             {filteredComponentSets.length ? (
               <Table>
                 <ComponentSetsTableContent rows={filteredComponentSets} />

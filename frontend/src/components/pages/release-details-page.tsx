@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, Check, Copy, FileText, GitBranch, Package, Server, Tag, UserRound } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, CalendarClock, Check, Copy, FileText, GitBranch, Package, RefreshCcw, Server, Tag, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
@@ -20,15 +20,14 @@ export function ReleaseDetailsPage({ componentId, version }: { componentId: stri
     queryFn: () => getRelease(componentId, version),
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading release details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data) return <EmptyPanel label={`Release ${componentId}/${version} was not found.`} />;
 
-  return <ReleaseDetailsView release={query.data} />;
+  return <ReleaseDetailsView release={query.data} onRefresh={() => query.refetch()} />;
 }
 
-function ReleaseDetailsView({ release }: { release: ApiRelease }) {
+function ReleaseDetailsView({ release, onRefresh }: { release: ApiRelease; onRefresh: () => Promise<unknown> }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const deploymentsQuery = useQuery({
@@ -58,7 +57,14 @@ function ReleaseDetailsView({ release }: { release: ApiRelease }) {
         title={`Release: ${release.componentId} ${release.version}`}
         subtitle="Release artifact, source, and delivery notes."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void Promise.all([onRefresh(), deploymentsQuery.refetch()])}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Link to="/releases">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />

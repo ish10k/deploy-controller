@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, Plus, RefreshCw, Search, Send, Tag, Webhook } from "lucide-react";
+import { ArrowLeft, CalendarClock, Plus, RefreshCw, RefreshCcw, Search, Send, Tag, Webhook } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { JsonDetail } from "@/components/common/json-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,7 @@ export function WebhooksPage() {
   const [open, setOpen] = useState(false);
   const query = useQuery({ queryKey: queryKeys.webhooks, queryFn: listWebhooks, enabled: canView });
   const deliveriesQuery = useQuery({ queryKey: queryKeys.webhookDeliveries(), queryFn: () => listWebhookDeliveries(), enabled: canViewWebhookDeliveries(auth.user) });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createWebhook,
     onSuccess: async (webhook) => {
@@ -103,8 +104,9 @@ export function WebhooksPage() {
           Refresh
         </Button>
       </div>
-      <Card className="mt-4">
+      <Card className="relative mt-4 overflow-hidden">
         <CardContent className="p-3">
+          {refreshing ? <LoadingOverlay /> : null}
           {filtered.length ? (
             <Table>
               <TableHeader>
@@ -194,12 +196,27 @@ function WebhookDetailsView({ webhook, deliveries }: { webhook: ApiWebhook; deli
         title={`Webhook: ${webhook.displayName || webhook.webhookId}`}
         subtitle="Destination, subscription rules, retry policy, and delivery history."
         action={
-          <Link to="/webhooks">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to webhooks
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                void Promise.all([
+                  queryClient.invalidateQueries({ queryKey: queryKeys.webhook(webhook.webhookId) }),
+                  queryClient.invalidateQueries({ queryKey: queryKeys.webhooks }),
+                  queryClient.invalidateQueries({ queryKey: queryKeys.webhookDeliveries({ webhookId: webhook.webhookId }) }),
+                ]);
+              }}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
+            <Link to="/webhooks">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to webhooks
+              </Button>
+            </Link>
+          </div>
         }
       />
       <div className="grid shrink-0 grid-cols-4 gap-4">
@@ -259,7 +276,19 @@ export function WebhookDeliveryDetailsPage({ deliveryId }: { deliveryId: string 
         title={`Webhook Delivery: ${delivery.webhookDeliveryId}`}
         subtitle="Webhook envelope, attempt state, and response metadata."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                void Promise.all([
+                  queryClient.invalidateQueries({ queryKey: queryKeys.webhookDelivery(delivery.webhookDeliveryId) }),
+                  queryClient.invalidateQueries({ queryKey: queryKeys.webhookDeliveries() }),
+                ]);
+              }}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             {canRetry ? (
               <Button variant="outline" disabled={retryMutation.isPending} onClick={() => retryMutation.mutate(delivery.webhookDeliveryId)}>
                 <RefreshCw className="h-4 w-4" />

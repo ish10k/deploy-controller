@@ -1,9 +1,10 @@
 import { AlertCircle, RefreshCcw, Server } from "lucide-react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiRequestError } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 export function PageHeader({
   title,
@@ -29,11 +30,76 @@ export function LoadingPanel({ label = "Loading API data..." }: { label?: string
   return (
     <Card>
       <CardContent className="flex h-44 items-center justify-center text-sm font-semibold text-slate-600">
-        <RefreshCcw className="mr-2 h-4 w-4 animate-spin text-blue-600" />
-        {label}
+        <LoadingSpinner label={label} />
       </CardContent>
     </Card>
   );
+}
+
+export function LoadingOverlay({
+  label = "Loading...",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("fixed bottom-0 right-0 top-[60px] left-[235px] z-20 flex items-center justify-center bg-slate-50", className)}>
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm">
+        <LoadingSpinner label={label} />
+      </div>
+    </div>
+  );
+}
+
+export function useMinimumVisible(active: boolean, minimumMs = 350) {
+  const startedAt = useRef(0);
+  const timeoutRef = useRef<number | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (active) {
+      startedAt.current = Date.now();
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setVisible(true);
+      return;
+    }
+
+    if (!visible) {
+      return;
+    }
+
+    const remaining = Math.max(0, minimumMs - (Date.now() - startedAt.current));
+    timeoutRef.current = window.setTimeout(() => {
+      setVisible(false);
+      timeoutRef.current = null;
+    }, remaining);
+  }, [active, minimumMs, visible]);
+
+  return visible;
+}
+
+export function useRefreshAction(
+  active: boolean,
+  refreshers: Array<() => Promise<unknown> | unknown>,
+) {
+  const refreshing = useMinimumVisible(active);
+  const refresh = useCallback(async () => {
+    await Promise.all(refreshers.map((refetch) => Promise.resolve(refetch())));
+  }, [refreshers]);
+
+  return { refresh, refreshing };
 }
 
 export function EmptyPanel({ label = "No records returned by the API." }: { label?: string }) {
@@ -94,6 +160,15 @@ export function UnsupportedPage({ title }: { title: string }) {
           of showing synthetic data.
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+function LoadingSpinner({ label }: { label: string }) {
+  return (
+    <>
+      <RefreshCcw className="h-4 w-4 animate-spin text-blue-600" />
+      {label}
     </>
   );
 }

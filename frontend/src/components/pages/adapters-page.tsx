@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, Clock3, KeyRound, Plus, Radio, RefreshCw, Server, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarClock, Clock3, KeyRound, Plus, Radio, RefreshCw, RefreshCcw, Server, Tag, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export function DeploymentRunnersPage() {
   const query = useQuery({ queryKey: queryKeys.deploymentRunners, queryFn: listDeploymentRunners });
   const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
   const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createDeploymentRunner,
     onSuccess: async (result) => {
@@ -81,8 +82,9 @@ export function DeploymentRunnersPage() {
           </Button>
         }
       />
-      <Card className="mt-4">
+      <Card className="relative mt-4 overflow-hidden">
         <CardContent className="p-3">
+          {refreshing ? <LoadingOverlay /> : null}
           {query.data?.length ? (
             <Table>
               <TableHeader>
@@ -204,7 +206,7 @@ function DeploymentRunnerDrawer({
       footer={
         <>
           <p className="text-xs text-slate-500">Provider-specific details stay in the runner process, not the control plane.</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -373,7 +375,11 @@ function DeploymentRunnerDetailsView({
         title={`Deployment Runner: ${runner.runnerId}`}
         subtitle="Deployment runner identity, scope, heartbeat, and pending execution queue."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void onInvalidate()}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Button variant="outline" disabled={rotateMutation.isPending} onClick={() => rotateMutation.mutate(runner.runnerId)}>
               <RefreshCw className="h-4 w-4" />
               {rotateMutation.isPending ? "Rotating..." : "Rotate token"}

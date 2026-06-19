@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, Server, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, RefreshCcw, Server, UserRound, Zap } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { ReportedActionBadge, RequestedActionBadge, StatusBadge } from "@/components/deployments/status-badge";
@@ -34,15 +34,14 @@ export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { depl
     queryFn: () => getDeploymentExecution(deploymentExecutionId),
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading deployment execution..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data) return <EmptyPanel label="Deployment execution not found." />;
 
-  return <ExecutionDetailsView execution={query.data} />;
+  return <ExecutionDetailsView execution={query.data} onRefresh={() => query.refetch()} />;
 }
 
-function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution }) {
+function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeploymentExecution; onRefresh: () => Promise<unknown> }) {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const toast = useToast();
@@ -97,7 +96,14 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
         title={`Deployment: ${execution.deploymentExecutionId}`}
         subtitle="Deployment execution details, component actions, and event history."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void Promise.all([onRefresh(), eventQuery.refetch(), executionsQuery.refetch()])}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Link to="/deployments">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />
@@ -159,7 +165,7 @@ function ExecutionDetailsView({ execution }: { execution: ApiDeploymentExecution
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>Component actions</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Badge variant="green">{succeededCount} succeeded</Badge>
               <Badge variant={failedCount ? "red" : "slate"}>{failedCount} failed</Badge>
               <Badge variant={driftCount ? "orange" : "slate"}>{driftCount} drift</Badge>

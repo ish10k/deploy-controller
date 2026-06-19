@@ -17,7 +17,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +83,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
     queryFn: fetchEnvironmentCenterData,
     retry: 1,
   });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: (environment: ApiEnvironment) => putEnvironment(environment.environmentId, environment),
     onSuccess: async (environment) => {
@@ -136,7 +137,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
 
   if (routeEnvironmentId) {
     const routeRow = rows.find((row) => row.environment.environmentId === routeEnvironmentId);
-    return routeRow ? <FocusedEnvironmentDetails row={routeRow} /> : <EnvironmentNotFound environmentId={routeEnvironmentId} />;
+    return routeRow ? <FocusedEnvironmentDetails row={routeRow} onRefresh={() => void query.refetch()} /> : <EnvironmentNotFound environmentId={routeEnvironmentId} />;
   }
 
   return (
@@ -188,17 +189,18 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
         </Button>
       </div>
 
-      {filteredRows.length ? (
-        <div className="mt-5 grid grid-cols-3 gap-5">
-          {filteredRows.map((row) => (
-            <EnvironmentCard key={row.environment.environmentId} row={row} />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-4">
+      <div className="relative mt-4">
+        {refreshing ? <LoadingOverlay /> : null}
+        {filteredRows.length ? (
+          <div className="grid grid-cols-3 gap-5">
+            {filteredRows.map((row) => (
+              <EnvironmentCard key={row.environment.environmentId} row={row} />
+            ))}
+          </div>
+        ) : (
           <EmptyPanel label="No environments match the current filters." />
-        </div>
-      )}
+        )}
+      </div>
       <div className="mt-3 text-xs font-medium text-slate-500">
         Showing {filteredRows.length} of {rows.length} environments
       </div>
@@ -207,7 +209,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
   );
 }
 
-function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
+function FocusedEnvironmentDetails({ row, onRefresh }: { row: EnvironmentRow; onRefresh: () => void }) {
   const auth = useAuth();
   const [detailView, setDetailView] = useState<EnvironmentDetailView>("deployments");
   const [deployOpen, setDeployOpen] = useState(false);
@@ -232,7 +234,11 @@ function FocusedEnvironmentDetails({ row }: { row: EnvironmentRow }) {
         title={`Environment: ${row.environment.environmentId}`}
         subtitle="Environment details, current desired state, and recent activity."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={onRefresh}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Button className="px-4" onClick={() => setDeployOpen(true)}>
               <Rocket className="h-4 w-4" />
               Deploy
@@ -494,7 +500,7 @@ function EnvironmentCard({ row }: { row: EnvironmentRow }) {
               <Server className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="truncate text-2xl font-bold text-slate-950">{row.environment.environmentId}</span>
                 <EnvironmentStatusBadge status={row.status} />
               </div>

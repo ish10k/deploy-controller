@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Plus, RefreshCw, Rocket, Search, X } from "lucide-react";
 import { flexRender, getCoreRowModel, type ColumnDef, useReactTable } from "@tanstack/react-table";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
 import { DeploysetsPage } from "@/components/pages/deploysets-page";
@@ -43,6 +43,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     queryFn: () => fetchDashboardData(environmentId),
     retry: 1,
   });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
 
   useEffect(() => {
     if (planOpen) {
@@ -145,7 +146,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
         title="Deployments"
         subtitle="Plan deployments and track execution state across environments."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button className="px-4" onClick={openPlan}>
               <Rocket className="h-5 w-5" />
               Deploy
@@ -172,34 +173,37 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
         </Button>
       </div>
 
-      <SwitchableCard
-        ariaLabel="Select deployment workspace view"
-        value={view}
-        options={options}
-        onChange={changeView}
-        className="mt-5 min-h-0 flex-1"
-        contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
-      >
-        {view === "executions" ? (
-          filteredExecutions.length ? (
-            <ScrollFade className="flex-1 rounded-t-lg">
-              <ExecutionTable rows={filteredExecutions} />
-            </ScrollFade>
+      <div className="relative mt-5 min-h-0 flex-1">
+        {refreshing ? <LoadingOverlay /> : null}
+        <SwitchableCard
+          ariaLabel="Select deployment workspace view"
+          value={view}
+          options={options}
+          onChange={changeView}
+          className="flex h-full flex-col"
+          contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
+        >
+          {view === "executions" ? (
+            filteredExecutions.length ? (
+              <ScrollFade className="flex-1 rounded-t-lg">
+                <ExecutionTable rows={filteredExecutions} />
+              </ScrollFade>
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-4">
+                <EmptyPanel label="No executions match the current filters." />
+              </div>
+            )
           ) : (
-            <div className="flex flex-1 items-center justify-center p-4">
-              <EmptyPanel label="No executions match the current filters." />
-            </div>
-          )
-        ) : (
-          <DeploysetsPage
-            embedded
-            createSignal={deploysetCreateSignal}
-            onCreateSignalHandled={clearDeploysetCreateSignal}
-            search={search}
-            refreshSignal={refreshSignal}
-          />
-        )}
-      </SwitchableCard>
+            <DeploysetsPage
+              embedded
+              createSignal={deploysetCreateSignal}
+              onCreateSignalHandled={clearDeploysetCreateSignal}
+              search={search}
+              refreshSignal={refreshSignal}
+            />
+          )}
+        </SwitchableCard>
+      </div>
 
       {view !== "deploysets" ? (
         <DeploysetsPage

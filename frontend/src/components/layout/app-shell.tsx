@@ -5,12 +5,13 @@ import {
   HelpCircle,
   LibraryBig,
   Menu,
+  RefreshCcw,
   Settings,
   Play,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
@@ -70,6 +71,7 @@ const headerActions = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const routeStatus = useRouterState({ select: (state) => (state as { status?: string }).status ?? "idle" });
   const navigate = useNavigate();
   const auth = useAuth();
   const app = useAppContext();
@@ -83,6 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ? workspaceAppPath(app.workspaceId, workspaceRelativePath(pathname))
         : null
       : null;
+  const pageLoading = useMinimumPageLoading(pathname, routeStatus === "pending");
 
   useEffect(() => {
     if (auth.status !== "authenticated" || isAuthRoute || isWorkspaceSelectorRoute) {
@@ -229,9 +232,69 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-h-screen pl-[235px] pt-[60px]">
+      <main className="relative min-h-screen pl-[235px] pt-[60px]">
+        <PageLoadScreen visible={pageLoading} />
         <div className="px-9 py-6">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function useMinimumPageLoading(pathname: string, active: boolean, minimumMs = 450) {
+  const previousPathname = useRef(pathname);
+  const shownAt = useRef(0);
+  const timeoutRef = useRef<number | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const pathChanged = previousPathname.current !== pathname;
+    if (pathChanged || active) {
+      previousPathname.current = pathname;
+      shownAt.current = Date.now();
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setVisible(true);
+      return;
+    }
+
+    if (!visible) {
+      return;
+    }
+
+    const remaining = Math.max(0, minimumMs - (Date.now() - shownAt.current));
+    timeoutRef.current = window.setTimeout(() => {
+      setVisible(false);
+      timeoutRef.current = null;
+    }, remaining);
+  }, [active, minimumMs, pathname, visible]);
+
+  return visible;
+}
+
+function PageLoadScreen({ visible }: { visible: boolean }) {
+  return (
+    <div
+      aria-hidden={!visible}
+      className={cn(
+        "fixed bottom-0 right-0 top-[60px] z-20 flex items-center justify-center bg-slate-50 pl-[235px]",
+        visible ? "pointer-events-auto" : "pointer-events-none hidden",
+      )}
+      style={{ left: 0 }}
+    >
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+        <RefreshCcw className="h-4 w-4 animate-spin text-blue-600" />
+        Loading...
+      </div>
     </div>
   );
 }

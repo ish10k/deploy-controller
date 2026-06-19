@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
@@ -35,6 +35,7 @@ export function ComponentsPage({
   const [typeFilter, setTypeFilter] = useState("all");
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
+  const refreshing = useMinimumVisible(componentsQuery.isFetching && !componentsQuery.isLoading);
   const mutation = useMutation({
     mutationFn: (component: ApiComponent) => putComponent(component.componentId, component),
     onSuccess: async (component) => {
@@ -123,16 +124,20 @@ export function ComponentsPage({
         </Button>
       </div> : null}
       {embedded ? (
-        filteredComponents.length ? (
-          <Table>
-            <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
-          </Table>
-        ) : (
-          <EmptyPanel label="No components match the current filters." />
-        )
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {filteredComponents.length ? (
+            <Table>
+              <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
+            </Table>
+          ) : (
+            <EmptyPanel label="No components match the current filters." />
+          )}
+        </div>
       ) : (
-        <Card className="mt-4">
+        <Card className="relative mt-4 overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             {filteredComponents.length ? (
               <Table>
                 <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />

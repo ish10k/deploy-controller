@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw, Search, ShieldCheck, UserRound } from "lucide-react";
 
-import { PageHeader } from "@/components/common/api-state";
+import { LoadingOverlay, PageHeader } from "@/components/common/api-state";
 import { RolesPage } from "@/components/pages/roles-page";
 import { UsersPage } from "@/components/pages/users-page";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export function AuthPage({ initialView = "users" }: { initialView?: AuthView } =
   const [userCreateSignal, setUserCreateSignal] = useState(0);
   const [roleCreateSignal, setRoleCreateSignal] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const options: SwitchableCardOption<AuthView>[] = [
     { value: "users", label: "Users" },
@@ -30,6 +31,19 @@ export function AuthPage({ initialView = "users" }: { initialView?: AuthView } =
     }
     setView(nextView);
   };
+  const refresh = () => {
+    setRefreshing(true);
+    setRefreshSignal((value) => value + 1);
+  };
+
+  useEffect(() => {
+    if (!refreshing) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setRefreshing(false), 350);
+    return () => window.clearTimeout(timeout);
+  }, [refreshing, refreshSignal]);
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -37,7 +51,7 @@ export function AuthPage({ initialView = "users" }: { initialView?: AuthView } =
         title="Users"
         subtitle="Human principals and RBAC role definitions."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {canCreateUsers(auth.user) ? (
               <Button className="px-4" onClick={() => {
                 setView("users");
@@ -65,26 +79,29 @@ export function AuthPage({ initialView = "users" }: { initialView?: AuthView } =
           <Search className="h-4 w-4 text-slate-400" />
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
         </div>
-        <Button variant="outline" onClick={() => setRefreshSignal((value) => value + 1)}>
+        <Button variant="outline" onClick={refresh}>
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
       </div>
 
-      <SwitchableCard
-        ariaLabel="Select auth view"
-        value={view}
-        options={options}
-        onChange={changeView}
-        className="mt-5 flex-1"
-        contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
-      >
-        {view === "users" ? (
-          <UsersPage embedded createSignal={userCreateSignal} search={search} refreshSignal={refreshSignal} />
-        ) : (
-          <RolesPage embedded createSignal={roleCreateSignal} search={search} refreshSignal={refreshSignal} />
-        )}
-      </SwitchableCard>
+      <div className="relative mt-5 flex-1">
+        {refreshing ? <LoadingOverlay /> : null}
+        <SwitchableCard
+          ariaLabel="Select auth view"
+          value={view}
+          options={options}
+          onChange={changeView}
+          className="flex h-full flex-col"
+          contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
+        >
+          {view === "users" ? (
+            <UsersPage embedded createSignal={userCreateSignal} search={search} refreshSignal={refreshSignal} />
+          ) : (
+            <RolesPage embedded createSignal={roleCreateSignal} search={search} refreshSignal={refreshSignal} />
+          )}
+        </SwitchableCard>
+      </div>
     </div>
   );
 }

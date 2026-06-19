@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, RefreshCw, Search } from "lucide-react";
 
-import { PageHeader } from "@/components/common/api-state";
+import { LoadingOverlay, PageHeader } from "@/components/common/api-state";
 import { ComponentSetsPage } from "@/components/pages/component-sets-page";
 import { ComponentsPage } from "@/components/pages/components-page";
 import { ReleasesPage } from "@/components/pages/releases-page";
@@ -17,6 +17,7 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
   const [componentSetSignal, setComponentSetSignal] = useState(0);
   const [releaseSignal, setReleaseSignal] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const options: SwitchableCardOption<RegistryView>[] = [
@@ -45,6 +46,19 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
     }
     setView(nextView);
   };
+  const refresh = () => {
+    setRefreshing(true);
+    setRefreshSignal((value) => value + 1);
+  };
+
+  useEffect(() => {
+    if (!refreshing) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setRefreshing(false), 350);
+    return () => window.clearTimeout(timeout);
+  }, [refreshing, refreshSignal]);
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -105,46 +119,49 @@ export function RegistryPage({ initialView = "releases" }: { initialView?: Regis
           <Search className="h-4 w-4 text-slate-400" />
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
         </div>
-        <Button variant="outline" onClick={() => setRefreshSignal((value) => value + 1)}>
+        <Button variant="outline" onClick={refresh}>
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
       </div>
 
-      <SwitchableCard
-        ariaLabel="Select registry view"
-        value={view}
-        options={options}
-        onChange={changeView}
-        className="mt-5 flex-1"
-        contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
-      >
-        {view === "components" ? (
-          <ComponentsPage embedded createSignal={componentSignal} search={search} refreshSignal={refreshSignal} />
-        ) : view === "component-sets" ? (
-          <ComponentSetsPage
-            embedded
-            createSignal={componentSetSignal}
-            search={search}
-            refreshSignal={refreshSignal}
-            onCreateComponent={() => {
-              setView("components");
-              setComponentSignal((value) => value + 1);
-            }}
-          />
-        ) : (
-          <ReleasesPage
-            embedded
-            createSignal={releaseSignal}
-            search={search}
-            refreshSignal={refreshSignal}
-            onCreateComponent={() => {
-              setView("components");
-              setComponentSignal((value) => value + 1);
-            }}
-          />
-        )}
-      </SwitchableCard>
+      <div className="relative mt-5 flex-1">
+        {refreshing ? <LoadingOverlay /> : null}
+        <SwitchableCard
+          ariaLabel="Select registry view"
+          value={view}
+          options={options}
+          onChange={changeView}
+          className="flex h-full flex-col"
+          contentClassName="min-h-0 flex-1 overflow-auto px-4 pb-4"
+        >
+          {view === "components" ? (
+            <ComponentsPage embedded createSignal={componentSignal} search={search} refreshSignal={refreshSignal} />
+          ) : view === "component-sets" ? (
+            <ComponentSetsPage
+              embedded
+              createSignal={componentSetSignal}
+              search={search}
+              refreshSignal={refreshSignal}
+              onCreateComponent={() => {
+                setView("components");
+                setComponentSignal((value) => value + 1);
+              }}
+            />
+          ) : (
+            <ReleasesPage
+              embedded
+              createSignal={releaseSignal}
+              search={search}
+              refreshSignal={refreshSignal}
+              onCreateComponent={() => {
+                setView("components");
+                setComponentSignal((value) => value + 1);
+              }}
+            />
+          )}
+        </SwitchableCard>
+      </div>
     </div>
   );
 }

@@ -9,11 +9,12 @@ import {
   KeyRound,
   Plus,
   Rocket,
+  RefreshCcw,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,7 @@ export function UsersPage({
     queryFn: listRoles,
     enabled: canView,
   });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createPrincipal,
     onSuccess: async (principal) => {
@@ -171,16 +173,20 @@ export function UsersPage({
       ) : null}
 
       {embedded ? (
-        users.length ? (
-          <Table>
-            <UsersTableContent users={users} />
-          </Table>
-        ) : (
-          <div className="px-3 py-10 text-center text-sm text-slate-500">No users found.</div>
-        )
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {users.length ? (
+            <Table>
+              <UsersTableContent users={users} />
+            </Table>
+          ) : (
+            <div className="px-3 py-10 text-center text-sm text-slate-500">No users found.</div>
+          )}
+        </div>
       ) : (
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             {users.length ? (
               <Table>
                 <UsersTableContent users={users} />
@@ -332,12 +338,18 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
         title={`User: ${principal.displayName}`}
         subtitle="User identity, permissions, and related control-plane activity."
         action={
-          <Link to="/users">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to users
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void query.refetch()}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
+            <Link to="/users">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to users
+              </Button>
+            </Link>
+          </div>
         }
       />
 

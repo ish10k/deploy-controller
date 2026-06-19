@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCheck, Copy, Plus, Search, X } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, useMinimumVisible } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
@@ -94,6 +94,7 @@ export function DeploysetsPage({
   const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
   const environmentStateQuery = useQuery({ queryKey: queryKeys.environmentState, queryFn: listEnvironmentState });
   const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
+  const refreshing = useMinimumVisible(deploysetsQuery.isFetching && !deploysetsQuery.isLoading);
 
   const createMutation = useMutation({
     mutationFn: createDeployset,
@@ -267,18 +268,22 @@ export function DeploysetsPage({
       </div> : null}
 
       {embedded ? (
-        filteredDeploysets.length ? (
-          <ScrollFade className="flex-1 rounded-t-lg">
-            <DeploysetsTable rows={filteredDeploysets} />
-          </ScrollFade>
-        ) : (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <EmptyPanel label="No DeploySets match the current filters." />
-          </div>
-        )
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {filteredDeploysets.length ? (
+            <ScrollFade className="flex-1 rounded-t-lg">
+              <DeploysetsTable rows={filteredDeploysets} />
+            </ScrollFade>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-4">
+              <EmptyPanel label="No DeploySets match the current filters." />
+            </div>
+          )}
+        </div>
       ) : (
-        <Card className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Card className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
+            {refreshing ? <LoadingOverlay /> : null}
             {filteredDeploysets.length ? (
               <ScrollFade className="flex-1 rounded-t-lg">
                 <DeploysetsTable rows={filteredDeploysets} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, FileText, GitCommitHorizontal, Package, Server, Tag } from "lucide-react";
+import { ArrowLeft, Boxes, CalendarClock, FileText, GitCommitHorizontal, Package, RefreshCcw, Server, Tag } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { ReleaseDrawer } from "@/components/pages/releases-page";
@@ -27,15 +27,14 @@ export function ComponentDetailsPage({ componentId }: { componentId: string }) {
     },
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading component details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.component) return <EmptyPanel label={`Component ${componentId} was not found.`} />;
 
-  return <ComponentDetailsView component={query.data.component} releases={query.data.releases} />;
+  return <ComponentDetailsView component={query.data.component} releases={query.data.releases} onRefresh={() => query.refetch()} />;
 }
 
-function ComponentDetailsView({ component, releases }: { component: ApiComponent; releases: ApiRelease[] }) {
+function ComponentDetailsView({ component, releases, onRefresh }: { component: ApiComponent; releases: ApiRelease[]; onRefresh: () => Promise<unknown> }) {
   const queryClient = useQueryClient();
   const navigate = useWorkspaceNavigate();
   const [releaseOpen, setReleaseOpen] = useState(false);
@@ -63,7 +62,14 @@ function ComponentDetailsView({ component, releases }: { component: ApiComponent
         title={`Component: ${component.componentId}`}
         subtitle="Component metadata, release history, and delivery context."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void onRefresh()}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Button className="px-4" onClick={() => setReleaseOpen(true)}>
               <GitCommitHorizontal className="h-4 w-4" />
               Release

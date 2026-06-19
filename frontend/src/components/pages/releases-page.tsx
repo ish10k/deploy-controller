@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
@@ -38,6 +38,7 @@ export function ReleasesPage({
   const query = useQuery({ queryKey: queryKeys.releases(componentFilter || undefined), queryFn: () => listReleases(componentFilter || undefined) });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const allReleasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createRelease,
     onSuccess: async (release) => {
@@ -134,16 +135,20 @@ export function ReleasesPage({
         <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />
       ) : releases.length ? (
         embedded ? (
-          filteredReleases.length ? (
-            <Table>
-              <ReleasesTableContent rows={filteredReleases} />
-            </Table>
-          ) : (
-            <EmptyPanel label="No releases match the current filters." />
-          )
+          <div className="relative">
+            {refreshing ? <LoadingOverlay /> : null}
+            {filteredReleases.length ? (
+              <Table>
+                <ReleasesTableContent rows={filteredReleases} />
+              </Table>
+            ) : (
+              <EmptyPanel label="No releases match the current filters." />
+            )}
+          </div>
         ) : (
-          <Card className="mt-4">
+          <Card className="relative mt-4 overflow-hidden">
             <CardContent className="p-3">
+              {refreshing ? <LoadingOverlay /> : null}
               {filteredReleases.length ? (
                 <Table>
                   <ReleasesTableContent rows={filteredReleases} />

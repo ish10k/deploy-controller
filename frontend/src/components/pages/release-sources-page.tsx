@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, KeyRound, Plus, RefreshCw, Search, Tag, UserRound, Webhook } from "lucide-react";
+import { ArrowLeft, CalendarClock, KeyRound, Plus, RefreshCw, RefreshCcw, Search, Tag, UserRound, Webhook } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +53,7 @@ export function ReleaseSourcesPage() {
   const query = useQuery({ queryKey: queryKeys.releaseSources, queryFn: listReleaseSources });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createReleaseSource,
     onSuccess: async (result) => {
@@ -116,8 +117,9 @@ export function ReleaseSourcesPage() {
       ) : query.error ? (
         <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />
       ) : releaseSources.length ? (
-        <Card className="mt-4">
+        <Card className="relative mt-4 overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             {filteredReleaseSources.length ? (
               <Table>
                 <TableHeader>
@@ -200,7 +202,6 @@ export function ReleaseSourceDetailsPage({ releaseSourceId }: { releaseSourceId:
     },
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading release source details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.releaseSource) return <EmptyPanel label={`Release source ${releaseSourceId} was not found.`} />;
@@ -211,6 +212,7 @@ export function ReleaseSourceDetailsPage({ releaseSourceId }: { releaseSourceId:
       components={query.data.components}
       componentSets={query.data.componentSets}
       releases={query.data.releases}
+      onRefresh={() => query.refetch()}
       onInvalidate={async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.releaseSource(releaseSourceId) }),
@@ -227,12 +229,14 @@ function ReleaseSourceDetailsView({
   componentSets,
   releases,
   onInvalidate,
+  onRefresh,
 }: {
   releaseSource: ApiReleaseSource;
   components: ApiComponent[];
   componentSets: ApiComponentSet[];
   releases: ApiRelease[];
   onInvalidate: () => Promise<void>;
+  onRefresh: () => Promise<unknown>;
 }) {
   const auth = useAuth();
   const canManage = canManageReleaseSources(auth.user);
@@ -267,7 +271,11 @@ function ReleaseSourceDetailsView({
         title={`Release Source: ${releaseSource.displayName || releaseSource.releaseSourceId}`}
         subtitle="Release source identity, publishing scope, token state, and scoped releases."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void onRefresh()}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             {canManage ? (
               <Button variant="outline" disabled={rotateMutation.isPending} onClick={() => rotateMutation.mutate(releaseSource.releaseSourceId)}>
                 <RefreshCw className="h-4 w-4" />
@@ -451,7 +459,7 @@ function ReleaseSourceDrawer({
       footer={
         <>
           <p className="text-xs text-slate-500">The raw token is only displayed once after creation.</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>

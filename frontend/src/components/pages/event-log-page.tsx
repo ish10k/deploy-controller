@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Filter, RefreshCcw } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { JsonDetail } from "@/components/common/json-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ export function EventLogPage() {
   const [draft, setDraft] = useState<EventLogFilterDraft>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<EventLogFilterDraft>(EMPTY_FILTERS);
   const [selected, setSelected] = useState<ApiEventLogEntry | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const filters = useMemo<EventLogFilters>(() => ({ ...applied, limit: 100 }), [applied]);
   const query = useQuery({
     queryKey: queryKeys.events(filters),
@@ -69,6 +70,23 @@ export function EventLogPage() {
   }
 
   const events = query.data?.events ?? [];
+  const refresh = async () => {
+    if (refreshing) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    setRefreshing(true);
+    try {
+      await query.refetch();
+    } finally {
+      const remaining = 350 - (Date.now() - startedAt);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+      setRefreshing(false);
+    }
+  };
 
   return (
     <>
@@ -76,7 +94,7 @@ export function EventLogPage() {
         title="Audit"
         subtitle="Durable user, service, and system events."
         action={
-          <Button type="button" variant="outline" onClick={() => query.refetch()}>
+          <Button type="button" variant="outline" onClick={() => void refresh()}>
             <RefreshCcw className="h-4 w-4" />
             Refresh
           </Button>
@@ -124,8 +142,9 @@ export function EventLogPage() {
       </Card>
 
       {events.length ? (
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             <Table>
               <TableHeader>
                 <TableRow>

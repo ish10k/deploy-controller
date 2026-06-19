@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, Rocket, Server, Tag, UserRound } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Boxes, CalendarClock, FileText, GitBranch, Layers3, PackageCheck, RefreshCcw, Rocket, Server, Tag, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
@@ -42,7 +42,6 @@ export function DeploySetDetailsPage({ deploySetId }: { deploySetId: string }) {
     },
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading DeploySet details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.deployset) return <EmptyPanel label={`DeploySet ${deploySetId} was not found.`} />;
@@ -53,6 +52,7 @@ export function DeploySetDetailsPage({ deploySetId }: { deploySetId: string }) {
       componentCount={query.data.componentSet?.components.length ?? query.data.deployset.items.length}
       activeEnvironments={query.data.activeEnvironments}
       relatedExecutions={query.data.relatedExecutions}
+      onRefresh={() => query.refetch()}
     />
   );
 }
@@ -62,12 +62,15 @@ function DeploySetDetailsView({
   componentCount,
   activeEnvironments,
   relatedExecutions,
+  onRefresh,
 }: {
   deployset: ApiDeploySet;
   componentCount: number;
   activeEnvironments: Awaited<ReturnType<typeof listEnvironmentState>>;
   relatedExecutions: Awaited<ReturnType<typeof listDeploymentExecutions>>;
+  onRefresh: () => Promise<unknown>;
 }) {
+  const queryClient = useQueryClient();
   const [deployOpen, setDeployOpen] = useState(false);
   const explicitCount = deployset.items.filter((item) => item.source === "explicit").length;
   const inferredCount = deployset.items.filter((item) => item.source === "inferred").length;
@@ -78,7 +81,14 @@ function DeploySetDetailsView({
         title={`DeploySet: ${deployset.deploySetId}`}
         subtitle="Desired component-version state, lineage, and current runtime usage."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void onRefresh()}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
             <Button className="px-4" onClick={() => setDeployOpen(true)}>
               <Rocket className="h-4 w-4" />
               Deploy
@@ -104,7 +114,7 @@ function DeploySetDetailsView({
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>Component versions</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Badge variant="blue">{explicitCount} explicit</Badge>
               <Badge variant={inferredCount ? "slate" : "green"}>{inferredCount} inherited</Badge>
             </div>

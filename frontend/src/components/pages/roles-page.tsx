@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Save, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Plus, RefreshCcw, Save, ShieldCheck } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,7 @@ export function RolesPage({
   const canView = canViewRoles(auth.user);
   const canChange = canChangeRoles(auth.user);
   const query = useQuery({ queryKey: queryKeys.roles, queryFn: listRoles, enabled: canView });
+  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: (role: ApiRole) => putRole(role.roleId, role),
     onSuccess: async (role) => {
@@ -128,16 +129,20 @@ export function RolesPage({
       ) : null}
 
       {embedded ? (
-        roles.length ? (
-          <Table>
-            <RolesTableContent roles={roles} />
-          </Table>
-        ) : (
-          <EmptyPanel label="No roles found." />
-        )
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {roles.length ? (
+            <Table>
+              <RolesTableContent roles={roles} />
+            </Table>
+          ) : (
+            <EmptyPanel label="No roles found." />
+          )}
+        </div>
       ) : (
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-3">
+            {refreshing ? <LoadingOverlay /> : null}
             {roles.length ? (
               <Table>
                 <RolesTableContent roles={roles} />
@@ -209,7 +214,14 @@ export function RoleDetailsPage({ roleId }: { roleId: string }) {
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data) return <EmptyPanel label={`Role ${roleId} was not found.`} />;
 
-  return <RoleEditor role={query.data} canChange={canChange && query.data.permissionsEditable} pending={mutation.isPending} onSubmit={(role) => mutation.mutate(role)} />;
+  return (
+    <RoleEditor
+      role={query.data}
+      canChange={canChange && query.data.permissionsEditable}
+      pending={mutation.isPending}
+      onSubmit={(role) => mutation.mutate(role)}
+    />
+  );
 }
 
 function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; canChange: boolean; pending: boolean; onSubmit: (role: ApiRole) => void }) {
@@ -229,12 +241,18 @@ function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; can
         title={`Role: ${role.roleId}`}
         subtitle={role.system ? "System role definition." : "Custom role definition."}
         action={
-          <Link to="/roles">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to roles
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void query.refetch()}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
+            <Link to="/roles">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to roles
+              </Button>
+            </Link>
+          </div>
         }
       />
 

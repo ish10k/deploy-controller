@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Boxes, CalendarClock, FileText, Layers3, PackageCheck, Tag, UserRound } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Boxes, CalendarClock, FileText, Layers3, PackageCheck, RefreshCcw, Tag, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
@@ -26,27 +26,37 @@ export function ComponentSetDetailsPage({ componentSetId }: { componentSetId: st
     },
     retry: 1,
   });
-
   if (query.isLoading) return <LoadingPanel label="Loading component set details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.componentSet) return <EmptyPanel label={`Component Set ${componentSetId} was not found.`} />;
 
-  return <ComponentSetDetailsView componentSet={query.data.componentSet} relatedDeploysets={query.data.relatedDeploysets} />;
+  return <ComponentSetDetailsView componentSet={query.data.componentSet} relatedDeploysets={query.data.relatedDeploysets} onRefresh={() => query.refetch()} />;
 }
 
-function ComponentSetDetailsView({ componentSet, relatedDeploysets }: { componentSet: ApiComponentSet; relatedDeploysets: ApiDeploySet[] }) {
+function ComponentSetDetailsView({ componentSet, relatedDeploysets, onRefresh }: { componentSet: ApiComponentSet; relatedDeploysets: ApiDeploySet[]; onRefresh: () => Promise<unknown> }) {
+  const queryClient = useQueryClient();
+
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
         title={`Component Set: ${componentSet.componentSetId}`}
         subtitle="Component membership, metadata, and DeploySet usage."
         action={
-          <Link to="/component-sets">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to component sets
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void onRefresh()}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
+            <Link to="/component-sets">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to component sets
+              </Button>
+            </Link>
+          </div>
         }
       />
 
