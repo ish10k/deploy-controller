@@ -41,6 +41,7 @@ class ReportedAction(StrEnum):
 
 class ItemStatus(StrEnum):
     PENDING = "pending"
+    CLAIMED = "claimed"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
@@ -95,8 +96,8 @@ class Permission(StrEnum):
     EXECUTIONS_CLAIM = "executions:claim"
     EXECUTIONS_REPORT_STATUS = "executions:report_status"
     DEPLOYMENT_RUNNERS_WRITE = "deployment_runners:write"
-    RELEASE_SOURCES_WRITE = "release_sources:write"
-    RELEASE_SOURCES_PUBLISH = "release_sources:publish"
+    PUBLISHERS_WRITE = "publishers:write"
+    PUBLISHERS_PUBLISH = "publishers:publish"
     PRINCIPALS_READ = "principals:read"
     PRINCIPALS_WRITE = "principals:write"
     ROLES_READ = "roles:read"

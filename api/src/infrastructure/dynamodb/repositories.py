@@ -20,7 +20,7 @@ from src.domain.models import (
     OrganizationMembership,
     Principal,
     Release,
-    ReleaseSource,
+    Publisher,
     Role,
     Workspace,
     WorkspaceMembership,
@@ -149,16 +149,16 @@ class DynamoReleaseRepository:
         return [Release.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
 
 
-class DynamoReleaseSourceRepository:
+class DynamoPublisherRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource | None:
-        item = self.table.get_item(Key={"releaseSourceId": release_source_id}).get("Item")
-        return ReleaseSource.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
-    def list(self, workspace_id: str = "default") -> list[ReleaseSource]:
-        return [ReleaseSource.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
-    def put(self, release_source: ReleaseSource) -> None:
-        self.table.put_item(Item=_dump(release_source))
+    def get(self, publisher_id: str, workspace_id: str = "default") -> Publisher | None:
+        item = self.table.get_item(Key={"publisherId": publisher_id}).get("Item")
+        return Publisher.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[Publisher]:
+        return [Publisher.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
+    def put(self, publisher: Publisher) -> None:
+        self.table.put_item(Item=_dump(publisher))
 
 
 class DynamoDeploySetRepository:
@@ -298,7 +298,7 @@ class DynamoDeploymentExecutionRepository:
         return [
             DeploymentExecution.model_validate(item)
             for item in items
-            if item.get("status") == ExecutionStatus.PENDING and item.get("workspaceId", "default") == workspace_id
+            if item.get("status") in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING} and item.get("workspaceId", "default") == workspace_id
         ]
 
 

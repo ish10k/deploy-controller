@@ -7,7 +7,7 @@ export const USER_PERMISSIONS = {
   viewRoles: "roles:read",
   changeRoles: "roles:write",
   cancelDeployments: "deployments:cancel",
-  manageReleaseSources: "release_sources:write",
+  managePublishers: "publishers:write",
   viewWebhooks: "webhooks:read",
   manageWebhooks: "webhooks:write",
   viewWebhookDeliveries: "webhook_deliveries:read",
@@ -39,8 +39,8 @@ export function canCancelDeployments(user: ApiWhoAmI | null | undefined) {
   return hasPermission(user, USER_PERMISSIONS.cancelDeployments);
 }
 
-export function canManageReleaseSources(user: ApiWhoAmI | null | undefined) {
-  return hasPermission(user, USER_PERMISSIONS.manageReleaseSources);
+export function canManagePublishers(user: ApiWhoAmI | null | undefined) {
+  return hasPermission(user, USER_PERMISSIONS.managePublishers);
 }
 
 export function canViewWebhooks(user: ApiWhoAmI | null | undefined) {

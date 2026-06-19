@@ -5,7 +5,7 @@ from typing import Any
 from src.application.use_cases.roles import normalize_roles, permissions_for_roles
 from src.domain.enums import PrincipalType
 from src.domain.errors import UnauthorizedError
-from src.domain.models import AuthContext, DeploymentRunner, Principal, ReleaseSource, Role
+from src.domain.models import AuthContext, DeploymentRunner, Principal, Publisher, Role
 
 
 def hash_token(token: str) -> str:
@@ -27,14 +27,14 @@ def service_claims_for_principal(
     *,
     principal: Principal,
     runners: list[DeploymentRunner],
-    release_sources: list[ReleaseSource],
+    publishers: list[Publisher],
 ) -> dict[str, object]:
     for runner in runners:
         if runner.principal_id == principal.principal_id:
             return {"runnerId": runner.runner_id}
-    for release_source in release_sources:
-        if release_source.principal_id == principal.principal_id:
-            return {"releaseSourceId": release_source.release_source_id}
+    for publisher in publishers:
+        if publisher.principal_id == principal.principal_id:
+            return {"publisherId": publisher.publisher_id}
     return {}
 
 
@@ -43,7 +43,7 @@ def require_pat_context(
     token: str,
     principals: list[Principal],
     runners: list[DeploymentRunner],
-    release_sources: list[ReleaseSource],
+    publishers: list[Publisher],
     roles: list[Role] | None = None,
 ) -> AuthContext:
     token_hash = hash_token(token)
@@ -53,12 +53,12 @@ def require_pat_context(
             if principal is None or not principal.active or principal.type != PrincipalType.SERVICE or principal.auth_method != "pat":
                 raise UnauthorizedError("PAT principal is inactive or not registered.")
             return auth_context_for_principal(principal, {"runnerId": runner.runner_id}, roles)
-    for release_source in release_sources:
-        if release_source.token_hash == token_hash:
-            principal = next((item for item in principals if item.principal_id == release_source.principal_id), None)
+    for publisher in publishers:
+        if publisher.token_hash == token_hash:
+            principal = next((item for item in principals if item.principal_id == publisher.principal_id), None)
             if principal is None or not principal.active or principal.type != PrincipalType.SERVICE or principal.auth_method != "pat":
                 raise UnauthorizedError("PAT principal is inactive or not registered.")
-            return auth_context_for_principal(principal, {"releaseSourceId": release_source.release_source_id}, roles)
+            return auth_context_for_principal(principal, {"publisherId": publisher.publisher_id}, roles)
     raise UnauthorizedError("Invalid PAT token.")
 
 

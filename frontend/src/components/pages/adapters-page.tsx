@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarClock, Clock3, KeyRound, Plus, Radio, RefreshCw, RefreshCcw, Server, Tag, UserRound } from "lucide-react";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
@@ -16,12 +16,14 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
+import { KeyValueDraftEditor } from "@/components/ui/key-value-draft-editor";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import {
   createDeploymentRunner,
+  listComponents,
   getDeploymentRunner,
   listComponentSets,
   listDeploymentRunners,
@@ -30,7 +32,7 @@ import {
   queryKeys,
   rotateDeploymentRunnerToken,
   type ApiComponentSet,
-  type ApiDeploymentExecution,
+  type ApiDeploymentExecutionItem,
   type ApiDeploymentRunner,
   type ApiDeploymentRunnerCreateRequest,
   type ApiEnvironment,
@@ -46,6 +48,7 @@ export function DeploymentRunnersPage() {
   const query = useQuery({ queryKey: queryKeys.deploymentRunners, queryFn: listDeploymentRunners });
   const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
   const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
+  const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createDeploymentRunner,
@@ -132,6 +135,7 @@ export function DeploymentRunnersPage() {
       <DeploymentRunnerDrawer
         environments={environmentsQuery.data ?? []}
         componentSets={componentSetsQuery.data ?? []}
+        components={componentsQuery.data ?? []}
         open={open}
         onClose={() => {
           setOpen(false);
@@ -147,6 +151,7 @@ export function DeploymentRunnersPage() {
 function DeploymentRunnerDrawer({
   environments,
   componentSets,
+  components,
   open,
   onClose,
   onSubmit,
@@ -154,6 +159,7 @@ function DeploymentRunnerDrawer({
 }: {
   environments: ApiEnvironment[];
   componentSets: ApiComponentSet[];
+  components: { componentId: string; type: string | null; tags: Record<string, string> }[];
   open: boolean;
   onClose: () => void;
   onSubmit: (runner: ApiDeploymentRunnerCreateRequest) => void;
@@ -165,8 +171,14 @@ function DeploymentRunnerDrawer({
   const [active, setActive] = useState(true);
   const [environmentIds, setEnvironmentIds] = useState<string[]>([]);
   const [componentSetIds, setComponentSetIds] = useState<string[]>([]);
+  const [componentIds, setComponentIds] = useState<string[]>([]);
+  const [componentTypes, setComponentTypes] = useState<string[]>([]);
+  const [componentTags, setComponentTags] = useState<TagDraft[]>([createTagDraft()]);
+  const [environmentTags, setEnvironmentTags] = useState<TagDraft[]>([createTagDraft()]);
+  const [maxConcurrentClaims, setMaxConcurrentClaims] = useState(1);
   const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const tagsError = validateTagDrafts(tags);
+  const scopeTagsError = validateTagDrafts(componentTags) || validateTagDrafts(environmentTags);
   const trimmedRunnerId = runnerId.trim();
   const trimmedDisplayName = displayName.trim();
 
@@ -190,6 +202,11 @@ function DeploymentRunnerDrawer({
       scope: {
         environmentIds,
         componentSetIds,
+        componentIds,
+        componentTypes,
+        componentTags: tagsToRecord(componentTags),
+        environmentTags: tagsToRecord(environmentTags),
+        maxConcurrentClaims,
       },
       webhookId: webhookId.trim() || null,
       tags: tagsToRecord(tags),
@@ -210,7 +227,7 @@ function DeploymentRunnerDrawer({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button disabled={pending || !trimmedRunnerId || !trimmedDisplayName || Boolean(tagsError)} onClick={submit}>
+            <Button disabled={pending || !trimmedRunnerId || !trimmedDisplayName || Boolean(tagsError) || Boolean(scopeTagsError)} onClick={submit}>
               {pending ? "Creating..." : "Create runner"}
             </Button>
           </div>
@@ -237,22 +254,52 @@ function DeploymentRunnerDrawer({
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">Scope</h3>
-          <p className="mt-1 text-sm text-slate-500">Choose allowed environments and component sets. Leave a group empty to allow all values in that group.</p>
-          <div className="mt-4 grid gap-5 md:grid-cols-2">
-            <CheckboxGroup
+          <p className="mt-1 text-sm text-slate-500">Choose any mix of selector groups. Leave a group empty to allow any value in that group.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <ScopeSelector
               title="Environments"
-              emptyLabel="No environments registered."
+              emptyLabel="Any"
               values={environments.map((environment) => environment.environmentId)}
               selected={environmentIds}
               onToggle={(value) => toggleValue(value, environmentIds, setEnvironmentIds)}
             />
-            <CheckboxGroup
+            <ScopeSelector
               title="Component Sets"
-              emptyLabel="No component sets registered."
+              emptyLabel="Any"
               values={componentSets.map((componentSet) => componentSet.componentSetId)}
               selected={componentSetIds}
               onToggle={(value) => toggleValue(value, componentSetIds, setComponentSetIds)}
             />
+            <ScopeSelector
+              title="Components"
+              emptyLabel="Any"
+              values={components.map((component) => component.componentId)}
+              selected={componentIds}
+              onToggle={(value) => toggleValue(value, componentIds, setComponentIds)}
+            />
+            <ScopeSelector
+              title="Component Types"
+              emptyLabel="Any"
+              values={[...new Set(components.map((component) => component.type).filter((type): type is string => Boolean(type)))]}
+              selected={componentTypes}
+              onToggle={(value) => toggleValue(value, componentTypes, setComponentTypes)}
+            />
+            <div className="md:col-span-2">
+              <ScopeTagEditor title="Component Tags" tags={componentTags} onChange={setComponentTags} />
+            </div>
+            <div className="md:col-span-2">
+              <ScopeTagEditor title="Environment Tags" tags={environmentTags} onChange={setEnvironmentTags} />
+            </div>
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              Max concurrent claims
+              <Input
+                type="number"
+                min={1}
+                className="w-32"
+                value={maxConcurrentClaims}
+                onChange={(event) => setMaxConcurrentClaims(Math.max(1, Number(event.target.value) || 1))}
+              />
+            </label>
           </div>
         </section>
 
@@ -286,7 +333,7 @@ function DeploymentRunnerDrawer({
   );
 }
 
-function CheckboxGroup({
+function ScopeSelector({
   title,
   emptyLabel,
   values,
@@ -303,7 +350,7 @@ function CheckboxGroup({
     <div>
       <div className="mb-2 text-sm font-semibold text-slate-800">{title}</div>
       {values.length ? (
-        <div className="max-h-52 space-y-2 overflow-y-auto rounded-lg bg-slate-50 p-3">
+        <div className="max-h-52 space-y-2 overflow-y-auto">
           {values.map((value) => (
             <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
               <input className="h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={selected.includes(value)} onChange={() => onToggle(value)} />
@@ -312,9 +359,15 @@ function CheckboxGroup({
           ))}
         </div>
       ) : (
-        <div className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">{emptyLabel}</div>
+        <div className="px-0 py-1 text-sm text-slate-500">{emptyLabel}</div>
       )}
-      <div className="mt-2 text-xs font-medium text-slate-500">{selected.length ? `${selected.length} selected` : "All allowed"}</div>
+      {selected.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {selected.map((value) => (
+            <ScopeChip key={value}>{value}</ScopeChip>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -324,8 +377,8 @@ export function DeploymentRunnerDetailsPage({ runnerId }: { runnerId: string }) 
   const query = useQuery({
     queryKey: [...queryKeys.deploymentRunners, runnerId],
     queryFn: async () => {
-      const [runner, pendingExecutions] = await Promise.all([getDeploymentRunner(runnerId), listPendingRunnerExecutions(runnerId)]);
-      return { runner, pendingExecutions };
+      const [runner, pendingItems] = await Promise.all([getDeploymentRunner(runnerId), listPendingRunnerExecutions(runnerId)]);
+      return { runner, pendingItems };
     },
     retry: 1,
   });
@@ -337,7 +390,7 @@ export function DeploymentRunnerDetailsPage({ runnerId }: { runnerId: string }) 
   return (
     <DeploymentRunnerDetailsView
       runner={query.data.runner}
-      pendingExecutions={query.data.pendingExecutions}
+      pendingItems={query.data.pendingItems}
       onInvalidate={async () => {
         await queryClient.invalidateQueries({ queryKey: [...queryKeys.deploymentRunners, runnerId] });
         await queryClient.invalidateQueries({ queryKey: queryKeys.deploymentRunners });
@@ -348,11 +401,11 @@ export function DeploymentRunnerDetailsPage({ runnerId }: { runnerId: string }) 
 
 function DeploymentRunnerDetailsView({
   runner,
-  pendingExecutions,
+  pendingItems,
   onInvalidate,
 }: {
   runner: ApiDeploymentRunner;
-  pendingExecutions: ApiDeploymentExecution[];
+  pendingItems: ApiDeploymentExecutionItem[];
   onInvalidate: () => Promise<void>;
 }) {
   const toast = useToast();
@@ -373,7 +426,7 @@ function DeploymentRunnerDetailsView({
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
         title={`Deployment Runner: ${runner.runnerId}`}
-        subtitle="Deployment runner identity, scope, heartbeat, and pending execution queue."
+        subtitle="Deployment runner identity, scope, heartbeat, and claimable component queue."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => void onInvalidate()}>
@@ -396,7 +449,7 @@ function DeploymentRunnerDetailsView({
 
       <div className="grid shrink-0 grid-cols-4 gap-4">
         <FactCard icon={Radio} label="Status" value={runner.active ? "Active" : "Inactive"} sublabel="Registration state" />
-        <FactCard icon={Server} label="Pending Executions" value={String(pendingExecutions.length)} sublabel="Currently claimable" />
+        <FactCard icon={Server} label="Pending Items" value={String(pendingItems.length)} sublabel="Currently claimable" />
         <FactCard icon={Clock3} label="Last Heartbeat" value={formatRelativeTime(runner.lastHeartbeatAt, { mode: "short" })} sublabel="Runner-reported timestamp" />
         <FactCard icon={KeyRound} label="Token Prefix" value={runner.tokenPrefix ?? "None"} sublabel={runner.tokenRotatedAt ? `Rotated ${formatRelativeTime(runner.tokenRotatedAt, { mode: "short" })}` : "Not rotated"} />
       </div>
@@ -404,47 +457,49 @@ function DeploymentRunnerDetailsView({
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_400px] gap-4">
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
-            <CardTitle>Pending executions</CardTitle>
+            <CardTitle>Pending items</CardTitle>
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {pendingExecutions.length ? (
+            {pendingItems.length ? (
               <ScrollFade className="h-full" contentClassName="px-4 pb-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Execution</TableHead>
-                      <TableHead>DeploySet</TableHead>
+                      <TableHead>Component</TableHead>
                       <TableHead>Environment</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Items</TableHead>
+                      <TableHead>Component Set</TableHead>
+                      <TableHead>Version</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingExecutions.map((execution) => (
-                      <TableRow key={execution.deploymentExecutionId}>
+                    {pendingItems.map((item) => (
+                      <TableRow key={`${item.deploymentExecutionId}:${item.componentId}`}>
                         <TableCell>
                           <EntityLink
                             kind="deployment"
                             to="/deployments/$deploymentExecutionId"
-                            params={{ deploymentExecutionId: execution.deploymentExecutionId }}
+                            params={{ deploymentExecutionId: item.deploymentExecutionId }}
                           >
-                            {execution.deploymentExecutionId}
+                            {item.deploymentExecutionId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
-                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
-                            {execution.deploySetId}
+                          <EntityLink kind="component" to="/components/$componentId" params={{ componentId: item.componentId }}>
+                            {item.componentId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
-                          <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: execution.environmentId }}>
-                            {execution.environmentId}
+                          <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: item.environmentId }}>
+                            {item.environmentId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={execution.status} />
+                          <EntityLink kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: item.componentSetId }}>
+                            {item.componentSetId}
+                          </EntityLink>
                         </TableCell>
-                        <TableCell>{execution.items.length}</TableCell>
+                        <TableCell>{item.version}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -452,7 +507,7 @@ function DeploymentRunnerDetailsView({
               </ScrollFade>
             ) : (
               <div className="p-4">
-                <EmptyPanel label="No pending executions are currently in scope for this runner." />
+                <EmptyPanel label="No pending items are currently in scope for this runner." />
               </div>
             )}
           </CardContent>
@@ -485,13 +540,20 @@ function DeploymentRunnerDetailsView({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex min-h-0 flex-col overflow-hidden">
             <CardHeader>
               <CardTitle>Scope</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 text-sm">
-              <ScopeList title="Environments" values={runner.scope.environmentIds} />
-              <ScopeList title="Component Sets" values={runner.scope.componentSetIds} />
+            <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+              <ScrollFade className="h-full" contentClassName="grid gap-4 px-4 pb-4 text-sm">
+                <ScopeList title="Environments" values={runner.scope.environmentIds ?? []} />
+                <ScopeList title="Component Sets" values={runner.scope.componentSetIds ?? []} />
+                <ScopeList title="Components" values={runner.scope.componentIds ?? []} />
+                <ScopeList title="Component Types" values={runner.scope.componentTypes ?? []} />
+                <ScopeTagList title="Component Tags" tags={runner.scope.componentTags ?? {}} />
+                <ScopeTagList title="Environment Tags" tags={runner.scope.environmentTags ?? {}} />
+                <ScopeStat title="Max concurrent claims" value={runner.scope.maxConcurrentClaims} />
+              </ScrollFade>
             </CardContent>
           </Card>
         </div>
@@ -501,31 +563,92 @@ function DeploymentRunnerDetailsView({
 }
 
 function scopeSummary(runner: ApiDeploymentRunner) {
-  const environmentCount = runner.scope.environmentIds.length;
-  const componentSetCount = runner.scope.componentSetIds.length;
-  if (!environmentCount && !componentSetCount) {
+  const environmentCount = runner.scope.environmentIds?.length ?? 0;
+  const componentSetCount = runner.scope.componentSetIds?.length ?? 0;
+  const componentCount = runner.scope.componentIds?.length ?? 0;
+  const componentTypeCount = runner.scope.componentTypes?.length ?? 0;
+  const componentTagCount = Object.keys(runner.scope.componentTags ?? {}).length;
+  const environmentTagCount = Object.keys(runner.scope.environmentTags ?? {}).length;
+  if (!environmentCount && !componentSetCount && !componentCount && !componentTypeCount && !componentTagCount && !environmentTagCount) {
     return "All deployment work";
   }
-  return `${environmentCount || "All"} env / ${componentSetCount || "All"} component sets`;
+  return `${environmentCount || "All"} env / ${componentSetCount || "All"} sets / ${componentCount || "All"} components / ${componentTypeCount || "All"} types`;
 }
 
 function ScopeList({ title, values }: { title: string; values: string[] }) {
   return (
     <div>
-      <div className="mb-2 font-semibold text-slate-700">{title}</div>
+      <div className="mb-2 text-sm font-semibold text-slate-700">{title}</div>
       {values.length ? (
         <div className="flex flex-wrap gap-1.5">
           {values.map((value) => (
-            <span key={value} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
-              {value}
-            </span>
+            <ScopeChip key={value}>{value}</ScopeChip>
           ))}
         </div>
       ) : (
-        <span className="text-slate-500">All</span>
+        <span className="text-slate-500">Any</span>
       )}
     </div>
   );
+}
+
+function ScopeTagList({ title, tags }: { title: string; tags: Record<string, string> }) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-slate-700">{title}</div>
+      {Object.entries(tags).length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(tags).map(([key, value]) => (
+            <ScopeChip key={key}>
+              {key}
+              {value ? <span className="text-slate-400">:{value}</span> : null}
+            </ScopeChip>
+          ))}
+        </div>
+      ) : (
+        <span className="text-slate-500">Any</span>
+      )}
+    </div>
+  );
+}
+
+function ScopeTagEditor({
+  title,
+  tags,
+  onChange,
+}: {
+  title: string;
+  tags: TagDraft[];
+  onChange: Dispatch<SetStateAction<TagDraft[]>>;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-slate-700">{title}</div>
+      <KeyValueDraftEditor
+        items={tags}
+        onAdd={() => onChange((current) => [...current, createTagDraft()])}
+        onChange={(id, patch) => onChange((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)))}
+        onRemove={(id) => onChange((current) => (current.length === 1 ? [createTagDraft()] : current.filter((tag) => tag.id !== id)))}
+        keyPlaceholder="Add tag"
+        valuePlaceholder=""
+        emptyLabel="Any"
+        showSummary={false}
+      />
+    </div>
+  );
+}
+
+function ScopeStat({ title, value }: { title: string; value: number }) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-slate-700">{title}</div>
+      <ScopeChip>{value}</ScopeChip>
+    </div>
+  );
+}
+
+function ScopeChip({ children }: { children: ReactNode }) {
+  return <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">{children}</span>;
 }
 
 function FactCard({ icon: Icon, label, value, sublabel }: { icon: typeof Server; label: string; value: ReactNode; sublabel: string }) {

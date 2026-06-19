@@ -2,7 +2,7 @@
 
 DeploySet Controller is a generic DeploySet control plane for managing desired component versions and deployment execution history.
 
-The core acts as the brain: it stores components, ComponentSets, immutable releases, immutable DeploySets, generic environments, release sources, deployment runners, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external release source / deployment runner processes.
+The core acts as the brain: it stores components, ComponentSets, immutable releases, immutable DeploySets, generic environments, publishers, deployment runners, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external publisher / deployment runner processes.
 
 ## Core Invariant
 

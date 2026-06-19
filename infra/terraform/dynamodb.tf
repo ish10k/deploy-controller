@@ -93,13 +93,13 @@ resource "aws_dynamodb_table" "releases" {
   }
 }
 
-resource "aws_dynamodb_table" "release_sources" {
-  name         = "${var.name_prefix}-release-sources"
+resource "aws_dynamodb_table" "publishers" {
+  name         = "${var.name_prefix}-publishers"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "releaseSourceId"
+  hash_key     = "publisherId"
 
   attribute {
-    name = "releaseSourceId"
+    name = "publisherId"
     type = "S"
   }
 }

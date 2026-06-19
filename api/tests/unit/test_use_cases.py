@@ -366,9 +366,10 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
         force=True,
     )
 
-    claimed = container.deployment_runners.claim(
+    claimed = container.deployment_runners.claim_item(
         "aws-prod-runner",
         execution.deployment_execution_id,
+        "api",
         admin_context(),
     )
 

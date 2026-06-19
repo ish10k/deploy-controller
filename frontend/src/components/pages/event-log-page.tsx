@@ -33,7 +33,7 @@ const RESOURCE_TYPE_OPTIONS = [
   ["component", "Component"],
   ["componentSet", "Component Set"],
   ["release", "Release"],
-  ["releaseSource", "Release Source"],
+  ["publisher", "Publisher"],
   ["deployset", "DeploySet"],
   ["deploymentExecution", "Deployment"],
   ["deploymentRunner", "Runner"],

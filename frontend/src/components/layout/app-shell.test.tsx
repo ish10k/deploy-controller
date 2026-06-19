@@ -66,7 +66,7 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/workspaces/default/users");
     expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/workspaces/default/audit");
-    expect(screen.getByRole("link", { name: "Release Sources" })).toHaveAttribute("href", "/workspaces/default/release-sources");
+    expect(screen.getByRole("link", { name: "Publishers" })).toHaveAttribute("href", "/workspaces/default/publishers");
     expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/workspaces/default/webhooks");
     expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/workspaces/default/deployments");
     expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/workspaces/default/registry");

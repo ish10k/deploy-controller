@@ -25,8 +25,8 @@ from src.domain.models import (
     Organization,
     Principal,
     Release,
-    ReleaseSource,
-    ReleaseSourceScope,
+    Publisher,
+    PublisherScope,
     Source,
     Webhook,
     WebhookActor,
@@ -93,6 +93,7 @@ def _execution_item(
     runner_reason: str | None = None,
     message: str | None = None,
     error: str | None = None,
+    claimed_by: str | None = None,
 ) -> DeploymentExecutionItem:
     return DeploymentExecutionItem(
         component_id=component_id,
@@ -101,6 +102,7 @@ def _execution_item(
         requested_action=requested_action,
         reported_action=reported_action,
         status=status,
+        claimed_by=claimed_by or reported_by,
         requested_reason=requested_reason,
         runner_reason=runner_reason,
         reported_by=reported_by,
@@ -110,6 +112,23 @@ def _execution_item(
 
 
 def _seed_execution(store: MemoryRepositories, execution: DeploymentExecution, state: EnvironmentState) -> None:
+    deployset = store.get_deployset(execution.deployset_id, execution.workspace_id)
+    component_set_id = deployset.component_set_id if deployset else ""
+    execution = execution.model_copy(
+        update={
+            "items": [
+                item.model_copy(
+                    update={
+                        "workspace_id": execution.workspace_id,
+                        "deployment_execution_id": execution.deployment_execution_id,
+                        "environment_id": execution.environment_id,
+                        "component_set_id": component_set_id,
+                    }
+                )
+                for item in execution.items
+            ]
+        }
+    )
     store.create_deployment_execution(execution)
     store.put_environment_state(state)
 
@@ -221,13 +240,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
 
     # External release publishers
-    store.put_release_source(
-        ReleaseSource(
-            release_source_id="platform-ci",
+    store.put_publisher(
+        Publisher(
+            publisher_id="platform-ci",
             display_name="Platform CI",
-            principal_id="service:release-source:platform-ci",
+            principal_id="service:publisher:platform-ci",
             active=True,
-            scope=ReleaseSourceScope(component_set_ids=["local-platform"], component_ids=[]),
+            scope=PublisherScope(component_set_ids=["local-platform"], component_ids=[]),
             tags={"team": "platform"},
             created_at="2026-04-01T09:05:00Z",
             created_by="platform-bootstrap",
@@ -235,24 +254,24 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.put_principal(
         Principal(
-            principal_id="service:release-source:platform-ci",
+            principal_id="service:publisher:platform-ci",
             type=PrincipalType.SERVICE,
             display_name="Platform CI",
             auth_method="pat",
-            roles=["release-source"],
+            roles=["publisher"],
             active=True,
             tags={"team": "platform"},
             created_at="2026-04-01T09:05:00Z",
             created_by="system:local-seed",
         )
     )
-    store.put_release_source(
-        ReleaseSource(
-            release_source_id="data-ci",
+    store.put_publisher(
+        Publisher(
+            publisher_id="data-ci",
             display_name="Data CI",
-            principal_id="service:release-source:data-ci",
+            principal_id="service:publisher:data-ci",
             active=True,
-            scope=ReleaseSourceScope(component_set_ids=["data-services"], component_ids=[]),
+            scope=PublisherScope(component_set_ids=["data-services"], component_ids=[]),
             tags={"team": "data-platform"},
             created_at="2026-04-03T09:05:00Z",
             created_by="data-platform-bootstrap",
@@ -260,11 +279,11 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.put_principal(
         Principal(
-            principal_id="service:release-source:data-ci",
+            principal_id="service:publisher:data-ci",
             type=PrincipalType.SERVICE,
             display_name="Data CI",
             auth_method="pat",
-            roles=["release-source"],
+            roles=["publisher"],
             active=True,
             tags={"team": "data-platform"},
             created_at="2026-04-03T09:05:00Z",
@@ -359,7 +378,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                 occurredAt="2026-06-17T09:00:00Z",
                 sentAt="2026-06-17T09:00:01Z",
                 attempt=1,
-                actor=WebhookActor(principalId="service:release-source:platform-ci", type="service", origin="service"),
+                actor=WebhookActor(principalId="service:publisher:platform-ci", type="service", origin="service"),
                 resource=WebhookResource(type="release", id="api@5.7.1"),
                 relatedResources=[],
                 data={"componentId": "api", "version": "5.7.1"},
@@ -642,7 +661,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-15T09:05:00Z",
             completed_at="2026-06-15T09:18:00Z",
-            claimed_by="local-runner-01",
             items=[
                 _execution_item(
                     component_id="web",
@@ -703,7 +721,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-12T14:02:00Z",
             completed_at="2026-06-12T14:11:00Z",
-            claimed_by="dev-runner-01",
             items=[
                 _execution_item(
                     component_id="web",
@@ -763,7 +780,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-13T10:55:00Z",
             completed_at="2026-06-13T11:07:00Z",
-            claimed_by="staging-runner-01",
             items=[
                 _execution_item(
                     component_id="web",
@@ -827,7 +843,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-16T08:30:00Z",
             completed_at=None,
-            claimed_by=None,
             items=[
                 _execution_item(
                     component_id="web",
@@ -879,7 +894,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-10T22:00:00Z",
             completed_at="2026-06-10T22:19:00Z",
-            claimed_by="prod-runner-01",
             items=[
                 _execution_item(
                     component_id="web",
@@ -939,7 +953,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             force=False,
             started_at="2026-06-09T07:40:00Z",
             completed_at="2026-06-09T07:52:00Z",
-            claimed_by="data-runner-01",
             items=[
                 _execution_item(
                     component_id="postgres",

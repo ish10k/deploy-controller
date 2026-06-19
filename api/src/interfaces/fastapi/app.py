@@ -15,7 +15,7 @@ app = FastAPI(
         {"name": "Components", "description": "Manage deployable components and component sets."},
         {"name": "Principals", "description": "Manage identity principals, bootstrap state, and whoami."},
         {"name": "Releases", "description": "Create and inspect component releases."},
-        {"name": "Release Sources", "description": "Register external release publishers."},
+        {"name": "Publishers", "description": "Register external release publishers."},
         {"name": "DeploySets", "description": "Create and inspect DeploySets."},
         {"name": "Environments", "description": "Manage environments and environment state."},
         {"name": "Deployments", "description": "Plan and create deployment executions."},

@@ -7,7 +7,7 @@ from src.application.ports import (
     EnvironmentRepository,
     EnvironmentStateRepository,
     ReleaseRepository,
-    ReleaseSourceRepository,
+    PublisherRepository,
 )
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
@@ -25,9 +25,9 @@ from src.domain.models import (
     EnvironmentState,
     AuthContext,
     Release,
-    ReleaseSource,
-    ReleaseSourceCreateRequest,
-    ReleaseSourceCreateResult,
+    Publisher,
+    PublisherCreateRequest,
+    PublisherCreateResult,
     RotateTokenResult,
 )
 from src.application.use_cases.credentials import issue_pat
@@ -145,36 +145,36 @@ class ReleaseUseCases:
         return self.releases.list_by_component(component_id, workspace_id)
 
 
-class ReleaseSourceUseCases:
+class PublisherUseCases:
     def __init__(
         self,
         *,
-        release_sources: ReleaseSourceRepository,
+        publishers: PublisherRepository,
         releases: ReleaseRepository,
         component_sets: ComponentSetRepository,
         clock: Clock,
         principals: PrincipalUseCases,
         events: EventLogUseCases | None = None,
     ) -> None:
-        self.release_sources = release_sources
+        self.publishers = publishers
         self.releases = releases
         self.component_sets = component_sets
         self.clock = clock
         self.principals = principals
         self.events = events
 
-    def create(self, request: ReleaseSourceCreateRequest, context: AuthContext, workspace_id: str = "default") -> ReleaseSourceCreateResult:
-        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        existing = self.release_sources.get(request.release_source_id, workspace_id)
+    def create(self, request: PublisherCreateRequest, context: AuthContext, workspace_id: str = "default") -> PublisherCreateResult:
+        require_permission(context, Permission.PUBLISHERS_WRITE)
+        existing = self.publishers.get(request.publisher_id, workspace_id)
         if existing is not None:
-            raise ConflictError(f"ReleaseSource already exists: {request.release_source_id}")
+            raise ConflictError(f"Publisher already exists: {request.publisher_id}")
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
-        release_source = ReleaseSource(
+        publisher = Publisher(
             workspace_id=workspace_id,
-            release_source_id=request.release_source_id,
+            publisher_id=request.publisher_id,
             display_name=request.display_name,
-            principal_id=f"service:workspace:{workspace_id}:release-source:{request.release_source_id}",
+            principal_id=f"service:workspace:{workspace_id}:publisher:{request.publisher_id}",
             auth_method="pat",
             token_hash=token_hash,
             token_prefix=token_prefix,
@@ -188,92 +188,92 @@ class ReleaseSourceUseCases:
             created_by=context.principal_id,
         )
         self.principals.ensure_service_principal(
-            principal_id=release_source.principal_id,
-            display_name=release_source.display_name,
-            role="release-source",
-            created_by="system:release-source-create",
-            tags=release_source.tags,
+            principal_id=publisher.principal_id,
+            display_name=publisher.display_name,
+            role="publisher",
+            created_by="system:publisher-create",
+            tags=publisher.tags,
         )
-        self.release_sources.put(release_source)
+        self.publishers.put(publisher)
         if self.events:
             self.events.append_actor(
-                actor_principal_id=release_source.created_by,
-                action="release_source.created",
+                actor_principal_id=publisher.created_by,
+                action="publisher.created",
                 category="integration",
-                summary=f"Created release source {release_source.release_source_id}",
-                resource_type="releaseSource",
-                resource_id=release_source.release_source_id,
-                after=release_source,
+                summary=f"Created publisher {publisher.publisher_id}",
+                resource_type="publisher",
+                resource_id=publisher.publisher_id,
+                after=publisher,
             )
-        return ReleaseSourceCreateResult(release_source=release_source, token=token)
+        return PublisherCreateResult(publisher=publisher, token=token)
 
-    def put(self, release_source: ReleaseSource, context: AuthContext, workspace_id: str = "default") -> ReleaseSource:
-        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        release_source = release_source.model_copy(update={"workspace_id": workspace_id})
-        existing = self.release_sources.get(release_source.release_source_id, workspace_id)
+    def put(self, publisher: Publisher, context: AuthContext, workspace_id: str = "default") -> Publisher:
+        require_permission(context, Permission.PUBLISHERS_WRITE)
+        publisher = publisher.model_copy(update={"workspace_id": workspace_id})
+        existing = self.publishers.get(publisher.publisher_id, workspace_id)
         if existing is None:
-            release_source = release_source.model_copy(update={"created_by": context.principal_id})
-        self.release_sources.put(release_source)
+            publisher = publisher.model_copy(update={"created_by": context.principal_id})
+        self.publishers.put(publisher)
         if self.events:
             self.events.append_actor(
                 actor_principal_id=context.principal_id,
-                action="release_source.updated",
+                action="publisher.updated",
                 category="integration",
-                summary=f"Updated release source {release_source.release_source_id}",
-                resource_type="releaseSource",
-                resource_id=release_source.release_source_id,
+                summary=f"Updated publisher {publisher.publisher_id}",
+                resource_type="publisher",
+                resource_id=publisher.publisher_id,
                 before=existing,
-                after=release_source,
+                after=publisher,
             )
-        return release_source
+        return publisher
 
-    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource:
-        release_source = self.release_sources.get(release_source_id, workspace_id)
-        if release_source is None:
-            raise NotFoundError(f"ReleaseSource not found: {release_source_id}")
-        return release_source
+    def get(self, publisher_id: str, workspace_id: str = "default") -> Publisher:
+        publisher = self.publishers.get(publisher_id, workspace_id)
+        if publisher is None:
+            raise NotFoundError(f"Publisher not found: {publisher_id}")
+        return publisher
 
-    def list(self, workspace_id: str = "default") -> list[ReleaseSource]:
-        return self.release_sources.list(workspace_id)
+    def list(self, workspace_id: str = "default") -> list[Publisher]:
+        return self.publishers.list(workspace_id)
 
-    def rotate_token(self, release_source_id: str, context: AuthContext, workspace_id: str = "default") -> RotateTokenResult:
-        require_permission(context, Permission.RELEASE_SOURCES_WRITE)
-        release_source = self.get(release_source_id, workspace_id)
+    def rotate_token(self, publisher_id: str, context: AuthContext, workspace_id: str = "default") -> RotateTokenResult:
+        require_permission(context, Permission.PUBLISHERS_WRITE)
+        publisher = self.get(publisher_id, workspace_id)
         token, token_hash, token_prefix = issue_pat()
         now = self.clock.now()
-        updated = release_source.model_copy(
+        updated = publisher.model_copy(
             update={
                 "auth_method": "pat",
                 "token_hash": token_hash,
                 "token_prefix": token_prefix,
-                "token_created_at": release_source.token_created_at or now,
+                "token_created_at": publisher.token_created_at or now,
                 "token_rotated_at": now,
             }
         )
-        self.release_sources.put(updated)
+        self.publishers.put(updated)
         if self.events:
             self.events.append_actor(
                 actor_principal_id=context.principal_id,
-                action="release_source.token_rotated",
+                action="publisher.token_rotated",
                 category="security",
-                summary=f"Rotated token for release source {release_source_id}",
-                resource_type="releaseSource",
-                resource_id=release_source_id,
-                before=release_source,
+                summary=f"Rotated token for publisher {publisher_id}",
+                resource_type="publisher",
+                resource_id=publisher_id,
+                before=publisher,
                 after=updated,
                 metadata={"tokenPrefix": updated.token_prefix, "tokenRotatedAt": updated.token_rotated_at},
             )
         return RotateTokenResult(token=token)
 
-    def publish_release(self, release_source_id: str, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
-        require_permission(context, Permission.RELEASE_SOURCES_PUBLISH)
-        release_source = self.get(release_source_id, workspace_id)
-        if context.principal_id.startswith("service:") and context.principal_id != release_source.principal_id:
-            raise ForbiddenError(f"ReleaseSource token cannot publish for another source: {release_source_id}")
-        if not release_source.active:
-            raise ValidationError(f"ReleaseSource is inactive: {release_source_id}")
-        if not self._allows_component(release_source, release.component_id):
-            raise ValidationError(f"ReleaseSource scope does not allow component: {release.component_id}")
+    def publish_release(self, publisher_id: str, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
+        require_permission(context, Permission.PUBLISHERS_PUBLISH)
+        publisher = self.get(publisher_id, workspace_id)
+        if context.principal_id.startswith("service:") and context.principal_id != publisher.principal_id:
+            raise ForbiddenError(f"Publisher token cannot publish for another publisher: {publisher_id}")
+        if not publisher.active:
+            raise ValidationError(f"Publisher is inactive: {publisher_id}")
+        if not self._allows_component(publisher, release.component_id):
+            raise ValidationError(f"Publisher scope does not allow component: {release.component_id}")
 
         release = release.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
         existing = self.releases.get(release.component_id, release.version, workspace_id)
@@ -289,22 +289,22 @@ class ReleaseSourceUseCases:
                 actor_principal_id=context.principal_id,
                 action="release.published",
                 category="release",
-                summary=f"Published release {release.component_id} {release.version} from {release_source_id}",
+                summary=f"Published release {release.component_id} {release.version} from {publisher_id}",
                 resource_type="release",
                 resource_id=f"{release.component_id}:{release.version}",
                 after=release,
-                metadata={"releaseSourceId": release_source_id, "componentId": release.component_id, "version": release.version},
+                metadata={"publisherId": publisher_id, "componentId": release.component_id, "version": release.version},
             )
         return release
 
-    def _allows_component(self, release_source: ReleaseSource, component_id: str) -> bool:
-        scope = release_source.scope
+    def _allows_component(self, publisher: Publisher, component_id: str) -> bool:
+        scope = publisher.scope
         if not scope.component_ids and not scope.component_set_ids:
             return True
         if component_id in scope.component_ids:
             return True
         for component_set_id in scope.component_set_ids:
-            component_set = self.component_sets.get(component_set_id, release_source.workspace_id)
+            component_set = self.component_sets.get(component_set_id, publisher.workspace_id)
             if component_set and any(item.component_id == component_id for item in component_set.components):
                 return True
         return False

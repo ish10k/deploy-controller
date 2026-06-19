@@ -22,8 +22,8 @@ describe("router", () => {
     expect(routesByPath?.["/workspaces/$workspaceId/roles"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/roles/$roleId"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/audit"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/release-sources"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/release-sources/$releaseSourceId"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/publishers"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/publishers/$publisherId"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/webhooks"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/webhooks/$webhookId"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/webhook-deliveries/$deliveryId"]).toBeDefined();

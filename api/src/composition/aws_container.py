@@ -9,7 +9,7 @@ from src.application.use_cases.registry import (
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
-    ReleaseSourceUseCases,
+    PublisherUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.roles import RoleUseCases
@@ -30,7 +30,7 @@ from src.infrastructure.dynamodb.repositories import (
     DynamoOrganizationRepository,
     DynamoPrincipalRepository,
     DynamoReleaseRepository,
-    DynamoReleaseSourceRepository,
+    DynamoPublisherRepository,
     DynamoRoleRepository,
     DynamoWorkspaceMembershipRepository,
     DynamoWorkspaceRepository,
@@ -45,7 +45,7 @@ def build_aws_container() -> Container:
     components = DynamoComponentRepository(os.environ["COMPONENTS_TABLE"])
     component_sets = DynamoComponentSetRepository(os.environ["COMPONENT_SETS_TABLE"])
     releases = DynamoReleaseRepository(os.environ["RELEASES_TABLE"])
-    release_sources = DynamoReleaseSourceRepository(os.environ["RELEASE_SOURCES_TABLE"])
+    publishers = DynamoPublisherRepository(os.environ["PUBLISHERS_TABLE"])
     deploysets = DynamoDeploySetRepository(os.environ["DEPLOYSETS_TABLE"])
     environments = DynamoEnvironmentRepository(os.environ["ENVIRONMENTS_TABLE"])
     runners = DynamoDeploymentRunnerRepository(os.environ["DEPLOYMENT_RUNNERS_TABLE"])
@@ -102,8 +102,8 @@ def build_aws_container() -> Container:
         components=ComponentUseCases(components, events=events),
         component_sets=ComponentSetUseCases(component_sets, events=events),
         releases=ReleaseUseCases(releases, events=events),
-        release_sources=ReleaseSourceUseCases(
-            release_sources=release_sources,
+        publishers=PublisherUseCases(
+            publishers=publishers,
             releases=releases,
             component_sets=component_sets,
             clock=clock,
@@ -133,6 +133,8 @@ def build_aws_container() -> Container:
             runners=runners,
             executions=executions,
             deploysets=deploysets,
+            components=components,
+            environments=environments,
             states=states,
             clock=clock,
             principals=identity,

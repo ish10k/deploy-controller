@@ -8,7 +8,7 @@ export const ENTITY_ICONS = {
   component: Puzzle,
   environment: Server,
   runner: Play,
-  releaseSource: CircleFadingArrowUp,
+  publisher: CircleFadingArrowUp,
   webhook: Webhook,
   user: UserRound,
 } as const satisfies Record<string, LucideIcon>;

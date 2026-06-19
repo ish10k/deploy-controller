@@ -14,7 +14,7 @@ from src.domain.models import (
     OrganizationMembership,
     Principal,
     Release,
-    ReleaseSource,
+    Publisher,
     Role,
     Workspace,
     WorkspaceMembership,
@@ -65,10 +65,10 @@ class ReleaseRepository(Protocol):
     def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]: ...
 
 
-class ReleaseSourceRepository(Protocol):
-    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource | None: ...
-    def list(self, workspace_id: str = "default") -> list[ReleaseSource]: ...
-    def put(self, release_source: ReleaseSource) -> None: ...
+class PublisherRepository(Protocol):
+    def get(self, publisher_id: str, workspace_id: str = "default") -> Publisher | None: ...
+    def list(self, workspace_id: str = "default") -> list[Publisher]: ...
+    def put(self, publisher: Publisher) -> None: ...
 
 
 class DeploySetRepository(Protocol):

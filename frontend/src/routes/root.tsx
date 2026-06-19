@@ -13,7 +13,7 @@ import { ComponentSetDetailsPage } from "@/components/pages/component-set-detail
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
 import { EventLogPage } from "@/components/pages/event-log-page";
 import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
-import { ReleaseSourceDetailsPage, ReleaseSourcesPage } from "@/components/pages/release-sources-page";
+import { PublisherDetailsPage, PublishersPage } from "@/components/pages/publishers-page";
 import { RegistryPage } from "@/components/pages/registry-page";
 import { RoleDetailsPage } from "@/components/pages/roles-page";
 import { UserDetailsPage } from "@/components/pages/users-page";
@@ -100,13 +100,13 @@ const workspaceReleasesRoute = createRoute({
   path: "/workspaces/$workspaceId/releases",
   component: () => <RegistryPage initialView="releases" />,
 });
-const workspaceReleaseSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/release-sources", component: ReleaseSourcesPage });
-const workspaceReleaseSourceDetailRoute = createRoute({
+const workspacePublishersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/publishers", component: PublishersPage });
+const workspacePublisherDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/release-sources/$releaseSourceId",
+  path: "/workspaces/$workspaceId/publishers/$publisherId",
   component: () => {
-    const { releaseSourceId } = workspaceReleaseSourceDetailRoute.useParams();
-    return <ReleaseSourceDetailsPage releaseSourceId={releaseSourceId} />;
+    const { publisherId } = workspacePublisherDetailRoute.useParams();
+    return <PublisherDetailsPage publisherId={publisherId} />;
   },
 });
 const workspaceReleaseDetailRoute = createRoute({
@@ -218,8 +218,8 @@ export const routeTree = rootRoute.addChildren([
   workspaceComponentSetsRoute,
   workspaceComponentSetDetailRoute,
   workspaceReleasesRoute,
-  workspaceReleaseSourcesRoute,
-  workspaceReleaseSourceDetailRoute,
+  workspacePublishersRoute,
+  workspacePublisherDetailRoute,
   workspaceReleaseDetailRoute,
   workspaceDeploysetsRoute,
   workspaceDeploysetDetailRoute,

@@ -49,7 +49,7 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
     {
       label: "Integrations",
       items: [
-        { label: "Release Sources", icon: ENTITY_ICONS.releaseSource, to: "/release-sources" },
+        { label: "Publishers", icon: ENTITY_ICONS.publisher, to: "/publishers" },
         { label: "Runners", icon: Play, to: "/deployment-runners" },
         { label: "Webhooks", icon: ENTITY_ICONS.webhook, to: "/webhooks", hidden: !showWebhooks },
       ],
@@ -482,7 +482,7 @@ function notificationTarget(event: ApiEventLogEntry) {
     deploymentRunner: `/deployment-runners/${encodeURIComponent(event.resourceId)}`,
     principal: `/users/${encodeURIComponent(event.resourceId)}`,
     role: `/roles/${encodeURIComponent(event.resourceId)}`,
-    releaseSource: `/release-sources/${encodeURIComponent(event.resourceId)}`,
+    publisher: `/publishers/${encodeURIComponent(event.resourceId)}`,
     webhook: `/webhooks/${encodeURIComponent(event.resourceId)}`,
   };
 
@@ -513,8 +513,8 @@ const NOTIFICATION_ACTIONS = new Set([
   "deployment_item.status_reported",
   "release.created",
   "release.published",
-  "release_source.created",
-  "release_source.token_rotated",
+  "publisher.created",
+  "publisher.token_rotated",
   "deployment_runner.created",
   "deployment_runner.token_rotated",
   "principal.created",

@@ -7,7 +7,7 @@ from src.application.use_cases.registry import (
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
-    ReleaseSourceUseCases,
+    PublisherUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.roles import RoleUseCases
@@ -30,7 +30,7 @@ from src.infrastructure.memory.repositories import (
     MemoryOrganizationRepository,
     MemoryPrincipalRepository,
     MemoryReleaseRepository,
-    MemoryReleaseSourceRepository,
+    MemoryPublisherRepository,
     MemoryRepositories,
     MemoryRoleRepository,
     MemoryWorkspaceMembershipRepository,
@@ -49,7 +49,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     components = MemoryComponentRepository(store)
     component_sets = MemoryComponentSetRepository(store)
     releases = MemoryReleaseRepository(store)
-    release_sources = MemoryReleaseSourceRepository(store)
+    publishers = MemoryPublisherRepository(store)
     deploysets = MemoryDeploySetRepository(store)
     environments = MemoryEnvironmentRepository(store)
     runners = MemoryDeploymentRunnerRepository(store)
@@ -106,8 +106,8 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         components=ComponentUseCases(components, events=events),
         component_sets=ComponentSetUseCases(component_sets, events=events),
         releases=ReleaseUseCases(releases, events=events),
-        release_sources=ReleaseSourceUseCases(
-            release_sources=release_sources,
+        publishers=PublisherUseCases(
+            publishers=publishers,
             releases=releases,
             component_sets=component_sets,
             clock=clock,
@@ -137,6 +137,8 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             runners=runners,
             executions=executions,
             deploysets=deploysets,
+            components=components,
+            environments=environments,
             states=states,
             clock=clock,
             principals=identity,

@@ -19,7 +19,7 @@ from src.application.ports.repositories import (
     WebhookDeliveryRepository,
     WebhookRepository,
     ReleaseRepository,
-    ReleaseSourceRepository,
+    PublisherRepository,
 )
 
 __all__ = [
@@ -43,5 +43,5 @@ __all__ = [
     "WebhookDeliveryRepository",
     "WebhookRepository",
     "ReleaseRepository",
-    "ReleaseSourceRepository",
+    "PublisherRepository",
 ]

@@ -12,6 +12,7 @@ from src.domain.models import (
     DeploySet,
     DeploySetCreateResult,
     DeploymentExecution,
+    DeploymentExecutionItem,
     DeploymentRunner,
     DeploymentRunnerCreateRequest,
     DeploymentRunnerCreateResult,
@@ -26,9 +27,9 @@ from src.domain.models import (
     OrganizationMembership,
     Principal,
     Release,
-    ReleaseSource,
-    ReleaseSourceCreateRequest,
-    ReleaseSourceCreateResult,
+    Publisher,
+    PublisherCreateRequest,
+    PublisherCreateResult,
     Role,
     RotateTokenResult,
     Webhook,
@@ -45,7 +46,6 @@ from src.interfaces.fastapi.schemas import (
     ErrorResponse,
     PlanDeploymentRequest,
     ReportExecutionItemStatusRequest,
-    ReportExecutionStatusRequest,
 )
 
 
@@ -661,21 +661,23 @@ def heartbeat_workspace_deployment_runner(workspace_id: str, runner_id: str, con
     return _handle(lambda: container.deployment_runners.heartbeat(runner_id, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/pending", tags=["Deployment Runners"], response_model=list[DeploymentExecution], responses=NOT_FOUND_RESPONSES)
-def list_workspace_pending_runner_executions(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentExecution]:
+@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/pending", tags=["Deployment Runners"], response_model=list[DeploymentExecutionItem], responses=NOT_FOUND_RESPONSES)
+def list_workspace_pending_runner_executions(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentExecutionItem]:
     return _handle(lambda: container.deployment_runners.list_pending(runner_id, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/claim", tags=["Deployment Runners"], response_model=DeploymentExecution, responses=WRITE_RESPONSES)
-def claim_workspace_runner_execution(
+@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/claim", tags=["Deployment Runners"], response_model=DeploymentExecutionItem, responses=WRITE_RESPONSES)
+def claim_workspace_runner_execution_item(
     workspace_id: str,
     runner_id: str,
     deployment_execution_id: str,
+    component_id: str,
     request: ClaimExecutionRequest,
     context: AuthDep,
     container: ContainerDep,
-) -> DeploymentExecution:
-    return _handle(lambda: container.deployment_runners.claim(runner_id, deployment_execution_id, context, request.lease_seconds, workspace_id))
+) -> DeploymentExecutionItem:
+    claim_timeout_seconds = request.claim_timeout_seconds if request.claim_timeout_seconds is not None else request.lease_seconds
+    return _handle(lambda: container.deployment_runners.claim_item(runner_id, deployment_execution_id, component_id, context, claim_timeout_seconds, workspace_id))
 
 
 @router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/status", tags=["Deployment Runners"], response_model=DeploymentExecution, responses=WRITE_RESPONSES)
@@ -705,56 +707,44 @@ def report_workspace_runner_item_status(
     )
 
 
-@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/status", tags=["Deployment Runners"], response_model=DeploymentExecution, responses=WRITE_RESPONSES)
-def report_workspace_runner_execution_status(
+@router.get("/workspaces/{workspace_id}/publishers", tags=["Publishers"], response_model=list[Publisher], responses=NOT_FOUND_RESPONSES)
+def list_workspace_publishers(workspace_id: str, container: ContainerDep) -> list[Publisher]:
+    return _handle(lambda: container.publishers.list(workspace_id))
+
+
+@router.post("/workspaces/{workspace_id}/publishers", tags=["Publishers"], response_model=PublisherCreateResult, responses=WRITE_RESPONSES)
+def post_workspace_publisher(workspace_id: str, request: PublisherCreateRequest, context: AuthDep, container: ContainerDep) -> PublisherCreateResult:
+    return _handle(lambda: container.publishers.create(request, context, workspace_id))
+
+
+@router.get("/workspaces/{workspace_id}/publishers/{publisher_id}", tags=["Publishers"], response_model=Publisher, responses=NOT_FOUND_RESPONSES)
+def get_workspace_publisher(workspace_id: str, publisher_id: str, container: ContainerDep) -> Publisher:
+    return _handle(lambda: container.publishers.get(publisher_id, workspace_id))
+
+
+@router.put("/workspaces/{workspace_id}/publishers/{publisher_id}", tags=["Publishers"], response_model=Publisher, responses=WRITE_RESPONSES)
+def put_workspace_publisher(
     workspace_id: str,
-    runner_id: str,
-    deployment_execution_id: str,
-    request: ReportExecutionStatusRequest,
+    publisher_id: str,
+    publisher: Publisher,
     context: AuthDep,
     container: ContainerDep,
-) -> DeploymentExecution:
-    return _handle(lambda: container.deployment_runners.report_execution_status(runner_id, deployment_execution_id, request.status, context, workspace_id))
+) -> Publisher:
+    updated = publisher.model_copy(update={"workspace_id": workspace_id, "publisher_id": publisher_id})
+    return _handle(lambda: container.publishers.put(updated, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/release-sources", tags=["Release Sources"], response_model=list[ReleaseSource], responses=NOT_FOUND_RESPONSES)
-def list_workspace_release_sources(workspace_id: str, container: ContainerDep) -> list[ReleaseSource]:
-    return _handle(lambda: container.release_sources.list(workspace_id))
+@router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/rotate-token", tags=["Publishers"], response_model=RotateTokenResult, responses=WRITE_RESPONSES)
+def rotate_workspace_publisher_token(workspace_id: str, publisher_id: str, context: AuthDep, container: ContainerDep) -> RotateTokenResult:
+    return _handle(lambda: container.publishers.rotate_token(publisher_id, context, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/release-sources", tags=["Release Sources"], response_model=ReleaseSourceCreateResult, responses=WRITE_RESPONSES)
-def post_workspace_release_source(workspace_id: str, request: ReleaseSourceCreateRequest, context: AuthDep, container: ContainerDep) -> ReleaseSourceCreateResult:
-    return _handle(lambda: container.release_sources.create(request, context, workspace_id))
-
-
-@router.get("/workspaces/{workspace_id}/release-sources/{release_source_id}", tags=["Release Sources"], response_model=ReleaseSource, responses=NOT_FOUND_RESPONSES)
-def get_workspace_release_source(workspace_id: str, release_source_id: str, container: ContainerDep) -> ReleaseSource:
-    return _handle(lambda: container.release_sources.get(release_source_id, workspace_id))
-
-
-@router.put("/workspaces/{workspace_id}/release-sources/{release_source_id}", tags=["Release Sources"], response_model=ReleaseSource, responses=WRITE_RESPONSES)
-def put_workspace_release_source(
+@router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/releases", tags=["Publishers"], response_model=Release, responses=WRITE_RESPONSES)
+def publish_workspace_release_from_publisher(
     workspace_id: str,
-    release_source_id: str,
-    release_source: ReleaseSource,
-    context: AuthDep,
-    container: ContainerDep,
-) -> ReleaseSource:
-    updated = release_source.model_copy(update={"workspace_id": workspace_id, "release_source_id": release_source_id})
-    return _handle(lambda: container.release_sources.put(updated, context, workspace_id))
-
-
-@router.post("/workspaces/{workspace_id}/release-sources/{release_source_id}/rotate-token", tags=["Release Sources"], response_model=RotateTokenResult, responses=WRITE_RESPONSES)
-def rotate_workspace_release_source_token(workspace_id: str, release_source_id: str, context: AuthDep, container: ContainerDep) -> RotateTokenResult:
-    return _handle(lambda: container.release_sources.rotate_token(release_source_id, context, workspace_id))
-
-
-@router.post("/workspaces/{workspace_id}/release-sources/{release_source_id}/releases", tags=["Release Sources"], response_model=Release, responses=WRITE_RESPONSES)
-def publish_workspace_release_from_source(
-    workspace_id: str,
-    release_source_id: str,
+    publisher_id: str,
     release: Release,
     context: AuthDep,
     container: ContainerDep,
 ) -> Release:
-    return _handle(lambda: container.release_sources.publish_release(release_source_id, release, context, workspace_id))
+    return _handle(lambda: container.publishers.publish_release(publisher_id, release, context, workspace_id))

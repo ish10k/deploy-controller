@@ -39,7 +39,7 @@ import { canManageWebhooks, canRetryWebhookDeliveries, canViewWebhookDeliveries,
 
 const EVENT_GROUPS = [
   { label: "Components", events: ["component.created", "component.updated", "component_set.created", "component_set.updated"] },
-  { label: "Releases", events: ["release.created", "release.published", "release_source.created", "release_source.updated", "release_source.token_rotated"] },
+  { label: "Releases", events: ["release.created", "release.published", "publisher.created", "publisher.updated", "publisher.token_rotated"] },
   { label: "Deployments", events: ["deployset.created", "deployment.created", "deployment.claimed", "deployment.status_changed", "deployment_item.status_changed"] },
   { label: "Runtime", events: ["environment.created", "environment.updated", "environment_state.updated", "deployment_runner.created", "deployment_runner.updated", "deployment_runner.heartbeat", "deployment_runner.token_rotated"] },
   { label: "Governance", events: ["principal.created", "principal.updated", "principal.roles_changed", "principal.login", "role.created", "role.updated", "webhook.created", "webhook.updated", "eventlog.created"] },

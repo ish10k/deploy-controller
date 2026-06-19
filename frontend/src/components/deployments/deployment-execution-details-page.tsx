@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, RefreshCcw, Server, UserRound, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, RefreshCcw, Server, UserRound, Zap } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { ReportedActionBadge, RequestedActionBadge, StatusBadge } from "@/components/deployments/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
@@ -83,6 +83,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
   const driftCount = execution.items.filter((item) => item.driftDetected).length;
   const failedCount = execution.items.filter((item) => item.status === "failed").length;
   const succeededCount = execution.items.filter((item) => item.status === "succeeded").length;
+  const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   const currentVersions = new Map(
     executionsQuery.data
       ?.find((candidate) => candidate.deploymentExecutionId !== execution.deploymentExecutionId)
@@ -204,7 +205,21 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
               />
               <MetaRow icon={UserRound} label="Requested by" value={execution.requestedBy} />
               <MetaRow icon={FileText} label="Notes" value={execution.notes ?? "None"} />
-              <MetaRow icon={Server} label="Claimed by" value={execution.claimedBy ?? "unclaimed"} />
+              <MetaRow
+                icon={Server}
+                label="Claims"
+                value={
+                  claimedByRunners.length === 1 ? (
+                    <EntityLink kind="runner" to="/deployment-runners/$runnerId" params={{ runnerId: claimedByRunners[0] }}>
+                      {claimedByRunners[0]}
+                    </EntityLink>
+                  ) : claimedByRunners.length > 1 ? (
+                    "multiple runners"
+                  ) : (
+                    "unclaimed"
+                  )
+                }
+              />
               <MetaRow icon={FileText} label="Tags" value={<TagList tags={execution.tags} emptyLabel="No tags" />} />
               <MetaRow icon={Clock3} label="Started" value={formatDateTime(execution.startedAt)} />
               <MetaRow icon={Clock3} label="Completed" value={formatDateTime(execution.completedAt)} />
@@ -242,6 +257,7 @@ function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
 }
 
 function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecution }) {
+  const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   return (
     <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
       <EventLogItem
@@ -253,9 +269,9 @@ function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecu
       <hr />
       <EventLogItem
         icon={UserRound}
-        title={execution.claimedBy ? `Claimed by ${execution.claimedBy}` : "Waiting for claim"}
+        title={claimedByRunners.length === 1 ? `Claimed by ${claimedByRunners[0]}` : "Component-level claims"}
         subtitle={`Requested by ${execution.requestedBy}`}
-        time={execution.claimedBy ? formatDateTime(execution.startedAt) : "Pending"}
+        time={claimedByRunners.length ? formatDateTime(execution.startedAt) : "Pending"}
       />
       <hr />
       {execution.items.map((item, index) => (
@@ -303,6 +319,7 @@ export function ComponentActionsTable({
           <TableHead>Requested Action</TableHead>
           <TableHead>Reported Action</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>Claimed By</TableHead>
           <TableHead>Drift</TableHead>
         </TableRow>
       </TableHeader>
@@ -310,9 +327,20 @@ export function ComponentActionsTable({
         {rows.map((row) => (
           <TableRow key={row.componentId}>
             <TableCell className="font-semibold">
-              <EntityLink kind="component" to="/components/$componentId" params={{ componentId: row.componentId }}>
-                {row.componentId}
-              </EntityLink>
+              <div className="flex flex-wrap items-center gap-1">
+                <EntityLink kind="component" to="/components/$componentId" params={{ componentId: row.componentId }}>
+                  {row.componentId}
+                </EntityLink>
+                {hasMatcherWarning(row.requestedReason) ? (
+                  <span
+                    aria-label="No matching runner found"
+                    title="No matching runner found"
+                    className="inline-flex h-4 w-4 items-center justify-center text-yellow-600"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                  </span>
+                ) : null}
+              </div>
             </TableCell>
             <TableCell>
               <VersionCell componentId={row.componentId} currentVersion={currentVersions.get(row.componentId)} targetVersion={row.version} />
@@ -326,12 +354,25 @@ export function ComponentActionsTable({
             <TableCell>
               <StatusBadge status={row.status} />
             </TableCell>
+            <TableCell>
+              {row.claimedBy ? (
+                <EntityLink kind="runner" to="/deployment-runners/$runnerId" params={{ runnerId: row.claimedBy }}>
+                  {row.claimedBy}
+                </EntityLink>
+              ) : (
+                <span className="text-slate-400">unclaimed</span>
+              )}
+            </TableCell>
             <TableCell>{row.driftDetected ? <StatusBadge status="warning" /> : "-"}</TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
+}
+
+function hasMatcherWarning(requestedReason: ApiDeploymentExecutionItem["requestedReason"]) {
+  return requestedReason === "missing_latest_execution_item" || requestedReason === "latest_status_not_succeeded";
 }
 
 function ExecutionFactCard({

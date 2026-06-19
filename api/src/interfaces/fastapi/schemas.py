@@ -66,12 +66,11 @@ class ClaimExecutionRequest(ApiSchema):
         description="Requested claim lease duration in seconds.",
         examples=[900],
     )
-
-
-class ReportExecutionStatusRequest(ApiSchema):
-    status: ExecutionStatus = Field(
-        description="Updated execution status reported by the deployment runner.",
-        examples=[ExecutionStatus.RUNNING, ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED],
+    claim_timeout_seconds: int | None = Field(
+        default=900,
+        alias="claimTimeoutSeconds",
+        description="Requested item claim timeout in seconds.",
+        examples=[900],
     )
 
 
@@ -99,5 +98,3 @@ class ReportExecutionItemStatusRequest(ApiSchema):
     )
     message: str | None = Field(default=None, description="Optional status message from the deployment runner.")
     error: str | None = Field(default=None, description="Optional error details from the deployment runner.")
-
-

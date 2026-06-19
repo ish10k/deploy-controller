@@ -1,5 +1,4 @@
 import type {
-  ApiClaimExecutionRequest,
   ApiComponent,
   ApiComponentSet,
   ApiCreateDeploymentRequest,
@@ -8,6 +7,7 @@ import type {
   ApiDeploySetCreateRequest,
   ApiDeploySetCreateResult,
   ApiDeploymentExecution,
+  ApiDeploymentExecutionItem,
   ApiDeploymentRunner,
   ApiDeploymentRunnerCreateRequest,
   ApiDeploymentRunnerCreateResult,
@@ -22,11 +22,10 @@ import type {
   ApiBootstrapState,
   ApiPrincipal,
   ApiRelease,
-  ApiReleaseSource,
-  ApiReleaseSourceCreateRequest,
-  ApiReleaseSourceCreateResult,
+  ApiPublisher,
+  ApiPublisherCreateRequest,
+  ApiPublisherCreateResult,
   ApiReportExecutionItemStatusRequest,
-  ApiReportExecutionStatusRequest,
   ApiRole,
   ApiRotateTokenResult,
   ApiWhoAmI,
@@ -115,8 +114,8 @@ export const queryKeys = {
   principals: ["principals"] as const,
   roles: ["workspace", "roles"] as const,
   role: (roleId: string) => ["workspace", "roles", roleId] as const,
-  releaseSources: ["workspace", "release-sources"] as const,
-  releaseSource: (releaseSourceId: string) => ["workspace", "release-sources", releaseSourceId] as const,
+  publishers: ["workspace", "publishers"] as const,
+  publisher: (publisherId: string) => ["workspace", "publishers", publisherId] as const,
   deploysets: ["workspace", "deploysets"] as const,
   deployset: (deploySetId: string) => ["workspace", "deploysets", deploySetId] as const,
   environments: ["workspace", "environments"] as const,
@@ -274,36 +273,36 @@ export async function createRelease(release: ApiRelease) {
   });
 }
 
-export async function listReleaseSources() {
-  return request<ApiReleaseSource[]>(workspacePath("/release-sources"));
+export async function listPublishers() {
+  return request<ApiPublisher[]>(workspacePath("/publishers"));
 }
 
-export async function getReleaseSource(releaseSourceId: string) {
-  return request<ApiReleaseSource>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}`));
+export async function getPublisher(publisherId: string) {
+  return request<ApiPublisher>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}`));
 }
 
-export async function createReleaseSource(payload: ApiReleaseSourceCreateRequest) {
-  return request<ApiReleaseSourceCreateResult>(workspacePath("/release-sources"), {
+export async function createPublisher(payload: ApiPublisherCreateRequest) {
+  return request<ApiPublisherCreateResult>(workspacePath("/publishers"), {
     method: "POST",
     body: payload,
   });
 }
 
-export async function rotateReleaseSourceToken(releaseSourceId: string) {
-  return request<ApiRotateTokenResult>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}/rotate-token`), {
+export async function rotatePublisherToken(publisherId: string) {
+  return request<ApiRotateTokenResult>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/rotate-token`), {
     method: "POST",
   });
 }
 
-export async function putReleaseSource(releaseSourceId: string, releaseSource: ApiReleaseSource) {
-  return request<ApiReleaseSource>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}`), {
+export async function putPublisher(publisherId: string, publisher: ApiPublisher) {
+  return request<ApiPublisher>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}`), {
     method: "PUT",
-    body: releaseSource,
+    body: publisher,
   });
 }
 
-export async function publishReleaseFromSource(releaseSourceId: string, release: ApiRelease) {
-  return request<ApiRelease>(workspacePath(`/release-sources/${encodeURIComponent(releaseSourceId)}/releases`), {
+export async function publishReleaseFromPublisher(publisherId: string, release: ApiRelease) {
+  return request<ApiRelease>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/releases`), {
     method: "POST",
     body: release,
   });
@@ -486,33 +485,11 @@ export async function rotateDeploymentRunnerToken(runnerId: string) {
 }
 
 export async function listPendingRunnerExecutions(runnerId: string) {
-  return request<ApiDeploymentExecution[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
+  return request<ApiDeploymentExecutionItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
 }
 
 export async function listPendingExecutions() {
-  const runners = await listDeploymentRunners();
-  const grouped = await Promise.all(runners.map((runner) => listPendingRunnerExecutions(runner.runnerId)));
-  const byId = new Map<string, ApiDeploymentExecution>();
-  for (const execution of grouped.flat()) {
-    byId.set(execution.deploymentExecutionId, execution);
-  }
-  return [...byId.values()];
-}
-
-export async function claimExecution(runnerId: string, deploymentExecutionId: string, leaseSeconds = 900) {
-  const payload: ApiClaimExecutionRequest = { leaseSeconds };
-  return request<ApiDeploymentExecution>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/claim`), {
-    method: "POST",
-    body: payload,
-  });
-}
-
-export async function reportExecutionStatus(runnerId: string, deploymentExecutionId: string, status: ApiReportExecutionStatusRequest["status"]) {
-  const payload: ApiReportExecutionStatusRequest = { status };
-  return request<ApiDeploymentExecution>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/status`), {
-    method: "POST",
-    body: payload,
-  });
+  return listDeploymentExecutions();
 }
 
 export async function reportExecutionItemStatus(
@@ -577,9 +554,9 @@ export type {
   ApiBootstrapState,
   ApiPrincipal,
   ApiRelease,
-  ApiReleaseSource,
-  ApiReleaseSourceCreateRequest,
-  ApiReleaseSourceCreateResult,
+  ApiPublisher,
+  ApiPublisherCreateRequest,
+  ApiPublisherCreateResult,
   ApiRole,
   ApiRotateTokenResult,
   ApiWhoAmI,

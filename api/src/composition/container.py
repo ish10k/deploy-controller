@@ -8,7 +8,7 @@ from src.application.use_cases.registry import (
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
-    ReleaseSourceUseCases,
+    PublisherUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.events import EventLogUseCases
@@ -22,7 +22,7 @@ class Container:
     components: ComponentUseCases
     component_sets: ComponentSetUseCases
     releases: ReleaseUseCases
-    release_sources: ReleaseSourceUseCases
+    publishers: PublisherUseCases
     deploysets: DeploySetUseCases
     environments: EnvironmentUseCases
     read_only: ReadOnlyUseCases

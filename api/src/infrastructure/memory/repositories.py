@@ -17,7 +17,7 @@ from src.domain.models import (
     OrganizationMembership,
     Principal,
     Release,
-    ReleaseSource,
+    Publisher,
     Role,
     Workspace,
     WorkspaceMembership,
@@ -35,7 +35,7 @@ class MemoryRepositories:
     components: dict[tuple[str, str], Component] = field(default_factory=dict)
     component_sets: dict[tuple[str, str], ComponentSet] = field(default_factory=dict)
     releases: dict[tuple[str, str, str], Release] = field(default_factory=dict)
-    release_sources: dict[tuple[str, str], ReleaseSource] = field(default_factory=dict)
+    publishers: dict[tuple[str, str], Publisher] = field(default_factory=dict)
     deploysets: dict[tuple[str, str], DeploySet] = field(default_factory=dict)
     environments: dict[tuple[str, str], Environment] = field(default_factory=dict)
     deployment_runners: dict[tuple[str, str], DeploymentRunner] = field(default_factory=dict)
@@ -138,14 +138,14 @@ class MemoryRepositories:
             values = (item for item in values if item.component_id == component_id)
         return sorted(values, key=lambda item: (item.component_id, item.version))
 
-    def get_release_source(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource | None:
-        return self.release_sources.get((workspace_id, release_source_id))
+    def get_publisher(self, publisher_id: str, workspace_id: str = "default") -> Publisher | None:
+        return self.publishers.get((workspace_id, publisher_id))
 
-    def list_release_sources(self, workspace_id: str = "default") -> list[ReleaseSource]:
-        return sorted((item for item in self.release_sources.values() if item.workspace_id == workspace_id), key=lambda item: item.release_source_id)
+    def list_publishers(self, workspace_id: str = "default") -> list[Publisher]:
+        return sorted((item for item in self.publishers.values() if item.workspace_id == workspace_id), key=lambda item: item.publisher_id)
 
-    def put_release_source(self, release_source: ReleaseSource) -> None:
-        self.release_sources[(release_source.workspace_id, release_source.release_source_id)] = release_source
+    def put_publisher(self, publisher: Publisher) -> None:
+        self.publishers[(publisher.workspace_id, publisher.publisher_id)] = publisher
 
     def get_deployset(self, deployset_id: str, workspace_id: str = "default") -> DeploySet | None:
         return self.deploysets.get((workspace_id, deployset_id))
@@ -246,7 +246,11 @@ class MemoryRepositories:
 
     def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[DeploymentExecution]:
         return sorted(
-            (item for item in self.deployment_executions.values() if item.workspace_id == workspace_id and item.status == ExecutionStatus.PENDING),
+            (
+                item
+                for item in self.deployment_executions.values()
+                if item.workspace_id == workspace_id and item.status in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}
+            ),
             key=lambda item: (item.started_at, item.deployment_execution_id),
         )
 
@@ -434,18 +438,18 @@ class MemoryReleaseRepository:
         return self.store.list_releases(component_id, workspace_id)
 
 
-class MemoryReleaseSourceRepository:
+class MemoryPublisherRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, release_source_id: str, workspace_id: str = "default") -> ReleaseSource | None:
-        return self.store.get_release_source(release_source_id, workspace_id)
+    def get(self, publisher_id: str, workspace_id: str = "default") -> Publisher | None:
+        return self.store.get_publisher(publisher_id, workspace_id)
 
-    def list(self, workspace_id: str = "default") -> list[ReleaseSource]:
-        return self.store.list_release_sources(workspace_id)
+    def list(self, workspace_id: str = "default") -> list[Publisher]:
+        return self.store.list_publishers(workspace_id)
 
-    def put(self, release_source: ReleaseSource) -> None:
-        self.store.put_release_source(release_source)
+    def put(self, publisher: Publisher) -> None:
+        self.store.put_publisher(publisher)
 
 
 class MemoryDeploySetRepository:

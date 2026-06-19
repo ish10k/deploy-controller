@@ -127,7 +127,6 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
         execution.deploymentExecutionId,
         execution.deploySetId,
         execution.environmentId,
-        execution.claimedBy ?? "",
         execution.status,
       ]
         .join(" ")
@@ -288,18 +287,10 @@ function ExecutionTable({
       },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
       {
-        header: "Claimed By",
-        cell: ({ row }) =>
-          row.original.claimedBy ? (
-            <EntityLink kind="runner" to="/deployment-runners/$runnerId" params={{ runnerId: row.original.claimedBy }}>
-              {row.original.claimedBy}
-            </EntityLink>
-          ) : (
-            "-"
-          ),
+        header: "Updated",
+        cell: ({ row }) => formatRelativeTime(row.original.completedAt ?? row.original.startedAt, { mode: "short" }),
       },
       { header: "Started", cell: ({ row }) => formatRelativeTime(row.original.startedAt, { mode: "short" }) },
-      { header: "Updated", cell: ({ row }) => formatRelativeTime(row.original.completedAt ?? row.original.startedAt, { mode: "short" }) },
       {
         id: "actions",
         cell: ({ row }) => (

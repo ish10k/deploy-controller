@@ -1,5 +1,5 @@
 export type ExecutionStatus = "pending" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
-export type ItemStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
+export type ItemStatus = "pending" | "claimed" | "running" | "succeeded" | "failed" | "skipped";
 export type ReportedAction = "deploy" | "noop" | "skip";
 export type RequestedAction = "deploy" | "skip";
 export type RequestedReason =
@@ -106,14 +106,14 @@ export interface ApiRelease {
   tags: Record<string, string>;
 }
 
-export interface ApiReleaseSourceScope {
+export interface ApiPublisherScope {
   componentSetIds: string[];
   componentIds: string[];
 }
 
-export interface ApiReleaseSource {
+export interface ApiPublisher {
   workspaceId?: string;
-  releaseSourceId: string;
+  publisherId: string;
   displayName: string;
   principalId: string;
   authMethod: string;
@@ -123,22 +123,22 @@ export interface ApiReleaseSource {
   tokenRotatedAt: string | null;
   lastUsedAt: string | null;
   active: boolean;
-  scope: ApiReleaseSourceScope;
+  scope: ApiPublisherScope;
   tags: Record<string, string>;
   createdAt: string;
   createdBy: string;
 }
 
-export interface ApiReleaseSourceCreateRequest {
-  releaseSourceId: string;
+export interface ApiPublisherCreateRequest {
+  publisherId: string;
   displayName: string;
   active: boolean;
-  scope: ApiReleaseSourceScope;
+  scope: ApiPublisherScope;
   tags: Record<string, string>;
 }
 
-export interface ApiReleaseSourceCreateResult {
-  releaseSource: ApiReleaseSource;
+export interface ApiPublisherCreateResult {
+  publisher: ApiPublisher;
   token: string;
 }
 
@@ -194,6 +194,11 @@ export interface ApiEnvironment {
 export interface ApiDeploymentRunnerScope {
   environmentIds: string[];
   componentSetIds: string[];
+  componentIds: string[];
+  componentTypes: string[];
+  componentTags: Record<string, string>;
+  environmentTags: Record<string, string>;
+  maxConcurrentClaims: number;
 }
 
 export interface ApiDeploymentRunner {
@@ -395,12 +400,20 @@ export interface ApiEnvironmentState {
 }
 
 export interface ApiDeploymentExecutionItem {
+  workspaceId?: string;
+  deploymentExecutionId: string;
+  environmentId: string;
+  componentSetId: string;
   componentId: string;
   version: string;
   artifact: Artifact;
   requestedAction: RequestedAction;
   reportedAction: ReportedAction | null;
   status: ItemStatus;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  claimExpiresAt: string | null;
+  claimEligibility: Record<string, unknown>;
   requestedReason: RequestedReason | null;
   runnerReason: string | null;
   driftDetected: boolean;
@@ -421,7 +434,6 @@ export interface ApiDeploymentExecution {
   force: boolean;
   startedAt: string;
   completedAt: string | null;
-  claimedBy: string | null;
   items: ApiDeploymentExecutionItem[];
   tags: Record<string, string>;
 }
@@ -453,14 +465,6 @@ export interface ApiPlanDeploymentRequest {
   force: boolean;
 }
 
-export interface ApiClaimExecutionRequest {
-  leaseSeconds: number | null;
-}
-
-export interface ApiReportExecutionStatusRequest {
-  status: ExecutionStatus;
-}
-
 export interface ApiReportExecutionItemStatusRequest {
   status: ItemStatus;
   reportedAction: ReportedAction;
@@ -488,9 +492,9 @@ export type components = {
     ExecutionStatus: ExecutionStatus;
     ItemStatus: ItemStatus;
     Release: ApiRelease;
-    ReleaseSource: ApiReleaseSource;
-    ReleaseSourceCreateRequest: ApiReleaseSourceCreateRequest;
-    ReleaseSourceCreateResult: ApiReleaseSourceCreateResult;
+    Publisher: ApiPublisher;
+    PublisherCreateRequest: ApiPublisherCreateRequest;
+    PublisherCreateResult: ApiPublisherCreateResult;
     RotateTokenResult: ApiRotateTokenResult;
     Principal: ApiPrincipal;
     Role: ApiRole;

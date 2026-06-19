@@ -110,7 +110,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
         row.environment.environmentId,
         row.currentDeploySet?.deploySetId,
         row.currentComponentSet?.componentSetId,
-        row.latestExecution?.claimedBy,
+        row.latestExecution ? row.latestExecution.items.map((item) => item.claimedBy).filter(Boolean).join(" ") : "",
         tagSummary(row.environment.tags),
       ]
         .filter(Boolean)
@@ -539,6 +539,15 @@ function CardDetailRow({ label, value }: { label: string; value: ReactNode }) {
 
 function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
   const latest = row.latestExecution;
+  const claimedByRunners = Array.from(new Set((latest?.items ?? []).map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
+  const latestClaimLabel =
+    claimedByRunners.length === 1 ? (
+      <span className="font-medium text-blue-700">{claimedByRunners[0]}</span>
+    ) : claimedByRunners.length > 1 ? (
+      <span className="font-medium text-slate-600">multiple runners</span>
+    ) : (
+      <span className="font-medium text-slate-400">unclaimed</span>
+    );
 
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden">
@@ -582,7 +591,7 @@ function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
           <MetaRow
             icon={Server}
             label="Deployment Runner"
-            value={<span className={latest?.claimedBy ? "font-medium text-blue-700" : "font-medium text-slate-400"}>{latest?.claimedBy ?? "unclaimed"}</span>}
+            value={latestClaimLabel}
           />
           <MetaRow icon={Clock3} label="Updated" value={<span className="text-slate-700">{formatRelativeTime(row.updatedAt, { mode: "short" })}</span>} />
           <MetaRow icon={Filter} label="Tags" value={<TagList tags={row.environment.tags} />} />

@@ -1,9 +1,10 @@
 import { EntityLink } from "@/components/ui/entity-link";
-import { MoveRight } from "lucide-react";
+import { AlertTriangle, MoveRight } from "lucide-react";
 
 import { RequestedActionBadge } from "@/components/deployments/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { components } from "@/lib/api-types";
+import type { RequestedReason, components } from "@/lib/api-types";
 
 export function PlanItems({
   items,
@@ -27,7 +28,18 @@ export function PlanItems({
         {items.map((item) => (
           <TableRow key={item.componentId}>
             <TableCell className="font-semibold">
-              {item.componentId}
+              <div className="flex flex-wrap items-center gap-1">
+                <span>{item.componentId}</span>
+                {hasMatcherWarning(item.requestedReason) ? (
+                  <span
+                    aria-label="No matching runner found"
+                    title="No matching runner found"
+                    className="inline-flex h-4 w-4 items-center justify-center text-yellow-600"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                  </span>
+                ) : null}
+              </div>
             </TableCell>
             <TableCell className="font-medium text-slate-700">
               <VersionCell
@@ -47,6 +59,10 @@ export function PlanItems({
   );
 }
 
+function hasMatcherWarning(requestedReason: RequestedReason | null) {
+  return requestedReason === "missing_latest_execution_item" || requestedReason === "latest_status_not_succeeded";
+}
+
 function VersionCell({
   componentId,
   currentVersion,
@@ -60,7 +76,7 @@ function VersionCell({
 }) {
   if (!currentVersion || currentVersion === targetVersion) {
     return (
-      <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId, version: targetVersion }}>
+      <EntityLink kind="release" to={"/releases/$componentId/$version" as never} params={{ componentId, version: targetVersion }}>
         {targetVersion}
       </EntityLink>
     );
@@ -70,7 +86,7 @@ function VersionCell({
     <div className="flex min-w-0 items-center gap-1">
       <EntityLink
         kind="release"
-        to="/releases/$componentId/$version"
+        to={"/releases/$componentId/$version" as never}
         params={{ componentId, version: currentVersion }}
       >
         {currentVersion}
@@ -81,7 +97,7 @@ function VersionCell({
       />
       <EntityLink
         kind="release"
-        to="/releases/$componentId/$version"
+        to={"/releases/$componentId/$version" as never}
         params={{ componentId, version: targetVersion }}
       >
         {targetVersion}

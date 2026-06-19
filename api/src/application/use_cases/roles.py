@@ -64,12 +64,12 @@ DEFAULT_ROLES: dict[str, Role] = {
         ],
         system=True,
     ),
-    "release-source": Role(
-        roleId="release-source",
+    "publisher": Role(
+        roleId="publisher",
         description="Service role for external release publishers.",
         permissions=[
             Permission.RELEASES_CREATE,
-            Permission.RELEASE_SOURCES_PUBLISH,
+            Permission.PUBLISHERS_PUBLISH,
         ],
         system=True,
     ),

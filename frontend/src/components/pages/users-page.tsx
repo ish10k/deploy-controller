@@ -287,7 +287,11 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
       }
       return {
         principal,
-        deployments: deployments.filter((deployment) => matchesUser(principal, deployment.requestedBy) || matchesUser(principal, deployment.claimedBy)),
+        deployments: deployments.filter(
+          (deployment) =>
+            matchesUser(principal, deployment.requestedBy) ||
+            deployment.items.some((item) => matchesUser(principal, item.claimedBy) || matchesUser(principal, item.reportedBy)),
+        ),
         releases: releases.filter((release) => matchesUser(principal, release.createdBy)),
         deploysets: deploysets.filter((deployset) => matchesUser(principal, deployset.createdBy)),
         componentSets: componentSets.filter((componentSet) => matchesUser(principal, componentSet.createdBy)),

@@ -121,14 +121,14 @@ class Release(ApiModel):
     tags: dict[str, str] = Field(default_factory=dict)
 
 
-class ReleaseSourceScope(ApiModel):
+class PublisherScope(ApiModel):
     component_set_ids: list[str] = Field(default_factory=list, alias="componentSetIds")
     component_ids: list[str] = Field(default_factory=list, alias="componentIds")
 
 
-class ReleaseSource(ApiModel):
+class Publisher(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
-    release_source_id: str = Field(alias="releaseSourceId")
+    publisher_id: str = Field(alias="publisherId")
     display_name: str = Field(alias="displayName")
     principal_id: str = Field(alias="principalId")
     auth_method: str = Field(default="pat", alias="authMethod")
@@ -138,24 +138,24 @@ class ReleaseSource(ApiModel):
     token_rotated_at: str | None = Field(default=None, alias="tokenRotatedAt")
     last_used_at: str | None = Field(default=None, alias="lastUsedAt")
     active: bool = True
-    scope: ReleaseSourceScope = Field(default_factory=ReleaseSourceScope)
+    scope: PublisherScope = Field(default_factory=PublisherScope)
     tags: dict[str, str] = Field(default_factory=dict)
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
 
 
-class ReleaseSourceCreateRequest(ApiModel):
+class PublisherCreateRequest(ApiModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
-    release_source_id: str = Field(alias="releaseSourceId")
+    publisher_id: str = Field(alias="publisherId")
     display_name: str = Field(alias="displayName")
     active: bool = True
-    scope: ReleaseSourceScope = Field(default_factory=ReleaseSourceScope)
+    scope: PublisherScope = Field(default_factory=PublisherScope)
     tags: dict[str, str] = Field(default_factory=dict)
 
 
-class ReleaseSourceCreateResult(ApiModel):
-    release_source: ReleaseSource = Field(alias="releaseSource")
+class PublisherCreateResult(ApiModel):
+    publisher: Publisher = Field(alias="publisher")
     token: str
 
 
@@ -211,6 +211,11 @@ class Environment(ApiModel):
 class DeploymentRunnerScope(ApiModel):
     environment_ids: list[str] = Field(default_factory=list, alias="environmentIds")
     component_set_ids: list[str] = Field(default_factory=list, alias="componentSetIds")
+    component_ids: list[str] = Field(default_factory=list, alias="componentIds")
+    component_types: list[str] = Field(default_factory=list, alias="componentTypes")
+    component_tags: dict[str, str] = Field(default_factory=dict, alias="componentTags")
+    environment_tags: dict[str, str] = Field(default_factory=dict, alias="environmentTags")
+    max_concurrent_claims: int = Field(default=1, alias="maxConcurrentClaims", ge=1)
 
 
 class DeploymentRunner(ApiModel):
@@ -447,12 +452,20 @@ class EnvironmentState(ApiModel):
 
 
 class DeploymentExecutionItem(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
+    deployment_execution_id: str = Field(default="", alias="deploymentExecutionId")
+    environment_id: str = Field(default="", alias="environmentId")
+    component_set_id: str = Field(default="", alias="componentSetId")
     component_id: str = Field(alias="componentId")
     version: str
     artifact: Artifact
     requested_action: RequestedAction = Field(alias="requestedAction")
     reported_action: ReportedAction | None = Field(default=None, alias="reportedAction")
     status: ItemStatus
+    claimed_by: str | None = Field(default=None, alias="claimedBy")
+    claimed_at: str | None = Field(default=None, alias="claimedAt")
+    claim_expires_at: str | None = Field(default=None, alias="claimExpiresAt")
+    claim_eligibility: dict[str, object] = Field(default_factory=dict, alias="claimEligibility")
     requested_reason: RequestedReason | None = Field(default=None, alias="requestedReason")
     runner_reason: str | None = Field(default=None, alias="runnerReason")
     drift_detected: bool = Field(default=False, alias="driftDetected")
@@ -473,7 +486,6 @@ class DeploymentExecution(ApiModel):
     force: bool = False
     started_at: str = Field(alias="startedAt")
     completed_at: str | None = Field(default=None, alias="completedAt")
-    claimed_by: str | None = Field(default=None, alias="claimedBy")
     items: list[DeploymentExecutionItem]
     tags: dict[str, str] = Field(default_factory=dict)
 

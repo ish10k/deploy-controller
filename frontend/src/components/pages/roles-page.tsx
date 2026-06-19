@@ -35,8 +35,8 @@ const AVAILABLE_PERMISSIONS = [
   "executions:claim",
   "executions:report_status",
   "deployment_runners:write",
-  "release_sources:write",
-  "release_sources:publish",
+  "publishers:write",
+  "publishers:publish",
   "principals:read",
   "principals:write",
   "roles:read",
@@ -49,7 +49,7 @@ const AVAILABLE_PERMISSIONS = [
 ] as const;
 
 const PERMISSION_GROUPS = [
-  { label: "Registry", prefix: ["components:", "component_sets:", "releases:", "release_sources:"] },
+  { label: "Registry", prefix: ["components:", "component_sets:", "releases:", "publishers:"] },
   { label: "Deployments", prefix: ["deploysets:", "deployments:", "executions:", "deployment_runners:"] },
   { label: "Governance", prefix: ["principals:", "roles:", "events:"] },
   { label: "Webhooks", prefix: ["webhooks:", "webhook_deliveries:"] },

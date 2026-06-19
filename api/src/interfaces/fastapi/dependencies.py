@@ -36,7 +36,7 @@ def get_auth_context(
             token=token,
             principals=container.principals.list(),
             runners=container.deployment_runners.list(),
-            release_sources=container.release_sources.list(),
+            publishers=container.publishers.list(),
             roles=container.roles.list_unchecked(),
         )
     if os.getenv("SETTLE_AUTH_MODE", "oidc") != "oidc":

@@ -17,8 +17,8 @@ from src.domain.models import (
     OrganizationMembership,
     Principal,
     Release,
-    ReleaseSource,
-    ReleaseSourceCreateRequest,
+    Publisher,
+    PublisherCreateRequest,
     Role,
     Webhook,
     Workspace,
@@ -29,7 +29,6 @@ from src.interfaces.fastapi.schemas import (
     CreateDeploymentRequest,
     PlanDeploymentRequest,
     ReportExecutionItemStatusRequest,
-    ReportExecutionStatusRequest,
 )
 from src.interfaces.lambda_api.responses import response
 
@@ -57,7 +56,7 @@ def _auth_context(event: dict[str, Any], container: Container):
             token=token,
             principals=container.principals.list(),
             runners=container.deployment_runners.list(),
-            release_sources=container.release_sources.list(),
+            publishers=container.publishers.list(),
             roles=container.roles.list_unchecked(),
         )
     from src.domain.errors import UnauthorizedError
@@ -178,19 +177,19 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
                 tags=deployment_request.tags,
             )
             return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "pending"})
-        if method == "GET" and scoped == ["release-sources"]:
-            return response(200, container.release_sources.list(workspace_id))
-        if method == "POST" and scoped == ["release-sources"]:
-            return response(200, container.release_sources.create(_body(event, ReleaseSourceCreateRequest), _auth_context(event, container), workspace_id))
-        if method == "GET" and len(scoped) == 2 and scoped[0] == "release-sources":
-            return response(200, container.release_sources.get(scoped[1], workspace_id))
-        if method == "PUT" and len(scoped) == 2 and scoped[0] == "release-sources":
-            release_source = _body(event, ReleaseSource).model_copy(update={"workspace_id": workspace_id, "release_source_id": scoped[1]})
-            return response(200, container.release_sources.put(release_source, _auth_context(event, container), workspace_id))
-        if method == "POST" and len(scoped) == 3 and scoped[0] == "release-sources" and scoped[2] == "rotate-token":
-            return response(200, container.release_sources.rotate_token(scoped[1], _auth_context(event, container), workspace_id))
-        if method == "POST" and len(scoped) == 3 and scoped[0] == "release-sources" and scoped[2] == "releases":
-            return response(200, container.release_sources.publish_release(scoped[1], _body(event, Release), _auth_context(event, container), workspace_id))
+        if method == "GET" and scoped == ["publishers"]:
+            return response(200, container.publishers.list(workspace_id))
+        if method == "POST" and scoped == ["publishers"]:
+            return response(200, container.publishers.create(_body(event, PublisherCreateRequest), _auth_context(event, container), workspace_id))
+        if method == "GET" and len(scoped) == 2 and scoped[0] == "publishers":
+            return response(200, container.publishers.get(scoped[1], workspace_id))
+        if method == "PUT" and len(scoped) == 2 and scoped[0] == "publishers":
+            publisher = _body(event, Publisher).model_copy(update={"workspace_id": workspace_id, "publisher_id": scoped[1]})
+            return response(200, container.publishers.put(publisher, _auth_context(event, container), workspace_id))
+        if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "rotate-token":
+            return response(200, container.publishers.rotate_token(scoped[1], _auth_context(event, container), workspace_id))
+        if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "releases":
+            return response(200, container.publishers.publish_release(scoped[1], _body(event, Release), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["deployment-runners"]:
             return response(200, container.deployment_runners.list(workspace_id))
         if method == "POST" and scoped == ["deployment-runners"]:
@@ -206,9 +205,17 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.deployment_runners.heartbeat(scoped[1], _auth_context(event, container), workspace_id))
         if method == "GET" and len(scoped) == 4 and scoped[0] == "deployment-runners" and scoped[2:] == ["executions", "pending"]:
             return response(200, container.deployment_runners.list_pending(scoped[1], workspace_id))
-        if method == "POST" and len(scoped) == 5 and scoped[0] == "deployment-runners" and scoped[2] == "executions" and scoped[4] == "claim":
+        if (
+            method == "POST"
+            and len(scoped) == 7
+            and scoped[0] == "deployment-runners"
+            and scoped[2] == "executions"
+            and scoped[4] == "items"
+            and scoped[6] == "claim"
+        ):
             claim_request = _body(event, ClaimExecutionRequest)
-            return response(200, container.deployment_runners.claim(scoped[1], scoped[3], _auth_context(event, container), claim_request.lease_seconds, workspace_id))
+            claim_timeout_seconds = claim_request.claim_timeout_seconds if claim_request.claim_timeout_seconds is not None else claim_request.lease_seconds
+            return response(200, container.deployment_runners.claim_item(scoped[1], scoped[3], scoped[5], _auth_context(event, container), claim_timeout_seconds, workspace_id))
         if (
             method == "POST"
             and len(scoped) == 7
@@ -231,18 +238,6 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
                 error=item_status_request.error,
                 workspace_id=workspace_id,
             ))
-        if method == "POST" and len(scoped) == 5 and scoped[0] == "deployment-runners" and scoped[2] == "executions" and scoped[4] == "status":
-            execution_status_request = _body(event, ReportExecutionStatusRequest)
-            return response(
-                200,
-                container.deployment_runners.report_execution_status(
-                    scoped[1],
-                    scoped[3],
-                    execution_status_request.status,
-                    _auth_context(event, container),
-                    workspace_id,
-                ),
-            )
         if method == "GET" and scoped == ["roles"]:
             return response(200, container.roles.list(_auth_context(event, container), workspace_id))
         if method == "GET" and len(scoped) == 2 and scoped[0] == "roles":
