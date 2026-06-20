@@ -4,7 +4,7 @@ import { AlertTriangle, MoveRight } from "lucide-react";
 import { RequestedActionBadge } from "@/components/deployments/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { RequestedReason, components } from "@/lib/api-types";
+import type { components } from "@/lib/api-types";
 
 export function PlanItems({
   items,
@@ -30,7 +30,7 @@ export function PlanItems({
             <TableCell className="font-semibold">
               <div className="flex flex-wrap items-center gap-1">
                 <span>{item.componentId}</span>
-                {hasMatcherWarning(item.requestedReason) ? (
+                {item.runnerMatchWarning ? (
                   <span
                     aria-label="No matching runner found"
                     title="No matching runner found"
@@ -57,10 +57,6 @@ export function PlanItems({
       </TableBody>
     </Table>
   );
-}
-
-function hasMatcherWarning(requestedReason: RequestedReason | null) {
-  return requestedReason === "missing_latest_execution_item" || requestedReason === "latest_status_not_succeeded";
 }
 
 function VersionCell({

@@ -11,6 +11,7 @@ import { AuthPage } from "@/components/pages/auth-page";
 import { ComponentDetailsPage } from "@/components/pages/component-details-page";
 import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
 import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
+import { ExecutionsPage } from "@/components/pages/executions-page";
 import { EventLogPage } from "@/components/pages/event-log-page";
 import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
 import { PublisherDetailsPage, PublishersPage } from "@/components/pages/publishers-page";
@@ -177,7 +178,7 @@ const workspaceEnvironmentDetailRoute = createRoute({
 const workspaceExecutionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/workspaces/$workspaceId/executions",
-  component: () => <DeploymentsPage initialView="executions" />,
+  component: ExecutionsPage,
 });
 const workspaceDeploymentRunnersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/deployment-runners", component: DeploymentRunnersPage });
 const workspaceDeploymentRunnerDetailRoute = createRoute({

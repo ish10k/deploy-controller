@@ -58,6 +58,7 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return {
     ...actual,
+    listDeploymentExecutions: vi.fn(async () => []),
     fetchDashboardData: vi.fn(async () => ({ executions: [] })),
   };
 });

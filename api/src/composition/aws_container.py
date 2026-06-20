@@ -1,6 +1,6 @@
 import os
 
-from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
+from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase, RunnerEligibilityUseCases
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.registry import (
     ComponentSetUseCases,
@@ -92,11 +92,18 @@ def build_aws_container() -> Container:
         workspace_memberships=workspace_memberships,
         bootstrap_tenancy=organizations,
     )
+    runner_eligibility = RunnerEligibilityUseCases(
+        runners=runners,
+        deploysets=deploysets,
+        components=components,
+        environments=environments,
+    )
     planner = PlanDeploymentUseCase(
         deploysets=deploysets,
         releases=releases,
         environments=environments,
         executions=executions,
+        runner_eligibility=runner_eligibility,
     )
     return Container(
         components=ComponentUseCases(components, events=events),
@@ -119,7 +126,7 @@ def build_aws_container() -> Container:
             events=events,
         ),
         environments=EnvironmentUseCases(environments, events=events),
-        read_only=ReadOnlyUseCases(states, executions),
+        read_only=ReadOnlyUseCases(states, executions, runner_eligibility),
         plan_deployment=planner,
         create_deployment=CreateDeploymentUseCase(
             planner=planner,

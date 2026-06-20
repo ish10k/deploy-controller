@@ -13,8 +13,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
-import { fetchDashboardData, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
-import { useAppContext } from "@/lib/app-context";
+import { listDeploymentExecutions, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 type DeploymentsPageProps = {
@@ -26,7 +25,6 @@ type DeploymentsPageProps = {
 type DeploymentWorkspaceView = "executions" | "deploysets";
 
 export function DeploymentsPage({ initialView = "executions", initialPlanOpen = false, onPlanClose }: DeploymentsPageProps = {}) {
-  const { environmentId } = useAppContext();
   const [view, setView] = useState<DeploymentWorkspaceView>(initialView);
   const [planOpen, setPlanOpen] = useState(initialPlanOpen);
   const [planMounted, setPlanMounted] = useState(initialPlanOpen);
@@ -39,8 +37,8 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     { value: "deploysets", label: "DeploySets" },
   ];
   const query = useQuery({
-    queryKey: queryKeys.dashboard(environmentId),
-    queryFn: () => fetchDashboardData(environmentId),
+    queryKey: queryKeys.executions(),
+    queryFn: () => listDeploymentExecutions(),
     retry: 1,
   });
   const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
@@ -114,7 +112,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     setView(nextView);
   };
 
-  const executions = query.data?.executions ?? [];
+  const executions = query.data ?? [];
   const filteredExecutions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 

@@ -469,6 +469,7 @@ class DeploymentExecutionItem(ApiModel):
     requested_reason: RequestedReason | None = Field(default=None, alias="requestedReason")
     runner_reason: str | None = Field(default=None, alias="runnerReason")
     failure_reason: str | None = Field(default=None, alias="failureReason")
+    runner_match_warning: bool = Field(default=False, alias="runnerMatchWarning")
     drift_detected: bool = Field(default=False, alias="driftDetected")
     drift_reason: DriftReason | None = Field(default=None, alias="driftReason")
     reported_by: str | None = Field(default=None, alias="reportedBy")

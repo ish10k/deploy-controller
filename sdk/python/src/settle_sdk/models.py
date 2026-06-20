@@ -104,6 +104,7 @@ class DeploymentExecutionItem:
     requested_reason: str | None = None
     runner_reason: str | None = None
     failure_reason: str | None = None
+    runner_match_warning: bool = False
     drift_detected: bool = False
     drift_reason: str | None = None
     reported_by: str | None = None
@@ -130,6 +131,7 @@ class DeploymentExecutionItem:
             requested_reason=_optional_str(data.get("requestedReason")),
             runner_reason=_optional_str(data.get("runnerReason")),
             failure_reason=_optional_str(data.get("failureReason")),
+            runner_match_warning=bool(data.get("runnerMatchWarning", False)),
             drift_detected=bool(data.get("driftDetected", False)),
             drift_reason=_optional_str(data.get("driftReason")),
             reported_by=_optional_str(data.get("reportedBy")),

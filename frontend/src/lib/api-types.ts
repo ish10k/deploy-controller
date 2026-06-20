@@ -417,6 +417,7 @@ export interface ApiDeploymentExecutionItem {
   requestedReason: RequestedReason | null;
   runnerReason: string | null;
   failureReason: string | null;
+  runnerMatchWarning: boolean;
   driftDetected: boolean;
   driftReason: DriftReason | null;
   reportedBy: string | null;

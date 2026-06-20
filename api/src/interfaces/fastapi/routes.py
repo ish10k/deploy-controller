@@ -405,7 +405,12 @@ def _json(value: Any) -> Any:
     if isinstance(value, list):
         return [_json(item) for item in value]
     if hasattr(value, "model_dump"):
-        return value.model_dump(by_alias=True, mode="json")
+        payload = value.model_dump(by_alias=True, mode="json")
+        if hasattr(value, "items") and isinstance(payload.get("items"), list):
+            payload["items"] = [_json(item) for item in getattr(value, "items")]
+        if hasattr(value, "runner_match_warning"):
+            payload["runnerMatchWarning"] = getattr(value, "runner_match_warning")
+        return payload
     return value
 
 

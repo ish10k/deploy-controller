@@ -279,6 +279,57 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     assert store.get_environment_state("prod").last_deployment_execution_id == execution.deployment_execution_id
 
 
+def test_runner_warning_is_derived_live_and_ignores_capacity() -> None:
+    store = MemoryRepositories()
+    seed(store)
+    store.put_component(Component(componentId="edge-api", type="bare-metal", active=True))
+    store.put_component_set(
+        ComponentSet(
+            componentSetId="edge-platform",
+            components=[{"componentId": "edge-api"}],
+            createdAt="2026-06-16T12:00:00Z",
+            createdBy="ci",
+        )
+    )
+    store.create_release(release("edge-api", "1.0.0", "sha-edge"))
+    store.create_deployset(
+        DeploySet(
+            deploySetId="edge-ds",
+            componentSetId="edge-platform",
+            schemaVersion=1,
+            items=[{"componentId": "edge-api", "version": "1.0.0"}],
+            createdAt="2026-06-16T12:01:00Z",
+            createdBy="ci",
+        )
+    )
+    store.put_environment(Environment(environmentId="edge"))
+    container = build_memory_container(store)
+
+    plan = container.plan_deployment.execute(environment_id="edge", deployset_id="edge-ds")
+    assert plan.items[0].runner_match_warning is True
+
+    execution = container.create_deployment.execute(environment_id="edge", deployset_id="edge-ds", context=admin_context())
+    live = container.read_only.get_deployment_execution(execution.deployment_execution_id)
+    assert live.items[0].runner_match_warning is True
+
+
+def test_runner_warning_stays_false_when_a_match_exists_even_at_capacity() -> None:
+    store = MemoryRepositories()
+    seed(store)
+    container = build_memory_container(store)
+
+    execution = container.create_deployment.execute(
+        environment_id="prod",
+        deployset_id="ds-1",
+        context=admin_context(),
+        notes="Capacity should not affect match warnings.",
+    )
+    container.deployment_runners.claim_item("aws-prod-runner", execution.deployment_execution_id, "api", admin_context())
+
+    live = container.read_only.get_deployment_execution(execution.deployment_execution_id)
+    assert all(item.runner_match_warning is False for item in live.items)
+
+
 def test_create_deployment_marks_environment_state_succeeded_when_plan_is_all_skipped() -> None:
     store = MemoryRepositories()
     seed(store)

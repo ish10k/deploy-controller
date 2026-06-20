@@ -11,6 +11,7 @@ from src.application.ports import (
 )
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
+from src.application.use_cases.deployments import RunnerEligibilityUseCases
 from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
@@ -531,9 +532,11 @@ class ReadOnlyUseCases:
         self,
         states: EnvironmentStateRepository,
         executions: DeploymentExecutionRepository,
+        runner_eligibility: RunnerEligibilityUseCases,
     ) -> None:
         self.states = states
         self.executions = executions
+        self.runner_eligibility = runner_eligibility
 
     def get_environment_state(self, environment_id: str, workspace_id: str = "default") -> EnvironmentState:
         state = self.states.get(environment_id, workspace_id)
@@ -548,10 +551,10 @@ class ReadOnlyUseCases:
         execution = self.executions.get(deployment_execution_id, workspace_id)
         if execution is None:
             raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
-        return execution
+        return self.runner_eligibility.decorate_execution(execution, workspace_id)
 
     def list_deployment_executions(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
-        return self.executions.list_by_environment(environment_id, workspace_id)
+        return [self.runner_eligibility.decorate_execution(execution, workspace_id) for execution in self.executions.list_by_environment(environment_id, workspace_id)]
 
     def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[DeploymentExecution]:
         return self.executions.list_pending(workspace_id)

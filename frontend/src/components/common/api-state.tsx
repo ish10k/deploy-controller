@@ -104,7 +104,7 @@ export function useRefreshAction(
 
 export function EmptyPanel({ label = "No records returned by the API." }: { label?: string }) {
   return (
-    <div className="flex h-36 items-center justify-center rounded-lg bg-slate-50 px-4 text-sm font-semibold text-slate-500">{label}</div>
+    <div className="flex h-36 items-center justify-center rounded-lg px-4 text-sm font-semibold text-slate-500">{label}</div>
   );
 }
 

@@ -34,6 +34,8 @@ export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { depl
     queryKey: queryKeys.execution(deploymentExecutionId),
     queryFn: () => getDeploymentExecution(deploymentExecutionId),
     retry: 1,
+    refetchInterval: (query) => (["pending", "claimed", "in-progress"].includes(query.state.data?.status ?? "") ? 5_000 : false),
+    refetchIntervalInBackground: true,
   });
   if (query.isLoading) return <LoadingPanel label="Loading deployment execution..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
@@ -52,10 +54,14 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
     queryKey: queryKeys.events({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
     enabled: canReadEvents,
     queryFn: () => listEvents({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
+    refetchInterval: ["pending", "claimed", "in-progress"].includes(execution.status) ? 5_000 : false,
+    refetchIntervalInBackground: true,
   });
   const executionsQuery = useQuery({
     queryKey: queryKeys.executions(execution.environmentId),
     queryFn: () => listDeploymentExecutions(execution.environmentId),
+    refetchInterval: ["pending", "claimed", "in-progress"].includes(execution.status) ? 5_000 : false,
+    refetchIntervalInBackground: true,
   });
   const cancelMutation = useMutation({
     mutationFn: () => cancelDeploymentExecution(execution.deploymentExecutionId),
@@ -67,8 +73,8 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.execution(execution.deploymentExecutionId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.executions(execution.environmentId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(execution.environmentId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.executions() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.environmentCenter }),
         queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
         queryClient.invalidateQueries({ queryKey: ["events"] }),
       ]);
@@ -320,7 +326,7 @@ export function ComponentActionsTable({
                 <EntityLink kind="component" to="/components/$componentId" params={{ componentId: row.componentId }}>
                   {row.componentId}
                 </EntityLink>
-                {hasMatcherWarning(row.requestedReason) ? (
+                {row.runnerMatchWarning ? (
                   <span
                     aria-label="No matching runner found"
                     title="No matching runner found"
@@ -358,10 +364,6 @@ export function ComponentActionsTable({
       </TableBody>
     </Table>
   );
-}
-
-function hasMatcherWarning(requestedReason: ApiDeploymentExecutionItem["requestedReason"]) {
-  return requestedReason === "missing_latest_execution_item" || requestedReason === "latest_status_not_succeeded";
 }
 
 function ExecutionFactCard({

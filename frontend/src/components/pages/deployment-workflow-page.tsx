@@ -151,8 +151,8 @@ export function DeploymentWorkflowPage({
         description: `Execution ${execution.deploymentExecutionId} is now pending.`,
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.executions(selectedEnvironmentId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(selectedEnvironmentId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.executions() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.environmentCenter }),
         queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
       ]);
       onCreated?.();

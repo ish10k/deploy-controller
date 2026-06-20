@@ -99,6 +99,89 @@ def test_lambda_deployment_notes_round_trip() -> None:
     assert json.loads(cancel_response["body"])["status"] == "cancelled"
 
 
+def test_lambda_live_runner_warning_is_serialized() -> None:
+    container = authenticated_container()
+
+    response = route(
+        event("PUT", f"{WORKSPACE}/components/edge-api", {"componentId": "ignored", "type": "bare-metal", "active": True}, authenticated=True),
+        container,
+    )
+    assert response["statusCode"] == 200
+
+    response = route(
+        event(
+            "PUT",
+            f"{WORKSPACE}/component-sets/edge-platform",
+            {
+                "componentSetId": "ignored",
+                "components": [{"componentId": "edge-api"}],
+                "createdAt": "2026-06-19T10:00:00Z",
+                "createdBy": "test",
+            },
+            authenticated=True,
+        ),
+        container,
+    )
+    assert response["statusCode"] == 200
+
+    response = route(
+        event(
+            "POST",
+            f"{WORKSPACE}/releases",
+            {
+                "componentId": "edge-api",
+                "version": "1.0.0",
+                "artifact": {"key": "edge-api:1.0.0", "digest": "sha256:edge"},
+                "createdAt": "2026-06-19T10:00:00Z",
+                "createdBy": "test",
+            },
+            authenticated=True,
+        ),
+        container,
+    )
+    assert response["statusCode"] == 200
+
+    response = route(
+        event(
+            "POST",
+            f"{WORKSPACE}/deploysets",
+            {
+                "deploySetId": "edge-ds",
+                "componentSetId": "edge-platform",
+                "items": [{"componentId": "edge-api", "version": "1.0.0"}],
+                "createdBy": "test",
+            },
+            authenticated=True,
+        ),
+        container,
+    )
+    assert response["statusCode"] == 200
+
+    response = route(event("PUT", f"{WORKSPACE}/environments/edge", {"environmentId": "ignored", "active": True}, authenticated=True), container)
+    assert response["statusCode"] == 200
+
+    response = route(
+        event(
+            "POST",
+            f"{WORKSPACE}/deployments",
+            {
+                "environmentId": "edge",
+                "deploySetId": "edge-ds",
+                "requestedBy": "ops",
+                "force": True,
+            },
+            authenticated=True,
+        ),
+        container,
+    )
+    assert response["statusCode"] == 200
+    execution_id = json.loads(response["body"])["deploymentExecutionId"]
+
+    response = route(event("GET", f"{WORKSPACE}/deployment-executions/{execution_id}"), container)
+    assert response["statusCode"] == 200
+    assert any(item["runnerMatchWarning"] for item in json.loads(response["body"])["items"])
+
+
 def test_lambda_pending_deployment_executions_route_is_not_shadowed() -> None:
     container = authenticated_container()
 

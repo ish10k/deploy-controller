@@ -43,6 +43,93 @@ from src.application.use_cases.identity import PrincipalUseCases
 from src.domain.planning import possible_drift_reason, requested_action_for_item
 
 
+class RunnerEligibilityUseCases:
+    def __init__(
+        self,
+        *,
+        runners: DeploymentRunnerRepository,
+        deploysets: DeploySetRepository,
+        components: ComponentRepository,
+        environments: EnvironmentRepository,
+    ) -> None:
+        self.runners = runners
+        self.deploysets = deploysets
+        self.components = components
+        self.environments = environments
+
+    def decorate_plan(self, plan: DeploymentPlan, workspace_id: str = "default") -> DeploymentPlan:
+        return plan.model_copy(
+            update={
+                "items": [
+                    item.model_copy(update={"runner_match_warning": self._should_warn_for_item(plan.environment_id, plan.deployset_id, item, workspace_id)})
+                    for item in plan.items
+                ]
+            }
+        )
+
+    def decorate_execution(self, execution: DeploymentExecution, workspace_id: str = "default") -> DeploymentExecution:
+        if execution.status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED}:
+            return execution.model_copy(update={"items": [item.model_copy(update={"runner_match_warning": False}) for item in execution.items]})
+        return execution.model_copy(
+            update={
+                "items": [
+                    item.model_copy(
+                        update={"runner_match_warning": self._should_warn_for_item(execution.environment_id, execution.deployset_id, item, workspace_id)}
+                    )
+                    for item in execution.items
+                ]
+            }
+        )
+
+    def _should_warn_for_item(self, environment_id: str, deployset_id: str, item: DeploymentExecutionItem, workspace_id: str) -> bool:
+        if item.requested_action != RequestedAction.DEPLOY or item.status != ItemStatus.PENDING:
+            return False
+        return not self._has_matching_runner(environment_id, deployset_id, item, workspace_id)
+
+    def _has_matching_runner(self, environment_id: str, deployset_id: str, item: DeploymentExecutionItem, workspace_id: str) -> bool:
+        for runner in self.runners.list(workspace_id):
+            if self._runner_matches_item(runner, environment_id, deployset_id, item, workspace_id):
+                return True
+        return False
+
+    def _runner_matches_item(
+        self,
+        runner: DeploymentRunner,
+        environment_id: str,
+        deployset_id: str,
+        item: DeploymentExecutionItem,
+        workspace_id: str,
+    ) -> bool:
+        if not runner.active:
+            return False
+        scope = runner.scope
+        if scope.environment_ids and environment_id not in scope.environment_ids:
+            return False
+        if scope.component_set_ids:
+            deployset = self.deploysets.get(deployset_id, workspace_id)
+            if not deployset or deployset.component_set_id not in scope.component_set_ids:
+                return False
+        if scope.component_ids and item.component_id not in scope.component_ids:
+            return False
+        if scope.component_types or scope.component_tags:
+            component = self.components.get(item.component_id, workspace_id)
+            if component is None:
+                return False
+            if scope.component_types and (component.type is None or component.type not in scope.component_types):
+                return False
+            for key, value in scope.component_tags.items():
+                if component.tags.get(key) != value:
+                    return False
+        if scope.environment_tags:
+            environment = self.environments.get(environment_id, workspace_id)
+            if environment is None:
+                return False
+            for key, value in scope.environment_tags.items():
+                if environment.tags.get(key) != value:
+                    return False
+        return True
+
+
 class PlanDeploymentUseCase:
     def __init__(
         self,
@@ -51,11 +138,13 @@ class PlanDeploymentUseCase:
         releases: ReleaseRepository,
         environments: EnvironmentRepository,
         executions: DeploymentExecutionRepository,
+        runner_eligibility: RunnerEligibilityUseCases,
     ) -> None:
         self.deploysets = deploysets
         self.releases = releases
         self.environments = environments
         self.executions = executions
+        self.runner_eligibility = runner_eligibility
 
     def execute(
         self,
@@ -101,7 +190,8 @@ class PlanDeploymentUseCase:
                 )
             )
 
-        return DeploymentPlan(workspace_id=workspace_id, environment_id=environment_id, deployset_id=deployset_id, items=planned_items)
+        plan = DeploymentPlan(workspace_id=workspace_id, environment_id=environment_id, deployset_id=deployset_id, items=planned_items)
+        return self.runner_eligibility.decorate_plan(plan, workspace_id)
 
 
 class CreateDeploymentUseCase:
@@ -286,6 +376,12 @@ class DeploymentRunnerUseCases:
         self.clock = clock
         self.principals = principals
         self.events = events
+        self.runner_eligibility = RunnerEligibilityUseCases(
+            runners=runners,
+            deploysets=deploysets,
+            components=components,
+            environments=environments,
+        )
 
     def put(self, runner: DeploymentRunner, context: AuthContext, workspace_id: str = "default") -> DeploymentRunner:
         require_permission(context, Permission.DEPLOYMENT_RUNNERS_WRITE)

@@ -36,7 +36,19 @@ def _table(name: str) -> Any:
 
 
 def _dump(model: Any) -> dict[str, Any]:
-    return cast(dict[str, Any], model.model_dump(by_alias=True, exclude_none=True, mode="json"))
+    return cast(dict[str, Any], _strip_transient_fields(model.model_dump(by_alias=True, exclude_none=True, mode="json")))
+
+
+def _strip_transient_fields(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_strip_transient_fields(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _strip_transient_fields(item)
+            for key, item in value.items()
+            if key != "runnerMatchWarning"
+        }
+    return value
 
 
 def _create(table: Any, item: dict[str, Any], condition: str) -> None:

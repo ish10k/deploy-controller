@@ -17,7 +17,7 @@ describe("PlanItems", () => {
             componentId: "api",
             version: "1.2.3",
             requestedAction: "deploy",
-            requestedReason: "missing_latest_execution_item",
+            runnerMatchWarning: true,
           } as never,
         ]}
         currentVersions={new Map()}
@@ -25,6 +25,6 @@ describe("PlanItems", () => {
       />,
     );
 
-    expect(screen.getByText("No valid matcher")).toBeInTheDocument();
+    expect(screen.getByLabelText("No matching runner found")).toBeInTheDocument();
   });
 });

@@ -197,6 +197,66 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
     assert cancel_response.json()["status"] == "cancelled"
 
 
+def test_fastapi_live_runner_warning_is_serialized() -> None:
+    client_instance = client()
+
+    response = client_instance.put(f"{WORKSPACE}/components/edge-api", json={"componentId": "ignored", "type": "bare-metal", "active": True})
+    assert response.status_code == 200
+
+    response = client_instance.put(
+        f"{WORKSPACE}/component-sets/edge-platform",
+        json={
+            "componentSetId": "ignored",
+            "components": [{"componentId": "edge-api"}],
+            "createdAt": "2026-06-19T10:00:00Z",
+            "createdBy": "test",
+        },
+    )
+    assert response.status_code == 200
+
+    response = client_instance.post(
+        f"{WORKSPACE}/releases",
+        json={
+            "componentId": "edge-api",
+            "version": "1.0.0",
+            "artifact": {"key": "edge-api:1.0.0", "digest": "sha256:edge"},
+            "createdAt": "2026-06-19T10:00:00Z",
+            "createdBy": "test",
+        },
+    )
+    assert response.status_code == 200
+
+    response = client_instance.post(
+        f"{WORKSPACE}/deploysets",
+        json={
+            "deploySetId": "edge-ds",
+            "componentSetId": "edge-platform",
+            "items": [{"componentId": "edge-api", "version": "1.0.0"}],
+            "createdBy": "test",
+        },
+    )
+    assert response.status_code == 200
+
+    response = client_instance.put(f"{WORKSPACE}/environments/edge", json={"environmentId": "ignored", "active": True})
+    assert response.status_code == 200
+
+    response = client_instance.post(
+        f"{WORKSPACE}/deployments",
+        json={
+            "environmentId": "edge",
+            "deploySetId": "edge-ds",
+            "requestedBy": "ops",
+            "force": True,
+        },
+    )
+    assert response.status_code == 200
+    execution_id = response.json()["deploymentExecutionId"]
+
+    response = client_instance.get(f"{WORKSPACE}/deployment-executions/{execution_id}")
+    assert response.status_code == 200
+    assert any(item["runnerMatchWarning"] for item in response.json()["items"])
+
+
 def test_fastapi_pending_deployment_executions_route_is_not_shadowed() -> None:
     client_instance = client()
 
