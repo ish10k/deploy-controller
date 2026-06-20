@@ -279,6 +279,46 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
     assert store.get_environment_state("prod").last_deployment_execution_id == execution.deployment_execution_id
 
 
+def test_create_deployment_marks_environment_state_succeeded_when_plan_is_all_skipped() -> None:
+    store = MemoryRepositories()
+    seed(store)
+    store.create_deployment_execution(
+        DeploymentExecution(
+            deploymentExecutionId="abc123ef",
+            environmentId="prod",
+            deploySetId="ds-1",
+            status="succeeded",
+            requestedBy="ishina",
+            startedAt="2026-06-16T12:02:00Z",
+            completedAt="2026-06-16T12:02:10Z",
+            items=[
+                {
+                    "componentId": "api",
+                    "version": "1.0.0",
+                    "artifact": artifact("api", "1.0.0", "sha-api-a"),
+                    "requestedAction": "deploy",
+                    "reportedAction": "deploy",
+                    "status": "succeeded",
+                },
+                {
+                    "componentId": "worker",
+                    "version": "1.0.0",
+                    "artifact": artifact("worker", "1.0.0", "sha-worker-a"),
+                    "requestedAction": "deploy",
+                    "reportedAction": "deploy",
+                    "status": "succeeded",
+                },
+            ],
+        )
+    )
+    container = build_memory_container(store)
+
+    execution = container.create_deployment.execute(environment_id="prod", deployset_id="ds-1", context=admin_context())
+
+    assert execution.status == "succeeded"
+    assert store.get_environment_state("prod").status == ExecutionStatus.SUCCEEDED
+
+
 def test_create_deployment_rejects_active_execution_for_same_environment_and_component_set() -> None:
     store = MemoryRepositories()
     seed(store)
@@ -297,7 +337,7 @@ def test_create_deployment_rejects_active_execution_for_same_environment_and_com
                     "artifact": artifact("api", "1.0.0", "sha-api-a"),
                     "requestedAction": "deploy",
                     "reportedAction": "deploy",
-                    "status": "running",
+                    "status": "in-progress",
                 }
             ],
         )
@@ -381,7 +421,7 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
         reported_action="deploy",
         context=admin_context(),
         reported_by="aws-prod-runner",
-        runner_reason="artifact_mismatch",
+        failure_reason="artifact_mismatch",
     )
 
     assert claimed.claimed_by == "aws-prod-runner"

@@ -85,7 +85,7 @@ export function PublishersPage() {
   return (
     <>
       <PageHeader
-        title="Publishers"
+        title="Release Publishers"
         subtitle="External publishers that can create component releases within an explicit scope."
         action={
           canManage ? (
@@ -268,7 +268,7 @@ function PublisherDetailsView({
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={`Publisher: ${publisher.displayName || publisher.publisherId}`}
+        title={`Release Publisher: ${publisher.displayName || publisher.publisherId}`}
         subtitle="Publisher identity, publishing scope, token state, and scoped releases."
         action={
           <div className="flex flex-wrap items-center gap-2">

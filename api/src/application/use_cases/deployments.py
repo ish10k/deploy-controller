@@ -177,7 +177,7 @@ class CreateDeploymentUseCase:
                 workspace_id=workspace_id,
                 environment_id=environment_id,
                 deployset_id=deployset_id,
-                status=EnvironmentStatus.PENDING,
+                status=EnvironmentStatus(execution.status),
                 last_deployment_execution_id=execution.deployment_execution_id,
                 updated_at=now,
             )
@@ -396,17 +396,6 @@ class DeploymentRunnerUseCases:
         runner = self.get(runner_id, workspace_id)
         updated = runner.model_copy(update={"last_heartbeat_at": self.clock.now()})
         self.runners.put(updated)
-        if self.events:
-            self.events.append_actor(
-                actor_principal_id=runner.principal_id,
-                action="deployment_runner.heartbeat",
-                category="runner",
-                summary=f"Heartbeat from deployment runner {runner_id}",
-                resource_type="deploymentRunner",
-                resource_id=runner_id,
-                before=runner,
-                after=updated,
-            )
         return updated
 
     def list_pending(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentExecutionItem]:
@@ -421,6 +410,15 @@ class DeploymentRunnerUseCases:
                     items.append(item)
                     if len(items) >= remaining_capacity:
                         return items
+        return items
+
+    def list_items(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentExecutionItem]:
+        runner = self._active_runner(runner_id, workspace_id)
+        items: list[DeploymentExecutionItem] = []
+        for execution in self.executions.list_by_environment(None, workspace_id):
+            for item in execution.items:
+                if self._runner_allows_item(runner, execution, item):
+                    items.append(item)
         return items
 
     def claim_item(
@@ -471,7 +469,7 @@ class DeploymentRunnerUseCases:
                 actor_principal_id=context.principal_id,
                 action="deployment_item.claimed",
                 category="deployment",
-                summary=f"Claimed {component_id} for execution {deployment_execution_id}",
+                summary=f"{runner_id} claimed {component_id} for deployment {deployment_execution_id}",
                 resource_type="deploymentExecution",
                 resource_id=deployment_execution_id,
                 before=execution,
@@ -490,9 +488,7 @@ class DeploymentRunnerUseCases:
         reported_action: str,
         context: AuthContext,
         reported_by: str | None = None,
-        runner_reason: str | None = None,
-        message: str | None = None,
-        error: str | None = None,
+        failure_reason: str | None = None,
         workspace_id: str = "default",
     ) -> DeploymentExecution:
         self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
@@ -527,13 +523,11 @@ class DeploymentRunnerUseCases:
                     update={
                         "status": status,
                         "reported_action": reported_action,
-                        "runner_reason": runner_reason,
+                        "failure_reason": failure_reason,
                         "claimed_by": item.claimed_by or runner_id,
                         "drift_detected": drift_reason is not None,
                         "drift_reason": drift_reason,
                         "reported_by": reported_by or runner_id,
-                        "message": message,
-                        "error": error,
                     }
                 )
             )
@@ -547,7 +541,7 @@ class DeploymentRunnerUseCases:
                 actor_principal_id=context.principal_id,
                 action="deployment_item.status_reported",
                 category="deployment",
-                summary=f"Reported {component_id} as {status} for execution {deployment_execution_id}",
+                summary=f"{component_id} {status} for deployment {deployment_execution_id}",
                 resource_type="deploymentExecution",
                 resource_id=deployment_execution_id,
                 before=execution,

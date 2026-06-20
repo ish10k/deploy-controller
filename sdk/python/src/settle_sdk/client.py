@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from typing import Any
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -69,10 +69,16 @@ class SettleClient:
                 if not payload:
                     return None
                 return json.loads(payload.decode("utf-8"))
-        except HTTPError as exc:
+        except (HTTPError, URLError) as exc:
             raise self._api_error(exc) from exc
 
-    def _api_error(self, exc: HTTPError) -> SettleApiError:
+    def _api_error(self, exc: HTTPError | URLError) -> SettleApiError:
+        if isinstance(exc, URLError):
+            reason = exc.reason
+            if isinstance(reason, Exception):
+                return SettleApiError(503, str(reason))
+            return SettleApiError(503, str(reason))
+
         raw = exc.read()
         if not raw:
             return SettleApiError(exc.code, exc.reason)

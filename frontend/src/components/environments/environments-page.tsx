@@ -917,7 +917,7 @@ function deriveEnvironmentStatus(environment: ApiEnvironment, state: ApiEnvironm
   if (state?.status === "failed" || state?.status === "cancelled") {
     return "failed";
   }
-  if (pendingExecutions.length || state?.status === "pending" || state?.status === "claimed" || state?.status === "running") {
+  if (pendingExecutions.length || state?.status === "pending" || state?.status === "claimed" || state?.status === "in-progress") {
     return "pending";
   }
   if (state?.status === "idle") {
@@ -930,7 +930,7 @@ function executionToEnvironmentStatus(status: ApiDeploymentExecution["status"]):
   if (status === "failed" || status === "cancelled") {
     return "failed";
   }
-  if (status === "pending" || status === "claimed" || status === "running") {
+  if (status === "pending" || status === "claimed" || status === "in-progress") {
     return "pending";
   }
   return "healthy";

@@ -31,7 +31,7 @@ class FakeClient:
             }
         if path.endswith("/claim"):
             return _component(status="claimed", claimed_by="runner-1")
-        return _execution(status="running")
+        return _execution(status="in-progress")
 
 
 class SdkTests(unittest.TestCase):
@@ -81,8 +81,9 @@ class SdkTests(unittest.TestCase):
 
         job = runner.next()
         self.assertIsInstance(job, DeployJob)
-        runner.started(job, message="starting")
-        runner.completed("api", message="done")
+        runner.started(job)
+        runner.completed("api")
+        runner.failed("api", failure_reason="boom")
 
         self.assertEqual(client.calls[0], ("GET", "/workspaces/ws-1/deployment-runners/runner-1/executions/pending", None))
         self.assertEqual(client.calls[1], ("POST", "/workspaces/ws-1/deployment-runners/runner-1/executions/exec-1/items/api/claim", {}))
@@ -91,7 +92,7 @@ class SdkTests(unittest.TestCase):
             (
                 "POST",
                 "/workspaces/ws-1/deployment-runners/runner-1/executions/exec-1/items/api/status",
-                {"status": "running", "reportedAction": "deploy", "message": "starting"},
+                {"status": "in-progress", "reportedAction": "deploy"},
             ),
         )
         self.assertEqual(
@@ -99,7 +100,15 @@ class SdkTests(unittest.TestCase):
             (
                 "POST",
                 "/workspaces/ws-1/deployment-runners/runner-1/executions/exec-1/items/api/status",
-                {"status": "succeeded", "reportedAction": "deploy", "message": "done"},
+                {"status": "succeeded", "reportedAction": "deploy"},
+            ),
+        )
+        self.assertEqual(
+            client.calls[4],
+            (
+                "POST",
+                "/workspaces/ws-1/deployment-runners/runner-1/executions/exec-1/items/api/status",
+                {"status": "failed", "reportedAction": "deploy", "failureReason": "boom"},
             ),
         )
 

@@ -5,7 +5,7 @@ class EnvironmentStatus(StrEnum):
     IDLE = "idle"
     PENDING = "pending"
     CLAIMED = "claimed"
-    RUNNING = "running"
+    RUNNING = "in-progress"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -14,7 +14,7 @@ class EnvironmentStatus(StrEnum):
 class ExecutionStatus(StrEnum):
     PENDING = "pending"
     CLAIMED = "claimed"
-    RUNNING = "running"
+    RUNNING = "in-progress"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -42,7 +42,7 @@ class ReportedAction(StrEnum):
 class ItemStatus(StrEnum):
     PENDING = "pending"
     CLAIMED = "claimed"
-    RUNNING = "running"
+    RUNNING = "in-progress"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     SKIPPED = "skipped"

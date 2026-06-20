@@ -484,12 +484,16 @@ export async function rotateDeploymentRunnerToken(runnerId: string) {
   });
 }
 
+export async function listDeploymentRunnerItems(runnerId: string) {
+  return request<ApiDeploymentExecutionItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/items`));
+}
+
 export async function listPendingRunnerExecutions(runnerId: string) {
   return request<ApiDeploymentExecutionItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
 }
 
 export async function listPendingExecutions() {
-  return listDeploymentExecutions();
+  return request<ApiDeploymentExecution[]>(workspacePath("/deployment-executions/pending"));
 }
 
 export async function reportExecutionItemStatus(

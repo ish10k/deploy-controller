@@ -101,7 +101,7 @@ export function DeploymentWorkflowPage({
         if (execution.environmentId !== selectedEnvironmentId) {
           return false;
         }
-        if (!["pending", "claimed", "running"].includes(execution.status)) {
+        if (!["pending", "claimed", "in-progress"].includes(execution.status)) {
           return false;
         }
         return deploysetComponentSetIds.get(execution.deploySetId) === selectedDeployset.componentSetId;

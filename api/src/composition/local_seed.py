@@ -49,6 +49,10 @@ def _digest(label: str) -> str:
     return f"sha256:{_sha256(label)}"
 
 
+def _pat_fields(token: str) -> dict[str, str]:
+    return {"token_hash": _sha256(token), "token_prefix": token[:18]}
+
+
 def _artifact(component_id: str, version: str) -> Artifact:
     return Artifact(
         key=f"s3://deployset-artifacts/{component_id}/{version}/{component_id}-{version}.tar.gz",
@@ -163,7 +167,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="web",
-            type="ecs",
+            type="package",
             active=True,
             tags={"team": "frontend", "tier": "customer-facing", "owner": "platform"},
         )
@@ -171,7 +175,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="api",
-            type="ecs",
+            type="package",
             active=True,
             tags={"team": "platform", "tier": "application", "owner": "platform"},
         )
@@ -179,7 +183,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="worker",
-            type="lambda",
+            type="package",
             active=True,
             tags={"team": "platform", "tier": "async", "owner": "platform"},
         )
@@ -187,7 +191,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="auth",
-            type="ecs",
+            type="package",
             active=True,
             tags={"team": "identity", "tier": "shared", "owner": "security"},
         )
@@ -195,7 +199,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="postgres",
-            type="rds",
+            type="docker-compose",
             active=True,
             tags={"team": "data", "tier": "database", "owner": "data-platform"},
         )
@@ -203,7 +207,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_component(
         Component(
             component_id="redis",
-            type="elasticache",
+            type="docker-compose",
             active=True,
             tags={"team": "data", "tier": "cache", "owner": "data-platform"},
         )
@@ -611,7 +615,44 @@ def seed_local_data(store: MemoryRepositories) -> None:
         )
     )
 
-    # External deployment executors
+    # Example deployment runners
+    for runner_id, display_name, component_types, team in [
+        ("package-runner-01", "Package Runner", ["package"], "platform"),
+        ("docker-compose-runner-01", "Docker Compose Runner", ["docker-compose"], "platform"),
+    ]:
+        principal_id = f"service:deployment-runner:{runner_id}"
+        token = f"settle_pat_{runner_id.replace('-', '_')}"
+        store.put_deployment_runner(
+            DeploymentRunner(
+                runner_id=runner_id,
+                display_name=display_name,
+                principal_id=principal_id,
+                active=True,
+                scope=DeploymentRunnerScope(component_types=component_types),
+                webhook_id=None,
+                token_created_at="2026-04-01T09:08:00Z",
+                **_pat_fields(token),
+                last_heartbeat_at="2026-06-17T10:05:00Z",
+                tags={"team": team, "example": "true"},
+                created_at="2026-04-01T09:08:00Z",
+                created_by="platform-bootstrap",
+            )
+        )
+        store.put_principal(
+            Principal(
+                principal_id=principal_id,
+                type=PrincipalType.SERVICE,
+                display_name=display_name,
+                auth_method="pat",
+                roles=["deployment-runner"],
+                active=True,
+                tags={"team": team, "example": "true"},
+                created_at="2026-04-01T09:08:00Z",
+                created_by="system:local-seed",
+            )
+        )
+
+    # Existing runner history coverage
     for runner_id, display_name, environment_ids, component_set_ids, team in [
         ("local-runner-01", "Local Runner", ["local"], ["local-platform"], "platform"),
         ("dev-runner-01", "Dev Runner", ["dev"], ["local-platform"], "platform"),
@@ -980,5 +1021,42 @@ def seed_local_data(store: MemoryRepositories) -> None:
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_execution_id="f6a7b8c9",
             updated_at="2026-06-09T07:52:00Z",
+        ),
+    )
+    _seed_execution(
+        store,
+        DeploymentExecution(
+            deployment_execution_id="g7h8i9j0",
+            environment_id="shared-data",
+            deployset_id="data-default",
+            status=ExecutionStatus.PENDING,
+            requested_by="data-release-manager",
+            notes="Pending docker-compose validation rollout for the example compose runner.",
+            force=False,
+            started_at="2026-06-18T09:15:00Z",
+            completed_at=None,
+            items=[
+                _execution_item(
+                    component_id="postgres",
+                    version="14.11.0",
+                    requested_action=RequestedAction.DEPLOY,
+                    status=ItemStatus.PENDING,
+                    requested_reason=RequestedReason.VERSION_CHANGED,
+                ),
+                _execution_item(
+                    component_id="redis",
+                    version="7.0.12",
+                    requested_action=RequestedAction.DEPLOY,
+                    status=ItemStatus.PENDING,
+                    requested_reason=RequestedReason.VERSION_CHANGED,
+                ),
+            ],
+        ),
+        EnvironmentState(
+            environment_id="shared-data",
+            deployset_id="data-default",
+            status=ExecutionStatus.PENDING,
+            last_deployment_execution_id="g7h8i9j0",
+            updated_at="2026-06-18T09:15:00Z",
         ),
     )

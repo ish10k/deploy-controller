@@ -468,6 +468,7 @@ class DeploymentExecutionItem(ApiModel):
     claim_eligibility: dict[str, object] = Field(default_factory=dict, alias="claimEligibility")
     requested_reason: RequestedReason | None = Field(default=None, alias="requestedReason")
     runner_reason: str | None = Field(default=None, alias="runnerReason")
+    failure_reason: str | None = Field(default=None, alias="failureReason")
     drift_detected: bool = Field(default=False, alias="driftDetected")
     drift_reason: DriftReason | None = Field(default=None, alias="driftReason")
     reported_by: str | None = Field(default=None, alias="reportedBy")

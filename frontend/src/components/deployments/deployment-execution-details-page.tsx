@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { AlertTriangle, ArrowLeft, Box, CircleSlash, Clock3, FileText, Network, Package, Radio, RefreshCcw, Server, UserRound, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Box, CircleSlash, Clock3, FileText, Package, Radio, RefreshCcw, Server, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { ReportedActionBadge, RequestedActionBadge, StatusBadge } from "@/components/deployments/status-badge";
@@ -27,6 +27,7 @@ import { useAuth } from "@/lib/auth-context";
 import { formatDateTime } from "@/lib/format";
 import { useToast } from "@/components/ui/toast";
 import { canCancelDeployments } from "@/lib/user-permissions";
+import { formatRelativeTime } from "@/lib/format";
 
 export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { deploymentExecutionId: string }) {
   const query = useQuery({
@@ -46,7 +47,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
   const auth = useAuth();
   const toast = useToast();
   const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
-  const canCancel = canCancelDeployments(auth.user) && ["pending", "claimed", "running"].includes(execution.status);
+  const canCancel = canCancelDeployments(auth.user) && ["pending", "claimed", "in-progress"].includes(execution.status);
   const eventQuery = useQuery({
     queryKey: queryKeys.events({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
     enabled: canReadEvents,
@@ -242,11 +243,10 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
 
 function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
   return (
-    <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
+    <ScrollFade className="h-full" contentClassName="space-y-3 pb-4">
       {events.map((event) => (
         <EventLogItem
           key={event.eventId}
-          icon={Radio}
           title={event.summary}
           subtitle={event.actorPrincipalId}
           time={formatDateTime(event.occurredAt)}
@@ -259,41 +259,30 @@ function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
 function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecution }) {
   const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   return (
-    <ScrollFade className="h-full" contentClassName="space-y-3 px-4 pb-4">
+    <ScrollFade className="h-full" contentClassName="space-y-3 pb-4">
       <EventLogItem
-        icon={Radio}
         title={`Execution ${execution.status}`}
         subtitle={execution.force ? "Force deployment enabled" : "Standard deployment"}
         time={formatDateTime(execution.startedAt)}
       />
       <hr />
       <EventLogItem
-        icon={UserRound}
         title={claimedByRunners.length === 1 ? `Claimed by ${claimedByRunners[0]}` : "Component-level claims"}
         subtitle={`Requested by ${execution.requestedBy}`}
-        time={claimedByRunners.length ? formatDateTime(execution.startedAt) : "Pending"}
+        time={formatDateTime(execution.startedAt)}
       />
       <hr />
-      {execution.items.map((item, index) => (
+      {execution.items.map((item) => (
         <div key={item.componentId}>
           <EventLogItem
-            icon={item.componentId.includes("lambda") ? Zap : Network}
-            title={`${item.componentId} ${item.status}`}
-            subtitle={[
-              `Requested ${item.requestedAction}`,
-              item.reportedBy ? `reported by ${item.reportedBy}` : "awaiting runner report",
-              item.message ?? item.error ?? item.runnerReason ?? "",
-            ]
-              .filter(Boolean)
-              .join(" | ")}
-            time={`Step ${index + 1}`}
-            status={<StatusBadge status={item.status} />}
+            title={item.message ?? item.failureReason ?? item.error ?? item.runnerReason ?? `${item.componentId} ${item.status}`}
+            subtitle={item.reportedBy ?? item.claimedBy ?? "unclaimed"}
+            time={formatDateTime(item.claimedAt ?? execution.startedAt)}
           />
           <hr />
         </div>
       ))}
       <EventLogItem
-        icon={Clock3}
         title={execution.completedAt ? `Completed ${execution.status}` : "Execution still in progress"}
         subtitle={execution.completedAt ? "Final execution timestamp recorded" : "No completion timestamp yet"}
         time={execution.completedAt ? formatDateTime(execution.completedAt) : formatDateTime(execution.startedAt)}
@@ -320,7 +309,7 @@ export function ComponentActionsTable({
           <TableHead>Reported Action</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Claimed By</TableHead>
-          <TableHead>Drift</TableHead>
+          <TableHead>Started</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -363,7 +352,7 @@ export function ComponentActionsTable({
                 <span className="text-slate-400">unclaimed</span>
               )}
             </TableCell>
-            <TableCell>{row.driftDetected ? <StatusBadge status="warning" /> : "-"}</TableCell>
+            <TableCell>{formatRelativeTime(row.claimedAt, { mode: "short" })}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -417,34 +406,20 @@ function MetaRow({ icon: Icon, label, value }: { icon: typeof Box; label: string
 }
 
 function EventLogItem({
-  icon: Icon,
   title,
   subtitle,
   time,
-  status,
 }: {
-  icon: typeof Box;
   title: string;
   subtitle: string;
   time: string;
-  status?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg  p-3">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-900">{title}</div>
-              <div className="mt-1 text-xs leading-5 text-slate-600">{subtitle}</div>
-            </div>
-            {status ? <div className="shrink-0">{status}</div> : null}
-          </div>
-          <div className="mt-2 text-xs font-medium text-slate-500">{time}</div>
-        </div>
+    <div className="rounded-lg p-3">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold text-slate-900">{title}</div>
+        <div className="mt-1 truncate text-xs leading-5 text-slate-600">{subtitle}</div>
+        <div className="mt-2 text-xs font-medium text-slate-500">{time}</div>
       </div>
     </div>
   );

@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-ExecutionStatus = Literal["pending", "claimed", "running", "succeeded", "failed", "cancelled"]
-ItemStatus = Literal["pending", "claimed", "running", "succeeded", "failed", "skipped"]
+ExecutionStatus = Literal["pending", "claimed", "in-progress", "succeeded", "failed", "cancelled"]
+ItemStatus = Literal["pending", "claimed", "in-progress", "succeeded", "failed", "skipped"]
 ReportedAction = Literal["deploy", "noop", "skip"]
 RequestedAction = Literal["deploy", "skip"]
 
@@ -103,6 +103,7 @@ class DeploymentExecutionItem:
     claim_eligibility: dict[str, object] = field(default_factory=dict)
     requested_reason: str | None = None
     runner_reason: str | None = None
+    failure_reason: str | None = None
     drift_detected: bool = False
     drift_reason: str | None = None
     reported_by: str | None = None
@@ -128,6 +129,7 @@ class DeploymentExecutionItem:
             claim_eligibility=_dict(data.get("claimEligibility", {})),
             requested_reason=_optional_str(data.get("requestedReason")),
             runner_reason=_optional_str(data.get("runnerReason")),
+            failure_reason=_optional_str(data.get("failureReason")),
             drift_detected=bool(data.get("driftDetected", False)),
             drift_reason=_optional_str(data.get("driftReason")),
             reported_by=_optional_str(data.get("reportedBy")),
@@ -188,13 +190,13 @@ def _optional_str(value: object) -> str | None:
 
 
 def _execution_status(value: object) -> ExecutionStatus:
-    if value in {"pending", "claimed", "running", "succeeded", "failed", "cancelled"}:
+    if value in {"pending", "claimed", "in-progress", "succeeded", "failed", "cancelled"}:
         return value
     raise ValueError(f"unsupported execution status: {value!r}")
 
 
 def _item_status(value: object) -> ItemStatus:
-    if value in {"pending", "claimed", "running", "succeeded", "failed", "skipped"}:
+    if value in {"pending", "claimed", "in-progress", "succeeded", "failed", "skipped"}:
         return value
     raise ValueError(f"unsupported item status: {value!r}")
 

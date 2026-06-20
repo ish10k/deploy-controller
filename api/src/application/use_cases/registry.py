@@ -552,3 +552,6 @@ class ReadOnlyUseCases:
 
     def list_deployment_executions(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
         return self.executions.list_by_environment(environment_id, workspace_id)
+
+    def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[DeploymentExecution]:
+        return self.executions.list_pending(workspace_id)

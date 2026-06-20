@@ -90,11 +90,9 @@ class ReportExecutionItemStatusRequest(ApiSchema):
         description="Principal or runner reporting the item status.",
         examples=["runner-1"],
     )
-    runner_reason: str | None = Field(
+    failure_reason: str | None = Field(
         default=None,
-        alias="runnerReason",
-        description="Optional deployment-runner-specific reason or note.",
-        examples=["already up to date"],
+        alias="failureReason",
+        description="Optional failure reason from the deployment runner.",
+        examples=["artifact unavailable"],
     )
-    message: str | None = Field(default=None, description="Optional status message from the deployment runner.")
-    error: str | None = Field(default=None, description="Optional error details from the deployment runner.")

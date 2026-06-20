@@ -153,6 +153,8 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.read_only.get_environment_state(scoped[1], workspace_id))
         if method == "GET" and scoped == ["deployment-executions"]:
             return response(200, container.read_only.list_deployment_executions(_query(event, "environmentId"), workspace_id))
+        if method == "GET" and scoped == ["deployment-executions", "pending"]:
+            return response(200, container.read_only.list_pending_deployment_executions(workspace_id))
         if method == "GET" and len(scoped) == 2 and scoped[0] == "deployment-executions":
             return response(200, container.read_only.get_deployment_execution(scoped[1], workspace_id))
         if method == "POST" and len(scoped) == 3 and scoped[0] == "deployment-executions" and scoped[2] == "cancel":
@@ -205,6 +207,8 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.deployment_runners.heartbeat(scoped[1], _auth_context(event, container), workspace_id))
         if method == "GET" and len(scoped) == 4 and scoped[0] == "deployment-runners" and scoped[2:] == ["executions", "pending"]:
             return response(200, container.deployment_runners.list_pending(scoped[1], workspace_id))
+        if method == "GET" and len(scoped) == 4 and scoped[0] == "deployment-runners" and scoped[2:] == ["executions", "items"]:
+            return response(200, container.deployment_runners.list_items(scoped[1], workspace_id))
         if (
             method == "POST"
             and len(scoped) == 7
@@ -233,9 +237,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
                 reported_action=item_status_request.reported_action,
                 context=_auth_context(event, container),
                 reported_by=item_status_request.reported_by,
-                runner_reason=item_status_request.runner_reason,
-                message=item_status_request.message,
-                error=item_status_request.error,
+                failure_reason=item_status_request.failure_reason,
                 workspace_id=workspace_id,
             ))
         if method == "GET" and scoped == ["roles"]:

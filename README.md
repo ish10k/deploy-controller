@@ -5,6 +5,7 @@ This repository now uses a simple monorepo layout:
 - `api/` contains the Python backend project
 - `frontend/` contains the React control-plane UI
 - `sdk/python/` contains the Python SDK for runners and publishers
+- `runner-example/` contains an example custom runner package built on the SDK
 - `infra/` contains Terraform and cloud infrastructure
 
 To work on the backend:
@@ -47,6 +48,8 @@ Services:
 - Settle UI: `http://localhost:5173`
 - Local OIDC / Keycloak: `http://localhost:5556`
 - Postgres for Keycloak: `localhost:5432`
+- Example package runner: `package-runner`
+- Example docker compose runner: `docker-compose-runner`
 
 Seeded local OIDC users all use password `password`:
 
@@ -55,3 +58,4 @@ Seeded local OIDC users all use password `password`:
 - `viewer@example.local`
 
 The API is configured for OIDC mode with `SETTLE_BOOTSTRAP_ALLOWED_EMAIL=admin@example.local`. Human auth should use OIDC; machine actors use PATs issued by deployment runner / publisher create and rotate-token flows.
+The two example runner containers use seeded PATs from local data so they can claim the example package and docker compose workloads immediately after boot.

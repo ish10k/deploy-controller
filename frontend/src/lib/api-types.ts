@@ -1,5 +1,5 @@
-export type ExecutionStatus = "pending" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
-export type ItemStatus = "pending" | "claimed" | "running" | "succeeded" | "failed" | "skipped";
+export type ExecutionStatus = "pending" | "claimed" | "in-progress" | "succeeded" | "failed" | "cancelled";
+export type ItemStatus = "pending" | "claimed" | "in-progress" | "succeeded" | "failed" | "skipped";
 export type ReportedAction = "deploy" | "noop" | "skip";
 export type RequestedAction = "deploy" | "skip";
 export type RequestedReason =
@@ -13,7 +13,7 @@ export type DriftReason =
   | "same_version_target_missing"
   | "same_version_artifact_mismatch";
 export type DeploySetItemSource = "explicit" | "inferred";
-export type EnvironmentStatus = "idle" | "pending" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
+export type EnvironmentStatus = "idle" | "pending" | "claimed" | "in-progress" | "succeeded" | "failed" | "cancelled";
 export type PrincipalType = "user" | "service";
 export type EventOrigin = "user" | "service" | "system";
 export type EventSeverity = "info" | "warning" | "error";
@@ -416,6 +416,7 @@ export interface ApiDeploymentExecutionItem {
   claimEligibility: Record<string, unknown>;
   requestedReason: RequestedReason | null;
   runnerReason: string | null;
+  failureReason: string | null;
   driftDetected: boolean;
   driftReason: DriftReason | null;
   reportedBy: string | null;
@@ -469,9 +470,7 @@ export interface ApiReportExecutionItemStatusRequest {
   status: ItemStatus;
   reportedAction: ReportedAction;
   reportedBy: string | null;
-  runnerReason: string | null;
-  message: string | null;
-  error: string | null;
+  failureReason: string | null;
 }
 
 export type components = {

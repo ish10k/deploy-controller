@@ -25,10 +25,10 @@ type ActionBadgeProps = {
 };
 
 export function StatusBadge({ status }: BadgeIconProps) {
-  if (status === "running") {
+  if (status === "in-progress") {
     return (
       <Badge variant="blue">
-        <Loader2 className="h-3 w-3 animate-spin" /> Running
+        <Loader2 className="h-3 w-3 animate-spin" /> In progress
       </Badge>
     );
   }

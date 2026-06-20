@@ -54,15 +54,13 @@ class DeploymentRunnerClient:
         job: DeployJobRef,
         *,
         execution_id: str | None = None,
-        message: str | None = None,
         reported_by: str | None = None,
     ) -> DeploymentExecution:
         return self.report_item(
             job,
-            status="running",
+            status="in-progress",
             reported_action=_reported_action_for(job),
             execution_id=execution_id,
-            message=message,
             reported_by=reported_by,
         )
 
@@ -71,7 +69,6 @@ class DeploymentRunnerClient:
         job: DeployJobRef,
         *,
         execution_id: str | None = None,
-        message: str | None = None,
         reported_by: str | None = None,
     ) -> DeploymentExecution:
         return self.report_item(
@@ -79,7 +76,6 @@ class DeploymentRunnerClient:
             status="succeeded",
             reported_action=_reported_action_for(job),
             execution_id=execution_id,
-            message=message,
             reported_by=reported_by,
         )
 
@@ -88,9 +84,7 @@ class DeploymentRunnerClient:
         job: DeployJobRef,
         *,
         execution_id: str | None = None,
-        message: str | None = None,
-        error: str | None = None,
-        runner_reason: str | None = None,
+        failure_reason: str | None = None,
         reported_by: str | None = None,
     ) -> DeploymentExecution:
         return self.report_item(
@@ -98,9 +92,7 @@ class DeploymentRunnerClient:
             status="failed",
             reported_action=_reported_action_for(job),
             execution_id=execution_id,
-            message=message,
-            error=error,
-            runner_reason=runner_reason,
+            failure_reason=failure_reason,
             reported_by=reported_by,
         )
 
@@ -109,8 +101,6 @@ class DeploymentRunnerClient:
         job: DeployJobRef,
         *,
         execution_id: str | None = None,
-        message: str | None = None,
-        runner_reason: str | None = None,
         reported_by: str | None = None,
     ) -> DeploymentExecution:
         return self.report_item(
@@ -118,8 +108,6 @@ class DeploymentRunnerClient:
             status="skipped",
             reported_action="skip",
             execution_id=execution_id,
-            message=message,
-            runner_reason=runner_reason,
             reported_by=reported_by,
         )
 
@@ -131,9 +119,7 @@ class DeploymentRunnerClient:
         reported_action: ReportedAction,
         execution_id: str | None = None,
         reported_by: str | None = None,
-        runner_reason: str | None = None,
-        message: str | None = None,
-        error: str | None = None,
+        failure_reason: str | None = None,
     ) -> DeploymentExecution:
         resolved_execution_id = execution_id or _component_execution_id(job) or self.current_execution_id
         if not resolved_execution_id:
@@ -145,12 +131,8 @@ class DeploymentRunnerClient:
         }
         if reported_by is not None:
             body["reportedBy"] = reported_by
-        if runner_reason is not None:
-            body["runnerReason"] = runner_reason
-        if message is not None:
-            body["message"] = message
-        if error is not None:
-            body["error"] = error
+        if failure_reason is not None:
+            body["failureReason"] = failure_reason
 
         component_id = _component_id(job)
         data = self.client.post(

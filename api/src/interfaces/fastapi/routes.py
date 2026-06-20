@@ -592,6 +592,11 @@ def list_workspace_deployment_executions(
     return _handle(lambda: container.read_only.list_deployment_executions(environmentId, workspace_id))
 
 
+@router.get("/workspaces/{workspace_id}/deployment-executions/pending", tags=["Deployments"], response_model=list[DeploymentExecution], responses=NOT_FOUND_RESPONSES)
+def list_workspace_pending_deployment_executions(workspace_id: str, container: ContainerDep) -> list[DeploymentExecution]:
+    return _handle(lambda: container.read_only.list_pending_deployment_executions(workspace_id))
+
+
 @router.get("/workspaces/{workspace_id}/deployment-executions/{deployment_execution_id}", tags=["Deployments"], response_model=DeploymentExecution, responses=NOT_FOUND_RESPONSES)
 def get_workspace_deployment_execution(workspace_id: str, deployment_execution_id: str, container: ContainerDep) -> DeploymentExecution:
     return _handle(lambda: container.read_only.get_deployment_execution(deployment_execution_id, workspace_id))
@@ -666,6 +671,11 @@ def list_workspace_pending_runner_executions(workspace_id: str, runner_id: str, 
     return _handle(lambda: container.deployment_runners.list_pending(runner_id, workspace_id))
 
 
+@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/items", tags=["Deployment Runners"], response_model=list[DeploymentExecutionItem], responses=NOT_FOUND_RESPONSES)
+def list_workspace_runner_deployment_items(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentExecutionItem]:
+    return _handle(lambda: container.deployment_runners.list_items(runner_id, workspace_id))
+
+
 @router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/claim", tags=["Deployment Runners"], response_model=DeploymentExecutionItem, responses=WRITE_RESPONSES)
 def claim_workspace_runner_execution_item(
     workspace_id: str,
@@ -699,9 +709,7 @@ def report_workspace_runner_item_status(
             reported_action=request.reported_action,
             context=context,
             reported_by=request.reported_by,
-            runner_reason=request.runner_reason,
-            message=request.message,
-            error=request.error,
+            failure_reason=request.failure_reason,
             workspace_id=workspace_id,
         )
     )

@@ -59,6 +59,11 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/openapi.json\", timeout=3)'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   settle-ui:
     build:
@@ -77,6 +82,44 @@ services:
     volumes:
       - ./frontend:/app
       - settle-ui-node-modules:/app/node_modules
+
+  package-runner:
+    build:
+      context: .
+      dockerfile: runner-example/Dockerfile
+    environment:
+      SETTLE_API_BASE_URL: http://settle-server:8000
+      SETTLE_WORKSPACE_ID: default
+      SETTLE_RUNNER_ID: package-runner-01
+      SETTLE_RUNNER_TOKEN: settle_pat_package_runner_01
+      SETTLE_RUNNER_DISPLAY_NAME: Package Runner
+      SETTLE_RUNNER_POLL_SECONDS: "3"
+      SETTLE_RUNNER_WORK_SECONDS: "15"
+    depends_on:
+      settle-server:
+        condition: service_healthy
+    volumes:
+      - ./runner-example:/app/runner-example
+      - ./sdk/python:/app/sdk/python
+
+  docker-compose-runner:
+    build:
+      context: .
+      dockerfile: runner-example/Dockerfile
+    environment:
+      SETTLE_API_BASE_URL: http://settle-server:8000
+      SETTLE_WORKSPACE_ID: default
+      SETTLE_RUNNER_ID: docker-compose-runner-01
+      SETTLE_RUNNER_TOKEN: settle_pat_docker_compose_runner_01
+      SETTLE_RUNNER_DISPLAY_NAME: Docker Compose Runner
+      SETTLE_RUNNER_POLL_SECONDS: "3"
+      SETTLE_RUNNER_WORK_SECONDS: "25"
+    depends_on:
+      settle-server:
+        condition: service_healthy
+    volumes:
+      - ./runner-example:/app/runner-example
+      - ./sdk/python:/app/sdk/python
 
 volumes:
   postgres-data:

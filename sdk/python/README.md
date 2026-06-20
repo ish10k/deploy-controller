@@ -36,11 +36,13 @@ for component in components:
     runner.started(component)
     try:
         # deploy component.component_id at component.version
-        runner.completed(component, message="deployed")
+        runner.completed(component)
     except Exception as exc:
-        runner.failed(component, error=str(exc))
+        runner.failed(component, failure_reason=str(exc))
         raise
 ```
+
+For a complete runnable example that uses this SDK inside a custom package, see `runner-example/` and the matching Docker Compose services in the repo root.
 
 ## Publisher
 

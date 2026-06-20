@@ -36,11 +36,11 @@ export function LoginPage() {
           </div>
           <h1 className="mt-5 text-2xl font-bold">Welcome back</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Sign in with your work account. We’ll take you to your workspaces next.
+            Sign in with your account to continue.
           </p>
           {auth.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{auth.error}</p> : null}
           <Button className="mt-6 w-full" onClick={() => void auth.login(returnTo)}>
-            Continue
+            Sign-in
           </Button>
         </CardContent>
       </Card>

@@ -75,6 +75,30 @@ def test_fastapi_organization_workspace_and_scoped_components() -> None:
     assert response.status_code == 404
 
 
+def test_fastapi_seed_uses_two_component_types_and_example_runner_scopes() -> None:
+    client_instance = client()
+
+    response = client_instance.get(f"{WORKSPACE}/components")
+    assert response.status_code == 200
+    assert {component["type"] for component in response.json()} == {"package", "docker-compose"}
+
+    response = client_instance.get(f"{WORKSPACE}/deployment-runners")
+    assert response.status_code == 200
+    runners = {runner["runnerId"]: runner for runner in response.json()}
+    assert runners["package-runner-01"]["scope"]["componentTypes"] == ["package"]
+    assert runners["docker-compose-runner-01"]["scope"]["componentTypes"] == ["docker-compose"]
+
+
+def test_fastapi_runner_items_include_historical_and_current_work() -> None:
+    client_instance = client()
+
+    response = client_instance.get(f"{WORKSPACE}/deployment-runners/package-runner-01/executions/items")
+    assert response.status_code == 200
+    items = response.json()
+    assert any(item["status"] == "succeeded" for item in items)
+    assert any(item["status"] == "pending" for item in items)
+
+
 def test_fastapi_whoami_includes_memberships() -> None:
     client_instance = client()
 
@@ -157,7 +181,7 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
             "deploySetId": "prod-default",
             "requestedBy": "ops",
             "notes": "Production rollout requested after change window opened.",
-            "force": False,
+            "force": True,
         },
     )
     assert deployment_response.status_code == 200
@@ -171,6 +195,14 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
     cancel_response = client_instance.post(f"{WORKSPACE}/deployment-executions/{execution_id}/cancel")
     assert cancel_response.status_code == 200
     assert cancel_response.json()["status"] == "cancelled"
+
+
+def test_fastapi_pending_deployment_executions_route_is_not_shadowed() -> None:
+    client_instance = client()
+
+    response = client_instance.get(f"{WORKSPACE}/deployment-executions/pending")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
 def test_fastapi_webhook_round_trip_with_subscriptions() -> None:

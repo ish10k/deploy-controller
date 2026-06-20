@@ -80,7 +80,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
                 "deploySetId": "prod-default",
                 "requestedBy": "ops",
                 "notes": "Lambda deployment note coverage.",
-                "force": False,
+                "force": True,
             },
             authenticated=True,
         ),
@@ -97,3 +97,21 @@ def test_lambda_deployment_notes_round_trip() -> None:
     cancel_response = route(event("POST", f"{WORKSPACE}/deployment-executions/{execution_id}/cancel", authenticated=True), container)
     assert cancel_response["statusCode"] == 200
     assert json.loads(cancel_response["body"])["status"] == "cancelled"
+
+
+def test_lambda_pending_deployment_executions_route_is_not_shadowed() -> None:
+    container = authenticated_container()
+
+    response = route(event("GET", f"{WORKSPACE}/deployment-executions/pending"), container)
+    assert response["statusCode"] == 200
+    assert isinstance(json.loads(response["body"]), list)
+
+
+def test_lambda_runner_items_include_historical_and_current_work() -> None:
+    container = authenticated_container()
+
+    response = route(event("GET", f"{WORKSPACE}/deployment-runners/package-runner-01/executions/items"), container)
+    assert response["statusCode"] == 200
+    items = json.loads(response["body"])
+    assert any(item["status"] == "succeeded" for item in items)
+    assert any(item["status"] == "pending" for item in items)
