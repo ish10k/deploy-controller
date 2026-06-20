@@ -386,7 +386,7 @@ function WebhookDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pe
           </div>
         </section>
         <SubscriptionsEditor subscriptions={subscriptions} disabled={false} onChange={setSubscriptions} />
-        <TagsCard tags={tags} error={tagsError} onAdd={() => setTags((current) => [...current, createTagDraft()])} onChange={updateTag} onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))} />
+        <TagsCard tags={tags} error={tagsError} resourceType="webhook" onReplace={setTags} onAdd={() => setTags((current) => [...current, createTagDraft()])} onChange={updateTag} onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))} />
       </div>
     </SideDrawer>
   );
@@ -441,7 +441,7 @@ function WebhookEditor({ webhook, canManage, pending, onSubmit }: { webhook: Api
         <label className="block text-sm font-medium text-slate-700">Secret ref<Input disabled={!canManage} className="mt-1" value={secretRef} onChange={(event) => setSecretRef(event.target.value)} /></label>
         <label className="flex items-start gap-3 text-sm text-slate-600"><input disabled={!canManage} className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /><span><span className="block font-medium text-slate-800">Active webhook</span><span>Inactive webhooks do not receive events.</span></span></label>
         <SubscriptionsEditor subscriptions={subscriptions} disabled={!canManage} onChange={setSubscriptions} />
-        <TagsCard disabled={!canManage} tags={tags} error={tagsError} onAdd={() => setTags((current) => [...current, createTagDraft()])} onChange={updateTag} onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))} />
+        <TagsCard disabled={!canManage} tags={tags} error={tagsError} resourceType="webhook" onReplace={setTags} onAdd={() => setTags((current) => [...current, createTagDraft()])} onChange={updateTag} onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))} />
         <div className="mt-auto flex justify-end border-t border-slate-200 pt-4">
           <Button disabled={!canManage || !changed || pending || !displayName.trim() || !url.trim() || Boolean(tagsError)} onClick={submit}>{pending ? "Saving..." : "Save webhook"}</Button>
         </div>

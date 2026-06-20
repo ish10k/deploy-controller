@@ -411,6 +411,8 @@ export function DeploymentWorkflowPage({
         <TagsCard
           tags={tags}
           error={tagsError}
+          resourceType="deployment-execution"
+          onReplace={setTags}
           description="Attach metadata to the deployment execution for audit, filtering, and reporting."
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}

@@ -89,6 +89,22 @@ def test_fastapi_seed_uses_two_component_types_and_example_runner_scopes() -> No
     assert runners["docker-compose-runner-01"]["scope"]["componentTypes"] == ["docker-compose"]
 
 
+def test_fastapi_tag_definitions_can_be_listed_and_filtered() -> None:
+    client_instance = client()
+
+    response = client_instance.get(f"{WORKSPACE}/tag-definitions")
+    assert response.status_code == 200
+    definitions = response.json()
+    assert any(definition["key"] == "track" for definition in definitions)
+
+    response = client_instance.get(f"{WORKSPACE}/tag-definitions?resourceType=deployset")
+    assert response.status_code == 200
+    filtered = response.json()
+    assert filtered
+    assert all("deployset" in definition["selector"]["resourceTypes"] for definition in filtered)
+    assert any(definition["defaultValue"] == "prod" for definition in filtered)
+
+
 def test_fastapi_runner_items_include_historical_and_current_work() -> None:
     client_instance = client()
 

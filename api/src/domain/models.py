@@ -13,6 +13,7 @@ from src.domain.enums import (
     ReportedAction,
     RequestedAction,
     RequestedReason,
+    TagResourceType,
     WebhookDeliveryStatus,
     WebhookEvent,
 )
@@ -42,6 +43,24 @@ class Workspace(ApiModel):
     display_name: str = Field(alias="displayName")
     active: bool = True
     tags: dict[str, str] = Field(default_factory=dict)
+    created_at: str = Field(alias="createdAt")
+    created_by: str = Field(alias="createdBy")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
+
+
+class TagDefinitionSelector(ApiModel):
+    resource_types: list[TagResourceType] = Field(default_factory=list, alias="resourceTypes")
+
+
+class TagDefinition(ApiModel):
+    workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
+    tag_definition_id: str = Field(alias="tagDefinitionId")
+    key: str
+    label: str | None = None
+    description: str | None = None
+    default_value: str | None = Field(default=None, alias="defaultValue")
+    allowed_values: list[str] = Field(default_factory=list, alias="allowedValues")
+    selector: TagDefinitionSelector = Field(default_factory=TagDefinitionSelector)
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
     updated_at: str | None = Field(default=None, alias="updatedAt")

@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 
-import { KeyValueList, type KeyValueListItem } from "@/components/ui/key-value-list";
+import { KeyValueList, type KeyValueDefinition, type KeyValueListItem } from "@/components/ui/key-value-list";
 
 export type KeyValueDraft = KeyValueListItem;
 
@@ -35,7 +35,7 @@ export function KeyValueDraftEditor({
   valuePlaceholder = "Value",
   emptyLabel = "Any",
   disabled = false,
-  showSummary = true,
+  definitions = [],
   error,
 }: {
   items: KeyValueDraft[];
@@ -48,10 +48,9 @@ export function KeyValueDraftEditor({
   valuePlaceholder?: string;
   emptyLabel?: string;
   disabled?: boolean;
-  showSummary?: boolean;
+  definitions?: KeyValueDefinition[];
   error?: string;
 }) {
-  const parsed = keyValueDraftsToRecord(items);
   const isBlank = (item: KeyValueDraft) => !item.key.trim() && !item.value.trim();
 
   const handleChange = (id: string, patch: Partial<Omit<KeyValueListItem, "id">>) => {
@@ -97,6 +96,7 @@ export function KeyValueDraftEditor({
       </div>
       <KeyValueList
         items={items}
+        definitions={definitions}
         keyPlaceholder={keyPlaceholder}
         valuePlaceholder={valuePlaceholder}
         emptyLabel={emptyLabel}
@@ -105,15 +105,6 @@ export function KeyValueDraftEditor({
         onChange={handleChange}
         onRemove={handleRemove}
       />
-      {showSummary && Object.entries(parsed).length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {Object.entries(parsed).map(([key, value]) => (
-            <span key={key} className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
-              {value ? `${key}:${value}` : key}
-            </span>
-          ))}
-        </div>
-      ) : null}
       {error ? (
         <span className="mt-3 flex items-center gap-1.5 text-xs font-normal text-red-600">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />

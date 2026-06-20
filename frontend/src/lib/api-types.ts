@@ -18,6 +18,19 @@ export type PrincipalType = "user" | "service";
 export type EventOrigin = "user" | "service" | "system";
 export type EventSeverity = "info" | "warning" | "error";
 export type WebhookDeliveryStatus = "pending" | "succeeded" | "failed";
+export type TagResourceType =
+  | "organization"
+  | "workspace"
+  | "component"
+  | "component-set"
+  | "release"
+  | "deployset"
+  | "deployment-execution"
+  | "environment"
+  | "deployment-runner"
+  | "publisher"
+  | "principal"
+  | "webhook";
 export type ApiPermission = string;
 
 export interface Artifact {
@@ -46,6 +59,24 @@ export interface ApiWorkspace {
   displayName: string;
   active: boolean;
   tags: Record<string, string>;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+}
+
+export interface ApiTagDefinitionSelector {
+  resourceTypes: TagResourceType[];
+}
+
+export interface ApiTagDefinition {
+  workspaceId?: string;
+  tagDefinitionId: string;
+  key: string;
+  label: string | null;
+  description: string | null;
+  defaultValue: string | null;
+  allowedValues: string[];
+  selector: ApiTagDefinitionSelector;
   createdAt: string;
   createdBy: string;
   updatedAt: string | null;
@@ -498,6 +529,7 @@ export type components = {
     RotateTokenResult: ApiRotateTokenResult;
     Principal: ApiPrincipal;
     Role: ApiRole;
+    TagDefinition: ApiTagDefinition;
     BootstrapState: ApiBootstrapState;
     WhoAmI: ApiWhoAmI;
     ReportExecutionItemStatusRequest: ApiReportExecutionItemStatusRequest;

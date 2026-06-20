@@ -357,6 +357,8 @@ function ComponentSetDrawer({
         <TagsCard
           tags={tags}
           error={tagsError}
+          resourceType="component-set"
+          onReplace={setTags}
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}
           onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}

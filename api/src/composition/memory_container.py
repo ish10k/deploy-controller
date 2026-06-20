@@ -8,6 +8,7 @@ from src.application.use_cases.registry import (
     ReadOnlyUseCases,
     ReleaseUseCases,
     PublisherUseCases,
+    TagDefinitionUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.roles import RoleUseCases
@@ -33,6 +34,7 @@ from src.infrastructure.memory.repositories import (
     MemoryPublisherRepository,
     MemoryRepositories,
     MemoryRoleRepository,
+    MemoryTagDefinitionRepository,
     MemoryWorkspaceMembershipRepository,
     MemoryWorkspaceRepository,
     MemoryWebhookDeliveryRepository,
@@ -55,6 +57,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     runners = MemoryDeploymentRunnerRepository(store)
     organization_repo = MemoryOrganizationRepository(store)
     workspace_repo = MemoryWorkspaceRepository(store)
+    tag_definitions = MemoryTagDefinitionRepository(store)
     organization_memberships = MemoryOrganizationMembershipRepository(store)
     workspace_memberships = MemoryWorkspaceMembershipRepository(store)
     principals = MemoryPrincipalRepository(store)
@@ -130,6 +133,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
             events=events,
         ),
         environments=EnvironmentUseCases(environments, events=events),
+        tag_definitions=TagDefinitionUseCases(tag_definitions),
         read_only=ReadOnlyUseCases(states, executions, runner_eligibility),
         plan_deployment=planner,
         create_deployment=CreateDeploymentUseCase(

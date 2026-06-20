@@ -61,7 +61,7 @@ const defaultForm = (): DeploySetFormState => ({
   baseEnvironmentId: "",
   baseDeploySetId: "",
   notes: "",
-  tags: [createTagDraft("track", "prod")],
+  tags: [createTagDraft()],
   items: [],
 });
 
@@ -615,6 +615,8 @@ function CreateDeploySetDrawer({
             <TagsCard
               tags={form.tags}
               error={errors.tags}
+              resourceType="deployset"
+              onReplace={(tags) => setForm((current) => ({ ...current, tags }))}
               onAdd={() => setForm((current) => ({ ...current, tags: [...current.tags, createTagDraft()] }))}
               onChange={updateTag}
               onRemove={removeTag}

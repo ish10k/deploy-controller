@@ -19,6 +19,7 @@ from src.domain.models import (
     Release,
     Publisher,
     Role,
+    TagDefinition,
     Workspace,
     WorkspaceMembership,
     Webhook,
@@ -30,6 +31,7 @@ from src.domain.models import (
 class MemoryRepositories:
     organizations: dict[str, Organization] = field(default_factory=dict)
     workspaces: dict[str, Workspace] = field(default_factory=dict)
+    tag_definitions: dict[tuple[str, str], TagDefinition] = field(default_factory=dict)
     organization_memberships: dict[tuple[str, str], OrganizationMembership] = field(default_factory=dict)
     workspace_memberships: dict[tuple[str, str], WorkspaceMembership] = field(default_factory=dict)
     components: dict[tuple[str, str], Component] = field(default_factory=dict)
@@ -68,6 +70,18 @@ class MemoryRepositories:
 
     def put_workspace(self, workspace: Workspace) -> None:
         self.workspaces[workspace.workspace_id] = workspace
+
+    def get_tag_definition(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None:
+        return self.tag_definitions.get((workspace_id, tag_definition_id))
+
+    def list_tag_definitions(self, workspace_id: str = "default") -> list[TagDefinition]:
+        return sorted(
+            (item for item in self.tag_definitions.values() if item.workspace_id == workspace_id),
+            key=lambda item: item.tag_definition_id,
+        )
+
+    def put_tag_definition(self, tag_definition: TagDefinition) -> None:
+        self.tag_definitions[(tag_definition.workspace_id, tag_definition.tag_definition_id)] = tag_definition
 
     def get_organization_membership(self, organization_id: str, principal_id: str) -> OrganizationMembership | None:
         return self.organization_memberships.get((organization_id, principal_id))
@@ -366,6 +380,20 @@ class MemoryWorkspaceRepository:
 
     def put(self, workspace: Workspace) -> None:
         self.store.put_workspace(workspace)
+
+
+class MemoryTagDefinitionRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None:
+        return self.store.get_tag_definition(tag_definition_id, workspace_id)
+
+    def list(self, workspace_id: str = "default") -> list[TagDefinition]:
+        return self.store.list_tag_definitions(workspace_id)
+
+    def put(self, tag_definition: TagDefinition) -> None:
+        self.store.put_tag_definition(tag_definition)
 
 
 class MemoryOrganizationMembershipRepository:

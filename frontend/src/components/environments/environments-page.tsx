@@ -812,6 +812,8 @@ function EnvironmentDrawer({
         <TagsCard
           tags={tags}
           error={tagsError}
+          resourceType="environment"
+          onReplace={setTags}
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}
           onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}

@@ -22,6 +22,7 @@ from src.domain.models import (
     Release,
     Publisher,
     Role,
+    TagDefinition,
     Workspace,
     WorkspaceMembership,
     Webhook,
@@ -85,6 +86,18 @@ class DynamoWorkspaceRepository:
         return [Workspace.model_validate(item) for item in items]
     def put(self, workspace: Workspace) -> None:
         self.table.put_item(Item=_dump(workspace))
+
+
+class DynamoTagDefinitionRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None:
+        item = self.table.get_item(Key={"tagDefinitionId": tag_definition_id}).get("Item")
+        return TagDefinition.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def list(self, workspace_id: str = "default") -> list[TagDefinition]:
+        return [TagDefinition.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
+    def put(self, tag_definition: TagDefinition) -> None:
+        self.table.put_item(Item=_dump(tag_definition))
 
 
 class DynamoOrganizationMembershipRepository:

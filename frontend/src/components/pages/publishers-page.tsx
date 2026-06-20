@@ -522,6 +522,8 @@ function PublisherDrawer({
         <TagsCard
           tags={tags}
           error={tagsError}
+          resourceType="publisher"
+          onReplace={setTags}
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}
           onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}
@@ -627,6 +629,8 @@ function PublisherSettings({
           tags={tags}
           error={tagsError}
           disabled={!canManage}
+          resourceType="publisher"
+          onReplace={setTags}
           description="Operational labels for this publisher."
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}

@@ -10,6 +10,7 @@ from src.application.use_cases.registry import (
     ReadOnlyUseCases,
     ReleaseUseCases,
     PublisherUseCases,
+    TagDefinitionUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.roles import RoleUseCases
@@ -32,6 +33,7 @@ from src.infrastructure.dynamodb.repositories import (
     DynamoReleaseRepository,
     DynamoPublisherRepository,
     DynamoRoleRepository,
+    DynamoTagDefinitionRepository,
     DynamoWorkspaceMembershipRepository,
     DynamoWorkspaceRepository,
     DynamoWebhookDeliveryRepository,
@@ -51,6 +53,7 @@ def build_aws_container() -> Container:
     runners = DynamoDeploymentRunnerRepository(os.environ["DEPLOYMENT_RUNNERS_TABLE"])
     organization_repo = DynamoOrganizationRepository(os.environ["ORGANIZATIONS_TABLE"])
     workspace_repo = DynamoWorkspaceRepository(os.environ["WORKSPACES_TABLE"])
+    tag_definitions = DynamoTagDefinitionRepository(os.environ["TAG_DEFINITIONS_TABLE"])
     organization_memberships = DynamoOrganizationMembershipRepository(os.environ["ORGANIZATION_MEMBERSHIPS_TABLE"])
     workspace_memberships = DynamoWorkspaceMembershipRepository(os.environ["WORKSPACE_MEMBERSHIPS_TABLE"])
     principals = DynamoPrincipalRepository(os.environ["PRINCIPALS_TABLE"])
@@ -126,6 +129,7 @@ def build_aws_container() -> Container:
             events=events,
         ),
         environments=EnvironmentUseCases(environments, events=events),
+        tag_definitions=TagDefinitionUseCases(tag_definitions),
         read_only=ReadOnlyUseCases(states, executions, runner_eligibility),
         plan_deployment=planner,
         create_deployment=CreateDeploymentUseCase(

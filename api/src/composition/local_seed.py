@@ -8,6 +8,7 @@ from src.domain.enums import (
     RequestedAction,
     RequestedReason,
     PrincipalType,
+    TagResourceType,
 )
 from src.domain.models import (
     Artifact,
@@ -28,6 +29,8 @@ from src.domain.models import (
     Publisher,
     PublisherScope,
     Source,
+    TagDefinition,
+    TagDefinitionSelector,
     Webhook,
     WebhookActor,
     WebhookDelivery,
@@ -158,6 +161,55 @@ def seed_local_data(store: MemoryRepositories) -> None:
             displayName="Default",
             active=True,
             tags={"team": "platform"},
+            createdAt="2026-04-01T09:00:00Z",
+            createdBy="system:local-seed",
+        )
+    )
+    store.put_tag_definition(
+        TagDefinition(
+            tagDefinitionId="deployset-track",
+            key="track",
+            label="Track",
+            description="Release track promoted by this DeploySet.",
+            defaultValue="prod",
+            allowedValues=["dev", "staging", "prod"],
+            selector=TagDefinitionSelector(resourceTypes=[TagResourceType.DEPLOYSET, TagResourceType.RELEASE]),
+            createdAt="2026-04-01T09:00:00Z",
+            createdBy="system:local-seed",
+        )
+    )
+    store.put_tag_definition(
+        TagDefinition(
+            tagDefinitionId="component-team",
+            key="team",
+            label="Team",
+            description="Owning team for the resource.",
+            defaultValue="platform",
+            allowedValues=["frontend", "platform", "identity", "data", "ops", "governance"],
+            selector=TagDefinitionSelector(
+                resourceTypes=[
+                    TagResourceType.COMPONENT,
+                    TagResourceType.COMPONENT_SET,
+                    TagResourceType.DEPLOYSET,
+                    TagResourceType.DEPLOYMENT_RUNNER,
+                    TagResourceType.PUBLISHER,
+                    TagResourceType.WEBHOOK,
+                    TagResourceType.WORKSPACE,
+                ]
+            ),
+            createdAt="2026-04-01T09:00:00Z",
+            createdBy="system:local-seed",
+        )
+    )
+    store.put_tag_definition(
+        TagDefinition(
+            tagDefinitionId="environment-region",
+            key="region",
+            label="Region",
+            description="Primary runtime region for the environment.",
+            defaultValue="eu-west-1",
+            allowedValues=["local", "eu-west-1"],
+            selector=TagDefinitionSelector(resourceTypes=[TagResourceType.ENVIRONMENT]),
             createdAt="2026-04-01T09:00:00Z",
             createdBy="system:local-seed",
         )

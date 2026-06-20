@@ -7,6 +7,20 @@ ExecutionStatus = Literal["pending", "claimed", "in-progress", "succeeded", "fai
 ItemStatus = Literal["pending", "claimed", "in-progress", "succeeded", "failed", "skipped"]
 ReportedAction = Literal["deploy", "noop", "skip"]
 RequestedAction = Literal["deploy", "skip"]
+TagResourceType = Literal[
+    "organization",
+    "workspace",
+    "component",
+    "component-set",
+    "release",
+    "deployset",
+    "deployment-execution",
+    "environment",
+    "deployment-runner",
+    "publisher",
+    "principal",
+    "webhook",
+]
 
 
 @dataclass(frozen=True)
@@ -82,6 +96,52 @@ class Release:
             created_at=_optional_str(data.get("createdAt")),
             created_by=_optional_str(data.get("createdBy")),
             tags=_string_map(data.get("tags")),
+        )
+
+
+@dataclass(frozen=True)
+class TagDefinitionSelector:
+    resource_types: list[TagResourceType] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TagDefinitionSelector":
+        resource_types = data.get("resourceTypes", [])
+        if not isinstance(resource_types, list):
+            raise TypeError("expected resourceTypes list")
+        return cls(resource_types=[str(value) for value in resource_types])
+
+
+@dataclass(frozen=True)
+class TagDefinition:
+    tag_definition_id: str
+    key: str
+    selector: TagDefinitionSelector
+    workspace_id: str = "default"
+    label: str | None = None
+    description: str | None = None
+    default_value: str | None = None
+    allowed_values: list[str] = field(default_factory=list)
+    created_at: str | None = None
+    created_by: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TagDefinition":
+        allowed_values = data.get("allowedValues", [])
+        if not isinstance(allowed_values, list):
+            raise TypeError("expected allowedValues list")
+        return cls(
+            workspace_id=str(data.get("workspaceId", "default")),
+            tag_definition_id=str(data["tagDefinitionId"]),
+            key=str(data["key"]),
+            label=_optional_str(data.get("label")),
+            description=_optional_str(data.get("description")),
+            default_value=_optional_str(data.get("defaultValue")),
+            allowed_values=[str(value) for value in allowed_values],
+            selector=TagDefinitionSelector.from_dict(_dict(data.get("selector", {}))),
+            created_at=_optional_str(data.get("createdAt")),
+            created_by=_optional_str(data.get("createdBy")),
+            updated_at=_optional_str(data.get("updatedAt")),
         )
 
 

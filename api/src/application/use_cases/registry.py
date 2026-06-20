@@ -8,11 +8,12 @@ from src.application.ports import (
     EnvironmentStateRepository,
     ReleaseRepository,
     PublisherRepository,
+    TagDefinitionRepository,
 )
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.deployments import RunnerEligibilityUseCases
-from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction
+from src.domain.enums import DeploySetItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction, TagResourceType
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
     Component,
@@ -29,6 +30,7 @@ from src.domain.models import (
     Publisher,
     PublisherCreateRequest,
     PublisherCreateResult,
+    TagDefinition,
     RotateTokenResult,
 )
 from src.application.use_cases.credentials import issue_pat
@@ -525,6 +527,23 @@ class EnvironmentUseCases:
 
     def list(self, workspace_id: str = "default") -> list[Environment]:
         return self.environments.list(workspace_id)
+
+
+class TagDefinitionUseCases:
+    def __init__(self, tag_definitions: TagDefinitionRepository) -> None:
+        self.tag_definitions = tag_definitions
+
+    def list(
+        self,
+        context: AuthContext,
+        workspace_id: str = "default",
+        resource_type: TagResourceType | None = None,
+    ) -> list[TagDefinition]:
+        require_permission(context, Permission.TAG_DEFINITIONS_READ)
+        definitions = self.tag_definitions.list(workspace_id)
+        if resource_type is None:
+            return definitions
+        return [definition for definition in definitions if resource_type in definition.selector.resource_types]
 
 
 class ReadOnlyUseCases:

@@ -8,6 +8,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from settle_sdk.errors import SettleApiError
+from settle_sdk.models import TagDefinition, TagResourceType
 
 
 class SettleClient:
@@ -48,6 +49,15 @@ class SettleClient:
 
     def put(self, path: str, body: Mapping[str, Any] | None = None) -> Any:
         return self.request("PUT", path, body=body)
+
+    def list_tag_definitions(self, resource_type: TagResourceType | None = None) -> list[TagDefinition]:
+        path = self.workspace_path("/tag-definitions")
+        if resource_type:
+            path = f"{path}?resourceType={quote(resource_type, safe='')}"
+        payload = self.get(path)
+        if not isinstance(payload, list):
+            raise TypeError("expected list response")
+        return [TagDefinition.from_dict(item) for item in payload]
 
     def request(self, method: str, path: str, *, body: Mapping[str, Any] | None = None) -> Any:
         url = f"{self.base_url}{path if path.startswith('/') else f'/{path}'}"

@@ -16,6 +16,7 @@ from src.domain.models import (
     Release,
     Publisher,
     Role,
+    TagDefinition,
     Workspace,
     WorkspaceMembership,
     Webhook,
@@ -33,6 +34,12 @@ class WorkspaceRepository(Protocol):
     def get(self, workspace_id: str) -> Workspace | None: ...
     def list(self, organization_id: str | None = None) -> list[Workspace]: ...
     def put(self, workspace: Workspace) -> None: ...
+
+
+class TagDefinitionRepository(Protocol):
+    def get(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None: ...
+    def list(self, workspace_id: str = "default") -> list[TagDefinition]: ...
+    def put(self, tag_definition: TagDefinition) -> None: ...
 
 
 class OrganizationMembershipRepository(Protocol):

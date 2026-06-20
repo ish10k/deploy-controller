@@ -47,6 +47,27 @@ def test_lambda_component_round_trip() -> None:
     assert json.loads(response["body"])["componentId"] == "api"
 
 
+def test_lambda_tag_definitions_can_be_listed_and_filtered() -> None:
+    container = authenticated_container()
+
+    response = route(event("GET", f"{WORKSPACE}/tag-definitions", authenticated=True), container)
+    assert response["statusCode"] == 200
+    definitions = json.loads(response["body"])
+    assert any(definition["key"] == "track" for definition in definitions)
+
+    response = route(
+        {
+            **event("GET", f"{WORKSPACE}/tag-definitions", authenticated=True),
+            "queryStringParameters": {"resourceType": "deployset"},
+        },
+        container,
+    )
+    assert response["statusCode"] == 200
+    filtered = json.loads(response["body"])
+    assert filtered
+    assert all("deployset" in definition["selector"]["resourceTypes"] for definition in filtered)
+
+
 def test_lambda_deployment_notes_round_trip() -> None:
     container = authenticated_container()
 

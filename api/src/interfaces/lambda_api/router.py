@@ -20,10 +20,12 @@ from src.domain.models import (
     Publisher,
     PublisherCreateRequest,
     Role,
+    TagDefinition,
     Webhook,
     Workspace,
     WorkspaceMembership,
 )
+from src.domain.enums import TagResourceType
 from src.interfaces.fastapi.schemas import (
     ClaimExecutionRequest,
     CreateDeploymentRequest,
@@ -142,6 +144,16 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.deploysets.create(_body(event, DeploySetCreateRequest), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["environments"]:
             return response(200, container.environments.list(workspace_id))
+        if method == "GET" and scoped == ["tag-definitions"]:
+            resource_type = _query(event, "resourceType")
+            return response(
+                200,
+                container.tag_definitions.list(
+                    _auth_context(event, container),
+                    workspace_id,
+                    TagResourceType(resource_type) if resource_type else None,
+                ),
+            )
         if method == "GET" and len(scoped) == 2 and scoped[0] == "environments":
             return response(200, container.environments.get(scoped[1], workspace_id))
         if method == "PUT" and len(scoped) == 2 and scoped[0] == "environments":

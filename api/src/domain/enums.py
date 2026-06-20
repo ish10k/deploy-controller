@@ -70,6 +70,21 @@ class EventSeverity(StrEnum):
     ERROR = "error"
 
 
+class TagResourceType(StrEnum):
+    ORGANIZATION = "organization"
+    WORKSPACE = "workspace"
+    COMPONENT = "component"
+    COMPONENT_SET = "component-set"
+    RELEASE = "release"
+    DEPLOYSET = "deployset"
+    DEPLOYMENT_EXECUTION = "deployment-execution"
+    ENVIRONMENT = "environment"
+    DEPLOYMENT_RUNNER = "deployment-runner"
+    PUBLISHER = "publisher"
+    PRINCIPAL = "principal"
+    WEBHOOK = "webhook"
+
+
 class Permission(StrEnum):
     ORGANIZATIONS_READ = "organizations:read"
     ORGANIZATIONS_WRITE = "organizations:write"
@@ -107,6 +122,7 @@ class Permission(StrEnum):
     WEBHOOK_DELIVERIES_READ = "webhook_deliveries:read"
     WEBHOOK_DELIVERIES_RETRY = "webhook_deliveries:retry"
     EVENTS_READ = "events:read"
+    TAG_DEFINITIONS_READ = "tag_definitions:read"
 
 
 class WebhookEvent(StrEnum):

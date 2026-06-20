@@ -9,6 +9,7 @@ from src.application.use_cases.registry import (
     ReadOnlyUseCases,
     ReleaseUseCases,
     PublisherUseCases,
+    TagDefinitionUseCases,
 )
 from src.application.use_cases.identity import PrincipalUseCases
 from src.application.use_cases.events import EventLogUseCases
@@ -25,6 +26,7 @@ class Container:
     publishers: PublisherUseCases
     deploysets: DeploySetUseCases
     environments: EnvironmentUseCases
+    tag_definitions: TagDefinitionUseCases
     read_only: ReadOnlyUseCases
     plan_deployment: PlanDeploymentUseCase
     create_deployment: CreateDeploymentUseCase

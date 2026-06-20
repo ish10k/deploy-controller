@@ -540,6 +540,8 @@ function UserDrawer({
         <TagsCard
           tags={tags}
           error={tagsError}
+          resourceType="principal"
+          onReplace={setTags}
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={(id, patch) => setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)))}
           onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}

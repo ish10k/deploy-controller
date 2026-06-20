@@ -28,6 +28,8 @@ import type {
   ApiReportExecutionItemStatusRequest,
   ApiRole,
   ApiRotateTokenResult,
+  ApiTagDefinition,
+  TagResourceType,
   ApiWhoAmI,
   ApiWebhook,
   ApiWebhookDelivery,
@@ -119,6 +121,7 @@ export const queryKeys = {
   deploysets: ["workspace", "deploysets"] as const,
   deployset: (deploySetId: string) => ["workspace", "deploysets", deploySetId] as const,
   environments: ["workspace", "environments"] as const,
+  tagDefinitions: (resourceType?: TagResourceType) => ["workspace", "tag-definitions", resourceType ?? "all"] as const,
   environmentState: ["workspace", "environment-state"] as const,
   environmentCenter: ["workspace", "environment-center"] as const,
   executions: (environmentId?: string) => ["workspace", "deployment-executions", environmentId ?? "all"] as const,
@@ -325,6 +328,13 @@ export async function createDeployset(payload: ApiDeploySetCreateRequest) {
 
 export async function listEnvironments() {
   return request<ApiEnvironment[]>(workspacePath("/environments"));
+}
+
+export async function listTagDefinitions(resourceType?: TagResourceType) {
+  if (!activeWorkspaceId) {
+    return [];
+  }
+  return request<ApiTagDefinition[]>(workspacePath(`/tag-definitions${queryString({ resourceType })}`));
 }
 
 export async function putEnvironment(environmentId: string, environment: ApiEnvironment) {
@@ -563,6 +573,7 @@ export type {
   ApiPublisherCreateResult,
   ApiRole,
   ApiRotateTokenResult,
+  ApiTagDefinition,
   ApiWhoAmI,
   ApiWebhook,
   ApiWebhookDelivery,

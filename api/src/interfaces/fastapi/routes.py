@@ -31,6 +31,7 @@ from src.domain.models import (
     PublisherCreateRequest,
     PublisherCreateResult,
     Role,
+    TagDefinition,
     RotateTokenResult,
     Webhook,
     WebhookDelivery,
@@ -38,6 +39,7 @@ from src.domain.models import (
     WorkspaceMembership,
     WhoAmI,
 )
+from src.domain.enums import TagResourceType
 from src.interfaces.fastapi.dependencies import get_auth_context, get_container
 from src.interfaces.fastapi.schemas import (
     ClaimExecutionRequest,
@@ -565,6 +567,16 @@ def create_workspace_deployset(workspace_id: str, request: DeploySetCreateReques
 @router.get("/workspaces/{workspace_id}/environments", tags=["Environments"], response_model=list[Environment], responses=NOT_FOUND_RESPONSES)
 def list_workspace_environments(workspace_id: str, container: ContainerDep) -> list[Environment]:
     return _handle(lambda: container.environments.list(workspace_id))
+
+
+@router.get("/workspaces/{workspace_id}/tag-definitions", tags=["Tags"], response_model=list[TagDefinition], responses=NOT_FOUND_RESPONSES)
+def list_workspace_tag_definitions(
+    workspace_id: str,
+    context: AuthDep,
+    container: ContainerDep,
+    resourceType: Annotated[TagResourceType | None, Query(description="Optional resource type filter.")] = None,
+) -> list[TagDefinition]:
+    return _handle(lambda: container.tag_definitions.list(context, workspace_id, resourceType))
 
 
 @router.get("/workspaces/{workspace_id}/environments/{environment_id}", tags=["Environments"], response_model=Environment, responses=NOT_FOUND_RESPONSES)
