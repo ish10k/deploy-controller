@@ -1102,7 +1102,7 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  node-releases@2.0.47:
+  node-versions@2.0.47:
     resolution: {integrity: sha512-Uzmd6LXpouKo8EUK68IjH4+E01w/hXyV3R3g/geCJo+rXLNfh1xucB+LOzYEOQPSiUK3h/xZf0cQGcSsmyL2Og==}
     engines: {node: '>=18'}
 
@@ -2169,7 +2169,7 @@ snapshots:
       baseline-browser-mapping: 2.10.37
       caniuse-lite: 1.0.30001799
       electron-to-chromium: 1.5.374
-      node-releases: 2.0.47
+      node-versions: 2.0.47
       update-browserslist-db: 1.2.3(browserslist@4.28.2)
 
   camelcase-css@2.0.1: {}
@@ -2468,7 +2468,7 @@ snapshots:
 
   nanoid@3.3.12: {}
 
-  node-releases@2.0.47: {}
+  node-versions@2.0.47: {}
 
   normalize-path@3.0.0: {}
 
@@ -2846,3 +2846,4 @@ snapshots:
   yargs-parser@21.1.1: {}
 
   zod@4.4.3: {}
+

@@ -13,10 +13,10 @@ describe("router", () => {
     expect(routesByPath?.["/workspaces/$workspaceId/registry"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users"]).toBeDefined();
     expect(routesByPath?.["/workspaces/select"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/release-sets"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/components"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/release-sets"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/releases"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/components"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/releases"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/versions"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users/$principalId"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/roles"]).toBeDefined();
@@ -30,3 +30,5 @@ describe("router", () => {
     expect(routesByPath?.["/workspaces/$workspaceId/webhook-deliveries/$deliveryId"]).toBeDefined();
   });
 });
+
+

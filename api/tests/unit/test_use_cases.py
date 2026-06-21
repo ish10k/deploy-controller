@@ -8,14 +8,14 @@ from src.domain.models import (
     AuthContext,
     BootstrapState,
     Component,
-    ReleaseSet,
+    Release,
     Deployment,
     DeploymentRunner,
     DeploymentRunnerScope,
-    ReleaseSet,
+    Release,
     Environment,
     Principal,
-    Release,
+    Version,
     Role,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
@@ -39,9 +39,9 @@ def admin_context() -> AuthContext:
     )
 
 
-def release(component_id: str, version: str, sha: str) -> Release:
+def version(component_id: str, version: str, sha: str) -> Version:
     source_sha = f"src-{sha}" if not sha.startswith("src-") else sha
-    return Release(
+    return Version(
         componentId=component_id,
         version=version,
         artifact=artifact(component_id, version, sha),
@@ -56,25 +56,13 @@ def release(component_id: str, version: str, sha: str) -> Release:
 
 def seed(store: MemoryRepositories) -> None:
     store.put_component(Component(componentId="api", type="ecs", active=True))
-    store.put_component(Component(componentId="worker", type="lambda", active=True))
-    store.put_release_set(
-        ReleaseSet(
-            releaseSetId="platform",
-            components=[
-                {"componentId": "api"},
-                {"componentId": "worker"},
-            ],
-            createdAt="2026-06-16T12:00:00Z",
-            createdBy="ci",
-        )
-    )
-    store.create_release(release("api", "1.0.0", "sha-api-a"))
-    store.create_release(release("api", "2.0.0", "sha-api-b"))
-    store.create_release(release("worker", "1.0.0", "sha-worker-a"))
-    store.create_release_set(
-        ReleaseSet(
-            releaseSetId="ds-1",
-            releaseSetId="platform",
+    store.put_component(Component(componentId="worker", type="lambda", active=True))
+    store.create_version(version("api", "1.0.0", "sha-api-a"))
+    store.create_version(version("api", "2.0.0", "sha-api-b"))
+    store.create_version(version("worker", "1.0.0", "sha-worker-a"))
+    store.create_release(
+        Release(
+            releaseId="platform",
             schemaVersion=1,
             items=[
                 {"componentId": "api", "version": "1.0.0"},
@@ -90,7 +78,7 @@ def seed(store: MemoryRepositories) -> None:
             runnerId="aws-prod-runner",
             displayName="AWS Prod Runner",
             principalId="service:aws-prod-runner",
-            scope=DeploymentRunnerScope(environmentIds=["prod"], componentIds=["platform"]),
+            scope=DeploymentRunnerScope(environmentIds=["prod"], componentIds=["api", "worker"]),
             createdAt="2026-06-16T12:00:00Z",
             createdBy="ci",
         )
@@ -114,13 +102,13 @@ def admin_principal(principal_id: str = "user:admin@example.local") -> Principal
     )
 
 
-def test_release_create_is_idempotent_for_same_content() -> None:
+def test_version_create_is_idempotent_for_same_content() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
-    item = release("api", "1.0.0", "sha-a")
+    item = version("api", "1.0.0", "sha-a")
     expected = item.model_copy(update={"created_by": admin_context().principal_id})
-    container.releases.create(item, admin_context())
-    assert container.releases.create(item, admin_context()) == expected
+    container.versions.create(item, admin_context())
+    assert container.versions.create(item, admin_context()) == expected
 
 
 def test_cannot_disable_last_active_admin_user() -> None:
@@ -154,19 +142,19 @@ def test_roles_are_listed_and_custom_role_permissions_can_be_updated() -> None:
     assert "admin" in {role.role_id for role in roles}
 
     custom = container.roles.put(
-        "release-manager",
-        Role(roleId="ignored", description="Release manager", permissions=[Permission.RELEASES_READ]),
+        "version-manager",
+        Role(roleId="ignored", description="Version manager", permissions=[Permission.VERSIONS_READ]),
         admin_context(),
     )
-    assert custom.role_id == "release-manager"
-    assert custom.permissions == ["releases:read"]
+    assert custom.role_id == "version-manager"
+    assert custom.permissions == ["versions:read"]
 
     updated = container.roles.put(
-        "release-manager",
-        custom.model_copy(update={"permissions": [Permission.RELEASES_READ, Permission.RELEASES_CREATE]}),
+        "version-manager",
+        custom.model_copy(update={"permissions": [Permission.VERSIONS_READ, Permission.VERSIONS_CREATE]}),
         admin_context(),
     )
-    assert updated.permissions == [Permission.RELEASES_READ, Permission.RELEASES_CREATE]
+    assert updated.permissions == [Permission.VERSIONS_READ, Permission.VERSIONS_CREATE]
 
 
 def test_admin_role_permissions_are_system_managed() -> None:
@@ -177,36 +165,35 @@ def test_admin_role_permissions_are_system_managed() -> None:
         container.roles.put("admin", Role(roleId="admin", permissions=[Permission.COMPONENTS_READ]), admin_context())
 
 
-def test_release_create_conflicts_for_different_content() -> None:
+def test_version_create_conflicts_for_different_content() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
-    container.releases.create(release("api", "1.0.0", "sha-a"), admin_context())
+    container.versions.create(version("api", "1.0.0", "sha-a"), admin_context())
     with pytest.raises(ConflictError):
-        container.releases.create(release("api", "1.0.0", "sha-b"), admin_context())
+        container.versions.create(version("api", "1.0.0", "sha-b"), admin_context())
 
 
-def test_releaseSet_create_expands_partial_request_from_base_release_set() -> None:
+def test_release_create_expands_partial_request_from_base_release() -> None:
     store = MemoryRepositories()
     seed(store)
     container = build_memory_container(store)
 
-    result = container.releaseSets.create(
+    result = container.releases.create(
         {
-            "releaseSetId": "ds-2",
-            "releaseSetId": "platform",
-            "baseReleaseSetId": "ds-1",
-            "notes": "Promote API v2 while inheriting the current worker release.",
+            "releaseId": "platform-v2",
+            "baseReleaseId": "platform",
+            "notes": "Promote API v2 while inheriting the current worker version.",
             "items": [{"componentId": "api", "version": "2.0.0"}],
             "createdBy": "ishina",
         },
         admin_context(),
     )
 
-    assert [item.component_id for item in result.releaseSet.items] == ["api", "worker"]
-    assert result.releaseSet.items[0].source == "explicit"
-    assert result.releaseSet.items[1].version == "1.0.0"
-    assert result.releaseSet.items[1].source == "inferred"
-    assert result.releaseSet.notes == "Promote API v2 while inheriting the current worker release."
+    assert [item.component_id for item in result.release.items] == ["api", "worker"]
+    assert result.release.items[0].source == "explicit"
+    assert result.release.items[1].version == "1.0.0"
+    assert result.release.items[1].source == "inferred"
+    assert result.release.notes == "Promote API v2 while inheriting the current worker version."
     assert result.warnings
 
 
@@ -215,7 +202,7 @@ def test_plan_deployment_produces_deploy_when_no_latest_execution() -> None:
     seed(store)
     container = build_memory_container(store)
 
-    plan = container.plan_deployment.execute(environment_id="prod", release_set_id="ds-1")
+    plan = container.plan_deployment.execute(environment_id="prod", release_id="platform")
 
     assert plan.items[0].requested_action == "deploy"
     assert plan.items[0].status == "pending"
@@ -229,7 +216,7 @@ def test_plan_deployment_skips_from_latest_success() -> None:
         Deployment(
             deploymentId="abc123ef",
             environmentId="prod",
-            releaseSetId="ds-1",
+            releaseId="platform",
             status="succeeded",
             requestedBy="ishina",
             startedAt="2026-06-16T12:02:00Z",
@@ -255,7 +242,7 @@ def test_plan_deployment_skips_from_latest_success() -> None:
     )
     container = build_memory_container(store)
 
-    plan = container.plan_deployment.execute(environment_id="prod", release_set_id="ds-1")
+    plan = container.plan_deployment.execute(environment_id="prod", release_id="platform")
 
     assert plan.items[0].requested_action == "skip"
     assert plan.items[0].status == "skipped"
@@ -268,7 +255,7 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
 
     execution = container.create_deployment.execute(
         environment_id="prod",
-        release_set_id="ds-1",
+        release_id="platform",
         context=admin_context(),
         notes="Approved for rollout after verification in staging.",
     )
@@ -282,20 +269,11 @@ def test_create_deployment_writes_pending_execution_and_environment_state() -> N
 def test_runner_warning_is_derived_live_and_ignores_capacity() -> None:
     store = MemoryRepositories()
     seed(store)
-    store.put_component(Component(componentId="edge-api", type="bare-metal", active=True))
-    store.put_release_set(
-        ReleaseSet(
-            releaseSetId="edge-platform",
-            components=[{"componentId": "edge-api"}],
-            createdAt="2026-06-16T12:00:00Z",
-            createdBy="ci",
-        )
-    )
-    store.create_release(release("edge-api", "1.0.0", "sha-edge"))
-    store.create_release_set(
-        ReleaseSet(
-            releaseSetId="edge-ds",
-            releaseSetId="edge-platform",
+    store.put_component(Component(componentId="edge-api", type="bare-metal", active=True))
+    store.create_version(version("edge-api", "1.0.0", "sha-edge"))
+    store.create_release(
+        Release(
+            releaseId="edge-platform",
             schemaVersion=1,
             items=[{"componentId": "edge-api", "version": "1.0.0"}],
             createdAt="2026-06-16T12:01:00Z",
@@ -305,10 +283,10 @@ def test_runner_warning_is_derived_live_and_ignores_capacity() -> None:
     store.put_environment(Environment(environmentId="edge"))
     container = build_memory_container(store)
 
-    plan = container.plan_deployment.execute(environment_id="edge", release_set_id="edge-ds")
+    plan = container.plan_deployment.execute(environment_id="edge", release_id="edge-platform")
     assert plan.items[0].runner_match_warning is True
 
-    execution = container.create_deployment.execute(environment_id="edge", release_set_id="edge-ds", context=admin_context())
+    execution = container.create_deployment.execute(environment_id="edge", release_id="edge-platform", context=admin_context())
     live = container.read_only.get_deployment_execution(execution.deployment_id)
     assert live.items[0].runner_match_warning is True
 
@@ -320,7 +298,7 @@ def test_runner_warning_stays_false_when_a_match_exists_even_at_capacity() -> No
 
     execution = container.create_deployment.execute(
         environment_id="prod",
-        release_set_id="ds-1",
+        release_id="platform",
         context=admin_context(),
         notes="Capacity should not affect match warnings.",
     )
@@ -337,7 +315,7 @@ def test_create_deployment_marks_environment_state_succeeded_when_plan_is_all_sk
         Deployment(
             deploymentId="abc123ef",
             environmentId="prod",
-            releaseSetId="ds-1",
+            releaseId="platform",
             status="succeeded",
             requestedBy="ishina",
             startedAt="2026-06-16T12:02:00Z",
@@ -364,20 +342,20 @@ def test_create_deployment_marks_environment_state_succeeded_when_plan_is_all_sk
     )
     container = build_memory_container(store)
 
-    execution = container.create_deployment.execute(environment_id="prod", release_set_id="ds-1", context=admin_context())
+    execution = container.create_deployment.execute(environment_id="prod", release_id="platform", context=admin_context())
 
     assert execution.status == "succeeded"
     assert store.get_environment_state("prod").status == ExecutionStatus.SUCCEEDED
 
 
-def test_create_deployment_rejects_active_execution_for_same_environment_and_release_set() -> None:
+def test_create_deployment_rejects_active_execution_for_same_environment_and_release() -> None:
     store = MemoryRepositories()
     seed(store)
     store.create_deployment_execution(
         Deployment(
             deploymentId="busy1234",
             environmentId="prod",
-            releaseSetId="ds-1",
+            releaseId="platform",
             status=ExecutionStatus.RUNNING,
             requestedBy="operator",
             startedAt="2026-06-16T12:03:00Z",
@@ -396,7 +374,7 @@ def test_create_deployment_rejects_active_execution_for_same_environment_and_rel
     container = build_memory_container(store)
 
     with pytest.raises(ConflictError, match="Deployment already in progress"):
-        container.create_deployment.execute(environment_id="prod", release_set_id="ds-1", context=admin_context())
+        container.create_deployment.execute(environment_id="prod", release_id="platform", context=admin_context())
 
 
 def test_cancel_deployment_marks_execution_cancelled() -> None:
@@ -406,7 +384,7 @@ def test_cancel_deployment_marks_execution_cancelled() -> None:
 
     execution = container.create_deployment.execute(
         environment_id="prod",
-        release_set_id="ds-1",
+        release_id="platform",
         context=admin_context(),
         notes="Cancel me.",
     )
@@ -425,7 +403,7 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
         Deployment(
             deploymentId="abc123ef",
             environmentId="prod",
-            releaseSetId="ds-1",
+            releaseId="platform",
             status="succeeded",
             requestedBy="ishina",
             startedAt="2026-06-16T12:02:00Z",
@@ -452,7 +430,7 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     container = build_memory_container(store)
     execution = container.create_deployment.execute(
         environment_id="prod",
-        release_set_id="ds-1",
+        release_id="platform",
         context=admin_context(),
         force=True,
     )
@@ -478,3 +456,11 @@ def test_runner_report_flags_possible_drift_on_force_redeploy() -> None:
     assert claimed.claimed_by == "aws-prod-runner"
     assert updated.items[0].drift_detected is True
     assert updated.items[0].drift_reason == "same_version_redeployed"
+
+
+
+
+
+
+
+

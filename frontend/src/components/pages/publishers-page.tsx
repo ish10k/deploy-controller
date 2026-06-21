@@ -25,13 +25,13 @@ import {
   createPublisher,
   getPublisher,
   listComponents,
-  listReleases,
+  listVersions,
   listPublishers,
   putPublisher,
   queryKeys,
   rotatePublisherToken,
   type ApiComponent,
-  type ApiRelease,
+  type ApiVersion,
   type ApiPublisher,
   type ApiPublisherCreateRequest,
   type ApiRotateTokenResult,
@@ -82,8 +82,8 @@ export function PublishersPage() {
   return (
     <>
       <PageHeader
-        title="Release Publishers"
-        subtitle="External publishers that can create component releases within an explicit scope."
+        title="Version Publishers"
+        subtitle="External publishers that can create component versions within an explicit scope."
         action={
           canManage ? (
             <Button className="px-4" onClick={() => setOpen(true)}>
@@ -126,7 +126,7 @@ export function PublishersPage() {
                     <TableHead>Principal</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Scope</TableHead>
-                    <TableHead>Last Used</TableHead>
+                    <TableHead>Last Publish</TableHead>
                     <TableHead>Tags</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -188,12 +188,12 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
   const query = useQuery({
     queryKey: queryKeys.publisher(publisherId),
     queryFn: async () => {
-      const [publisher, components, releases] = await Promise.all([
+      const [publisher, components, versions] = await Promise.all([
         getPublisher(publisherId),
         listComponents(),
-        listReleases(),
+        listVersions(),
       ]);
-      return { publisher, components, releases };
+      return { publisher, components, versions };
     },
     retry: 1,
   });
@@ -205,7 +205,7 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
     <PublisherDetailsView
       publisher={query.data.publisher}
       components={query.data.components}
-      releases={query.data.releases}
+      versions={query.data.versions}
       onRefresh={() => query.refetch()}
       onInvalidate={async () => {
         await Promise.all([
@@ -220,20 +220,20 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
 function PublisherDetailsView({
   publisher,
   components,
-  releases,
+  versions,
   onInvalidate,
   onRefresh,
 }: {
   publisher: ApiPublisher;
   components: ApiComponent[];
-  releases: ApiRelease[];
+  versions: ApiVersion[];
   onInvalidate: () => Promise<void>;
   onRefresh: () => Promise<unknown>;
 }) {
   const auth = useAuth();
   const canManage = canManagePublishers(auth.user);
   const toast = useToast();
-  const scopedReleases = useMemo(() => releases.filter((release) => publisherAllowsComponent(publisher, release.componentId)), [publisher, releases]);
+  const scopedVersions = useMemo(() => versions.filter((version) => publisherAllowsComponent(publisher, version.componentId)), [publisher, versions]);
   const rotateMutation = useMutation<ApiRotateTokenResult, Error, string>({
     mutationFn: rotatePublisherToken,
     onSuccess: async (result) => {
@@ -257,8 +257,8 @@ function PublisherDetailsView({
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={`Release Publisher: ${publisher.displayName || publisher.publisherId}`}
-        subtitle="Publisher identity, publishing scope, token state, and scoped releases."
+        title={`Version Publisher: ${publisher.displayName || publisher.publisherId}`}
+        subtitle="Publisher identity, publishing scope, token state, and scoped versions."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => void onRefresh()}>
@@ -283,7 +283,7 @@ function PublisherDetailsView({
 
       <div className="grid shrink-0 grid-cols-4 gap-4">
         <FactCard icon={Webhook} label="Status" value={publisher.active ? "Active" : "Inactive"} sublabel="Registration state" />
-        <FactCard icon={ENTITY_ICONS.release} label="Scoped Releases" value={String(scopedReleases.length)} sublabel="Matching current scope" />
+        <FactCard icon={ENTITY_ICONS.version} label="Scoped Versions" value={String(scopedVersions.length)} sublabel="Matching current scope" />
         <FactCard icon={KeyRound} label="Token Prefix" value={publisher.tokenPrefix ?? "None"} sublabel={publisher.tokenRotatedAt ? `Rotated ${formatRelativeTime(publisher.tokenRotatedAt, { mode: "short" })}` : "Not rotated"} />
         <FactCard icon={CalendarClock} label="Last Used" value={formatRelativeTime(publisher.lastUsedAt, { mode: "short" })} sublabel="Authentication activity" />
       </div>
@@ -291,10 +291,10 @@ function PublisherDetailsView({
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px] gap-4">
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
-            <CardTitle>Scoped releases</CardTitle>
+            <CardTitle>Scoped versions</CardTitle>
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {scopedReleases.length ? (
+            {scopedVersions.length ? (
               <ScrollFade className="h-full" contentClassName="px-4 pb-4">
                 <Table>
                   <TableHeader>
@@ -306,24 +306,24 @@ function PublisherDetailsView({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scopedReleases.map((release) => (
-                      <TableRow key={`${release.componentId}:${release.version}`}>
+                    {scopedVersions.map((version) => (
+                      <TableRow key={`${version.componentId}:${version.version}`}>
                         <TableCell>
-                          <EntityLink kind="component" to="/components/$componentId" params={{ componentId: release.componentId }}>
-                            {release.componentId}
+                          <EntityLink kind="component" to="/components/$componentId" params={{ componentId: version.componentId }}>
+                            {version.componentId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
                           <EntityLink
-                            kind="release"
-                            to="/releases/$componentId/$version"
-                            params={{ componentId: release.componentId, version: release.version }}
+                            kind="version"
+                            to="/versions/$componentId/$version"
+                            params={{ componentId: version.componentId, version: version.version }}
                           >
-                            {release.version}
+                            {version.version}
                           </EntityLink>
                         </TableCell>
-                        <TableCell>{formatDateTime(release.createdAt)}</TableCell>
-                        <TableCell className="max-w-[360px] truncate">{release.notes ?? "-"}</TableCell>
+                        <TableCell>{formatDateTime(version.createdAt)}</TableCell>
+                        <TableCell className="max-w-[360px] truncate">{version.notes ?? "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -331,7 +331,7 @@ function PublisherDetailsView({
               </ScrollFade>
             ) : (
               <div className="p-4">
-                <EmptyPanel label="No releases currently match this publisher scope." />
+                <EmptyPanel label="No versions currently match this publisher scope." />
               </div>
             )}
           </CardContent>
@@ -491,7 +491,7 @@ function PublisherDrawer({
             <input className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
             <span>
               <span className="block font-medium text-slate-800">Active publisher</span>
-              <span>Active publishers can authenticate and publish releases within their scope.</span>
+              <span>Active publishers can authenticate and publish versions within their scope.</span>
             </span>
           </label>
         </section>
@@ -576,7 +576,7 @@ function PublisherSettings({
           <input disabled={!canManage} className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
           <span>
             <span className="block font-medium text-slate-800">Active publisher</span>
-            <span>Inactive publishers cannot publish releases.</span>
+            <span>Inactive publishers cannot publish versions.</span>
           </span>
         </label>
         <div className="grid gap-4">
@@ -651,7 +651,7 @@ function CheckboxGroup({
   );
 }
 
-function ScopeList({ title, values, kind, emptyLabel }: { title: string; values: string[]; kind: "component" | "releaseSet"; emptyLabel: string }) {
+function ScopeList({ title, values, kind, emptyLabel }: { title: string; values: string[]; kind: "component" | "release"; emptyLabel: string }) {
   return (
     <div>
       <div className="mb-2 font-semibold text-slate-700">{title}</div>
@@ -663,7 +663,7 @@ function ScopeList({ title, values, kind, emptyLabel }: { title: string; values:
                 {value}
               </EntityLink>
             ) : (
-              <EntityLink key={value} kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: value }}>
+              <EntityLink key={value} kind="release" to="/releases/$releaseId" params={{ releaseId: value }}>
                 {value}
               </EntityLink>
             ),
@@ -727,4 +727,6 @@ function recordToDrafts(record: Record<string, string>) {
   const drafts = Object.entries(record).map(([key, value]) => createTagDraft(key, value));
   return drafts.length ? [...drafts, createTagDraft()] : [createTagDraft()];
 }
+
+
 

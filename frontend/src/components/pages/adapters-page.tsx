@@ -461,8 +461,8 @@ function DeploymentRunnerDetailsView({
                         </TableCell>
                         <TableCell>
                           <EntityLink
-                            kind="release"
-                            to="/releases/$componentId/$version"
+                            kind="version"
+                            to="/versions/$componentId/$version"
                             params={{ componentId: item.componentId, version: item.version }}
                           >
                             {item.version}
@@ -631,4 +631,5 @@ function MetaRow({ icon: Icon, label, value }: { icon: typeof Server; label: str
     </div>
   );
 }
+
 

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Boxes, CalendarClock, FileText, GitCommitHorizontal, Package, RefreshCcw, Server, Tag } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
-import { ReleaseDrawer } from "@/components/pages/releases-page";
+import { VersionDrawer } from "@/components/pages/versions-page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
@@ -12,17 +12,17 @@ import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
-import { createRelease, getComponent, listReleases, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
+import { createVersion, getComponent, listVersions, queryKeys, type ApiComponent, type ApiVersion } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 export function ComponentDetailsPage({ componentId }: { componentId: string }) {
   const query = useQuery({
     queryKey: ["components", "detail", componentId],
     queryFn: async () => {
-      const [component, releases] = await Promise.all([getComponent(componentId), listReleases(componentId)]);
+      const [component, versions] = await Promise.all([getComponent(componentId), listVersions(componentId)]);
       return {
         component,
-        releases: [...releases].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+        versions: [...versions].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
       };
     },
     retry: 1,
@@ -31,28 +31,28 @@ export function ComponentDetailsPage({ componentId }: { componentId: string }) {
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.component) return <EmptyPanel label={`Component ${componentId} was not found.`} />;
 
-  return <ComponentDetailsView component={query.data.component} releases={query.data.releases} onRefresh={() => query.refetch()} />;
+  return <ComponentDetailsView component={query.data.component} versions={query.data.versions} onRefresh={() => query.refetch()} />;
 }
 
-function ComponentDetailsView({ component, releases, onRefresh }: { component: ApiComponent; releases: ApiRelease[]; onRefresh: () => Promise<unknown> }) {
+function ComponentDetailsView({ component, versions, onRefresh }: { component: ApiComponent; versions: ApiVersion[]; onRefresh: () => Promise<unknown> }) {
   const queryClient = useQueryClient();
   const navigate = useWorkspaceNavigate();
-  const [releaseOpen, setReleaseOpen] = useState(false);
-  const latestRelease = releases[0];
-  const latestReleaseByComponent = useMemo(() => {
-    const latest = new Map<string, ApiRelease>();
-    if (latestRelease) {
-      latest.set(component.componentId, latestRelease);
+  const [versionOpen, setVersionOpen] = useState(false);
+  const latestVersion = versions[0];
+  const latestVersionByComponent = useMemo(() => {
+    const latest = new Map<string, ApiVersion>();
+    if (latestVersion) {
+      latest.set(component.componentId, latestVersion);
     }
     return latest;
-  }, [component.componentId, latestRelease]);
+  }, [component.componentId, latestVersion]);
   const mutation = useMutation({
-    mutationFn: createRelease,
-    onSuccess: async (release) => {
-      setReleaseOpen(false);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.releases(component.componentId) });
+    mutationFn: createVersion,
+    onSuccess: async (version) => {
+      setVersionOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.versions(component.componentId) });
       await queryClient.invalidateQueries({ queryKey: ["components", "detail", component.componentId] });
-      await navigate({ to: "/releases/$componentId/$version", params: { componentId: release.componentId, version: release.version } });
+      await navigate({ to: "/versions/$componentId/$version", params: { componentId: version.componentId, version: version.version } });
     },
   });
 
@@ -60,7 +60,7 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
         title={`Component: ${component.componentId}`}
-        subtitle="Component metadata, release history, and delivery context."
+        subtitle="Component metadata, version history, and delivery context."
         action={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -70,9 +70,9 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
               <RefreshCcw className="h-4 w-4" />
               Refresh
             </Button>
-            <Button className="px-4" onClick={() => setReleaseOpen(true)}>
+            <Button className="px-4" onClick={() => setVersionOpen(true)}>
               <GitCommitHorizontal className="h-4 w-4" />
-              Release
+              Version
             </Button>
             <Link to="/components">
               <Button variant="outline">
@@ -86,27 +86,27 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
 
       <div className="grid shrink-0 grid-cols-3 gap-4">
         <FactCard icon={Server} label="Type" value={component.type ?? "Unspecified"} sublabel={component.active ? "Active component" : "Inactive component"} />
-        {latestRelease ? (
+        {latestVersion ? (
           <Link
-            to="/releases/$componentId/$version"
-            params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
+            to="/versions/$componentId/$version"
+            params={{ componentId: latestVersion.componentId, version: latestVersion.version }}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
-            <FactCard icon={Package} label="Latest Release" value={latestRelease.version} sublabel={formatRelativeTime(latestRelease.createdAt, { mode: "short" })} interactive />
+            <FactCard icon={Package} label="Latest Version" value={latestVersion.version} sublabel={formatRelativeTime(latestVersion.createdAt, { mode: "short" })} interactive />
           </Link>
         ) : (
-          <FactCard icon={Package} label="Latest Release" value="None" sublabel="No releases yet" />
+          <FactCard icon={Package} label="Latest Version" value="None" sublabel="No versions yet" />
         )}
-        <FactCard icon={Boxes} label="Releases" value={String(releases.length)} sublabel="Versions registered" />
+        <FactCard icon={Boxes} label="Versions" value={String(versions.length)} sublabel="Versions registered" />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4">
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <CardHeader>
-            <CardTitle>Release history</CardTitle>
+            <CardTitle>Version history</CardTitle>
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {releases.length ? (
+            {versions.length ? (
               <ScrollFade className="h-full" contentClassName="px-4 pb-4">
                 <Table>
                   <TableHeader>
@@ -118,20 +118,20 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {releases.map((release) => (
-                      <TableRow key={release.version}>
+                    {versions.map((version) => (
+                      <TableRow key={version.version}>
                         <TableCell>
                           <EntityLink
-                            kind="release"
-                            to="/releases/$componentId/$version"
-                            params={{ componentId: release.componentId, version: release.version }}
+                            kind="version"
+                            to="/versions/$componentId/$version"
+                            params={{ componentId: version.componentId, version: version.version }}
                           >
-                            {release.version}
+                            {version.version}
                           </EntityLink>
                         </TableCell>
-                        <TableCell>{formatRelativeTime(release.createdAt, { mode: "short" })}</TableCell>
-                        <TableCell className="max-w-[260px] truncate">{release.artifact.key}</TableCell>
-                        <TableCell className="max-w-[300px] truncate">{release.notes ?? "-"}</TableCell>
+                        <TableCell>{formatRelativeTime(version.createdAt, { mode: "short" })}</TableCell>
+                        <TableCell className="max-w-[260px] truncate">{version.artifact.key}</TableCell>
+                        <TableCell className="max-w-[300px] truncate">{version.notes ?? "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -139,7 +139,7 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
               </ScrollFade>
             ) : (
               <div className="p-4">
-                <EmptyPanel label="No releases have been registered for this component." />
+                <EmptyPanel label="No versions have been registered for this component." />
               </div>
             )}
           </CardContent>
@@ -156,20 +156,20 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
               icon={CalendarClock}
               label="Latest"
               value={
-                latestRelease ? (
+                latestVersion ? (
                   <EntityLink
-                    kind="release"
-                    to="/releases/$componentId/$version"
-                    params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
+                    kind="version"
+                    to="/versions/$componentId/$version"
+                    params={{ componentId: latestVersion.componentId, version: latestVersion.version }}
                   >
-                    {latestRelease.version}
+                    {latestVersion.version}
                   </EntityLink>
                 ) : (
                   "None"
                 )
               }
             />
-            <MetaRow icon={FileText} label="Description" value={latestRelease?.description ?? "None"} multiline />
+            <MetaRow icon={FileText} label="Description" value={latestVersion?.description ?? "None"} multiline />
             <div className="grid grid-cols-[120px_1fr] gap-3">
               <span className="flex items-start gap-2 font-semibold text-slate-700">
                 <Tag className="mt-0.5 h-4 w-4 text-slate-500" />
@@ -180,12 +180,12 @@ function ComponentDetailsView({ component, releases, onRefresh }: { component: A
           </CardContent>
         </Card>
       </div>
-      <ReleaseDrawer
+      <VersionDrawer
         componentOptions={[component.componentId]}
-        latestReleaseByComponent={latestReleaseByComponent}
-        open={releaseOpen}
-        onClose={() => setReleaseOpen(false)}
-        onSubmit={(release) => mutation.mutate(release)}
+        latestVersionByComponent={latestVersionByComponent}
+        open={versionOpen}
+        onClose={() => setVersionOpen(false)}
+        onSubmit={(version) => mutation.mutate(version)}
         pending={mutation.isPending}
         initialComponentId={component.componentId}
         lockComponent
@@ -234,4 +234,5 @@ function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof
     </div>
   );
 }
+
 

@@ -8,15 +8,15 @@ from src.application.use_cases.auth import require_pat_context
 from src.domain.errors import NotFoundError
 from src.domain.models import (
     Component,
-    ReleaseSet,
+    Release,
     DeploymentRunner,
     DeploymentRunnerCreateRequest,
-    ReleaseSetCreateRequest,
+    ReleaseCreateRequest,
     Environment,
     Organization,
     OrganizationMembership,
     Principal,
-    Release,
+    Version,
     Publisher,
     PublisherCreateRequest,
     Role,
@@ -123,21 +123,21 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         if method == "PUT" and len(scoped) == 2 and scoped[0] == "components":
             component = _body(event, Component).model_copy(update={"workspace_id": workspace_id, "component_id": scoped[1]})
             return response(200, container.components.put(component, _auth_context(event, container), workspace_id))
-        if method == "GET" and scoped == ["release-sets"]:
-            return response(200, container.release_sets.list(workspace_id))
-        if method == "GET" and len(scoped) == 2 and scoped[0] == "release-sets":
-            return response(200, container.release_sets.get(scoped[1], workspace_id))
-        if method == "PUT" and len(scoped) == 2 and scoped[0] == "release-sets":
-            release_set = _body(event, ReleaseSet).model_copy(update={"workspace_id": workspace_id, "release_set_id": scoped[1]})
-            return response(200, container.release_sets.put(release_set, _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["releases"]:
-            return response(200, container.releases.list(_query(event, "componentId"), workspace_id))
-        if method == "GET" and len(scoped) == 3 and scoped[0] == "releases":
-            return response(200, container.releases.get(scoped[1], scoped[2], workspace_id))
+            return response(200, container.releases.list(workspace_id))
+        if method == "GET" and len(scoped) == 2 and scoped[0] == "releases":
+            return response(200, container.releases.get(scoped[1], workspace_id))
+        if method == "PUT" and len(scoped) == 2 and scoped[0] == "releases":
+            release = _body(event, Release).model_copy(update={"workspace_id": workspace_id, "release_id": scoped[1]})
+            return response(200, container.releases.put(release, _auth_context(event, container), workspace_id))
+        if method == "GET" and scoped == ["versions"]:
+            return response(200, container.versions.list(_query(event, "componentId"), workspace_id))
+        if method == "GET" and len(scoped) == 3 and scoped[0] == "versions":
+            return response(200, container.versions.get(scoped[1], scoped[2], workspace_id))
+        if method == "POST" and scoped == ["versions"]:
+            return response(200, container.versions.create(_body(event, Version), _auth_context(event, container), workspace_id))
         if method == "POST" and scoped == ["releases"]:
-            return response(200, container.releases.create(_body(event, Release), _auth_context(event, container), workspace_id))
-        if method == "POST" and scoped == ["release-sets"]:
-            return response(200, container.release_sets.create(_body(event, ReleaseSetCreateRequest), _auth_context(event, container), workspace_id))
+            return response(200, container.releases.create(_body(event, ReleaseCreateRequest), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["environments"]:
             return response(200, container.environments.list(workspace_id))
         if method == "GET" and scoped == ["tag-definitions"]:
@@ -171,7 +171,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             plan_request = _body(event, PlanDeploymentRequest)
             return response(200, container.plan_deployment.execute(
                 environment_id=plan_request.environment_id,
-                release_set_id=plan_request.release_set_id,
+                release_id=plan_request.release_id,
                 workspace_id=workspace_id,
                 force=plan_request.force,
             ))
@@ -179,7 +179,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             deployment_request = _body(event, CreateDeploymentRequest)
             execution = container.create_deployment.execute(
                 environment_id=deployment_request.environment_id,
-                release_set_id=deployment_request.release_set_id,
+                release_id=deployment_request.release_id,
                 context=_auth_context(event, container),
                 workspace_id=workspace_id,
                 notes=deployment_request.notes,
@@ -198,8 +198,8 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.publishers.put(publisher, _auth_context(event, container), workspace_id))
         if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "rotate-token":
             return response(200, container.publishers.rotate_token(scoped[1], _auth_context(event, container), workspace_id))
-        if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "releases":
-            return response(200, container.publishers.publish_release(scoped[1], _body(event, Release), _auth_context(event, container), workspace_id))
+        if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "versions":
+            return response(200, container.publishers.publish_version(scoped[1], _body(event, Version), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["deployment-runners"]:
             return response(200, container.deployment_runners.list(workspace_id))
         if method == "POST" and scoped == ["deployment-runners"]:
@@ -298,4 +298,6 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         return response(200, container.events.get(_auth_context(event, container), parts[1]))
 
     raise NotFoundError(f"Route not found: {method} {path}")
+
+
 

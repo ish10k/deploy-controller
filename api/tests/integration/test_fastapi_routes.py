@@ -97,11 +97,11 @@ def test_fastapi_tag_definitions_can_be_listed_and_filtered() -> None:
     definitions = response.json()
     assert any(definition["key"] == "track" for definition in definitions)
 
-    response = client_instance.get(f"{WORKSPACE}/tag-definitions?resourceType=release_set")
+    response = client_instance.get(f"{WORKSPACE}/tag-definitions?resourceType=release")
     assert response.status_code == 200
     filtered = response.json()
     assert filtered
-    assert all("release-set" in definition["selector"]["resourceTypes"] for definition in filtered)
+    assert all("release" in definition["selector"]["resourceTypes"] for definition in filtered)
     assert any(definition["defaultValue"] == "prod" for definition in filtered)
 
 
@@ -157,15 +157,15 @@ def test_fastapi_whoami_includes_memberships() -> None:
     assert response.json()["workspaces"][0]["workspaceId"] == "default"
 
 
-def test_fastapi_release_and_deployment_notes_round_trip() -> None:
+def test_fastapi_version_and_deployment_notes_round_trip() -> None:
     client_instance = client()
 
-    release_response = client_instance.post(
-        f"{WORKSPACE}/releases",
+    version_response = client_instance.post(
+        f"{WORKSPACE}/versions",
         json={
             "componentId": "api",
             "version": "9.9.9",
-            "description": "API release 9.9.9",
+            "description": "API version 9.9.9",
             "notes": "Built from commit abc123 and approved by platform.",
             "artifact": {"key": "api:9.9.9", "digest": "sha256:abc123"},
             "source": {"key": "git+https://git.example.com/api.git#9.9.9", "digest": "sha256:src-abc123"},
@@ -173,28 +173,27 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
             "createdBy": "ci",
         },
     )
-    assert release_response.status_code == 200
-    assert release_response.json()["notes"] == "Built from commit abc123 and approved by platform."
+    assert version_response.status_code == 200
+    assert version_response.json()["notes"] == "Built from commit abc123 and approved by platform."
 
-    releaseSet_response = client_instance.post(
-        f"{WORKSPACE}/release-sets",
+    release_response = client_instance.post(
+        f"{WORKSPACE}/releases",
         json={
-            "releaseSetId": "notes-ds",
-            "releaseSetId": "local-platform",
-            "notes": "Promote api 9.9.9 while inheriting the current worker release.",
-            "baseReleaseSetId": "local-default",
-            "items": [{"componentId": "api", "version": "9.9.9"}],
+            "releaseId": "notes-release",
+            "notes": "Promote api 9.9.9 while inheriting the current worker version.",
+            "baseReleaseId": "integration-baseline",
+            "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "9.9.9"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}],
             "createdBy": "ci",
         },
     )
-    assert releaseSet_response.status_code == 200
-    assert releaseSet_response.json()["release-set"]["notes"] == "Promote api 9.9.9 while inheriting the current worker release."
+    assert release_response.status_code == 200
+    assert release_response.json()["release"]["notes"] == "Promote api 9.9.9 while inheriting the current worker version."
 
     deployment_response = client_instance.post(
         f"{WORKSPACE}/deployments",
         json={
             "environmentId": "prod",
-            "releaseSetId": "prod-default",
+            "releaseId": "production-baseline",
             "requestedBy": "ops",
             "notes": "Production rollout requested after change window opened.",
             "force": True,
@@ -218,20 +217,9 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
 
     response = client_instance.put(f"{WORKSPACE}/components/edge-api", json={"componentId": "ignored", "type": "bare-metal", "active": True})
     assert response.status_code == 200
-
-    response = client_instance.put(
-        f"{WORKSPACE}/release-sets/edge-platform",
-        json={
-            "releaseSetId": "ignored",
-            "components": [{"componentId": "edge-api"}],
-            "createdAt": "2026-06-19T10:00:00Z",
-            "createdBy": "test",
-        },
-    )
-    assert response.status_code == 200
-
+
     response = client_instance.post(
-        f"{WORKSPACE}/releases",
+        f"{WORKSPACE}/versions",
         json={
             "componentId": "edge-api",
             "version": "1.0.0",
@@ -243,11 +231,10 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
     assert response.status_code == 200
 
     response = client_instance.post(
-        f"{WORKSPACE}/release-sets",
+        f"{WORKSPACE}/releases",
         json={
-            "releaseSetId": "edge-ds",
-            "releaseSetId": "edge-platform",
-            "items": [{"componentId": "edge-api", "version": "1.0.0"}],
+            "releaseId": "edge-platform",
+            "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "5.7.1"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}, {"componentId": "edge-api", "version": "1.0.0"}],
             "createdBy": "test",
         },
     )
@@ -260,7 +247,7 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
         f"{WORKSPACE}/deployments",
         json={
             "environmentId": "edge",
-            "releaseSetId": "edge-ds",
+            "releaseId": "edge-platform",
             "requestedBy": "ops",
             "force": True,
         },
@@ -293,9 +280,9 @@ def test_fastapi_webhook_round_trip_with_subscriptions() -> None:
         "retryPolicy": {"maxAttempts": 2, "backoffSeconds": 30},
         "subscriptions": [
             {
-                "subscriptionId": "sub-release",
-                "eventTypes": ["release.created"],
-                "filters": {"resourceTypes": ["release"], "resourceIds": [], "categories": [], "origins": [], "severities": []},
+                "subscriptionId": "sub-version",
+                "eventTypes": ["version.created"],
+                "filters": {"resourceTypes": ["version"], "resourceIds": [], "categories": [], "origins": [], "severities": []},
             },
             {
                 "subscriptionId": "sub-audit",
@@ -320,3 +307,9 @@ def test_fastapi_webhook_round_trip_with_subscriptions() -> None:
     response = client_instance.get(f"{WORKSPACE}/webhook-deliveries", params={"webhookId": "ops-events"})
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+
+
+
+

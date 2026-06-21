@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from settle_sdk.models import Artifact, Release, Source
+from settle_sdk.models import Artifact, Version, Source
 
 if TYPE_CHECKING:
     from settle_sdk.client import SettleClient
@@ -26,8 +26,8 @@ class PublisherClient:
         tags: dict[str, str] | None = None,
         created_at: str | None = None,
         created_by: str | None = None,
-    ) -> Release:
-        release = Release(
+    ) -> Version:
+        version = Version(
             workspace_id=self.client.workspace_id,
             component_id=component_id,
             version=version,
@@ -39,11 +39,11 @@ class PublisherClient:
             created_by=created_by,
             tags=tags or {},
         )
-        return self.publish_release(release)
+        return self.publish_version(version)
 
-    def publish_release(self, release: Release) -> Release:
-        data = self.client.post(self._path("/releases"), release.to_dict())
-        return Release.from_dict(_dict(data))
+    def publish_version(self, version: Version) -> Version:
+        data = self.client.post(self._path("/versions"), version.to_dict())
+        return Version.from_dict(_dict(data))
 
     def _path(self, suffix: str = "") -> str:
         return self.client.workspace_path(f"/publishers/{quote(self.publisher_id, safe='')}{suffix}")
@@ -53,3 +53,4 @@ def _dict(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise TypeError("expected object")
     return value
+

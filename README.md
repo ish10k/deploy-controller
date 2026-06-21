@@ -1,4 +1,4 @@
-# ReleaseSet Controller
+# Release Controller
 
 This repository now uses a simple monorepo layout:
 
@@ -59,3 +59,5 @@ Seeded local OIDC users all use password `password`:
 
 The API is configured for OIDC mode with `SETTLE_BOOTSTRAP_ALLOWED_EMAIL=admin@example.local`. Human auth should use OIDC; machine actors use PATs issued by deployment runner / publisher create and rotate-token flows.
 The two example runner containers use seeded PATs from local data so they can claim the example package and docker compose workloads immediately after boot.
+
+

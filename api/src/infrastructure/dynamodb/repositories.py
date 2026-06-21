@@ -8,7 +8,7 @@ from src.domain.enums import ExecutionStatus
 from src.domain.errors import ConflictError
 from src.domain.models import (
     Component,
-    ReleaseSet,
+    Release,
     Deployment,
     DeploymentRunner,
     Environment,
@@ -18,7 +18,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Release,
+    Version,
     Publisher,
     Role,
     TagDefinition,
@@ -148,32 +148,32 @@ class DynamoComponentRepository:
         self.table.put_item(Item=_dump(component))
 
 
-class DynamoReleaseSetRepository:
-    def __init__(self, table_name: str) -> None:
-        self.table = _table(table_name)
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
-        item = self.table.get_item(Key={"releaseSetId": release_set_id}).get("Item")
-        return ReleaseSet.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return [ReleaseSet.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
-    def put(self, release_set: ReleaseSet) -> None:
-        self.table.put_item(Item=_dump(release_set))
-
-
 class DynamoReleaseRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None:
-        item = self.table.get_item(Key={"componentId": component_id, "version": version}).get("Item")
+    def get(self, release_id: str, workspace_id: str = "default") -> Release | None:
+        item = self.table.get_item(Key={"releaseId": release_id}).get("Item")
         return Release.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
-    def create(self, release: Release) -> None:
-        _create(self.table, _dump(release), "attribute_not_exists(componentId) AND attribute_not_exists(version)")
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
+    def list(self, workspace_id: str = "default") -> list[Release]:
+        return [Release.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
+    def put(self, release: Release) -> None:
+        self.table.put_item(Item=_dump(release))
+
+
+class DynamoVersionRepository:
+    def __init__(self, table_name: str) -> None:
+        self.table = _table(table_name)
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+        item = self.table.get_item(Key={"componentId": component_id, "version": version}).get("Item")
+        return Version.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def create(self, version: Version) -> None:
+        _create(self.table, _dump(version), "attribute_not_exists(componentId) AND attribute_not_exists(version)")
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
         if component_id is None:
             items = self.table.scan().get("Items", [])
         else:
             items = self.table.query(KeyConditionExpression=Key("componentId").eq(component_id)).get("Items", [])
-        return [Release.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
+        return [Version.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
 
 
 class DynamoPublisherRepository:
@@ -188,16 +188,16 @@ class DynamoPublisherRepository:
         self.table.put_item(Item=_dump(publisher))
 
 
-class DynamoReleaseSetRepository:
+class DynamoReleaseRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
-        item = self.table.get_item(Key={"releaseSetId": release_set_id}).get("Item")
-        return ReleaseSet.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
-    def create(self, release_set: ReleaseSet) -> None:
-        _create(self.table, _dump(release_set), "attribute_not_exists(releaseSetId)")
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return [ReleaseSet.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
+    def get(self, release_id: str, workspace_id: str = "default") -> Release | None:
+        item = self.table.get_item(Key={"releaseId": release_id}).get("Item")
+        return Release.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def create(self, release: Release) -> None:
+        _create(self.table, _dump(release), "attribute_not_exists(releaseId)")
+    def list(self, workspace_id: str = "default") -> list[Release]:
+        return [Release.model_validate(item) for item in self.table.scan().get("Items", []) if item.get("workspaceId", "default") == workspace_id]
 
 
 class DynamoEnvironmentRepository:
@@ -454,4 +454,6 @@ class DynamoWebhookDeliveryRepository:
 
     def put(self, delivery: WebhookDelivery) -> None:
         self.table.put_item(Item=_dump(delivery))
+
+
 

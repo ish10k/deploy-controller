@@ -5,7 +5,7 @@ from src.domain.enums import ExecutionStatus
 from src.domain.errors import ConflictError
 from src.domain.models import (
     Component,
-    ReleaseSet,
+    Release,
     Deployment,
     DeploymentRunner,
     Environment,
@@ -15,7 +15,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Release,
+    Version,
     Publisher,
     Role,
     TagDefinition,
@@ -34,8 +34,8 @@ class MemoryRepositories:
     organization_memberships: dict[tuple[str, str], OrganizationMembership] = field(default_factory=dict)
     workspace_memberships: dict[tuple[str, str], WorkspaceMembership] = field(default_factory=dict)
     components: dict[tuple[str, str], Component] = field(default_factory=dict)
-    release_sets: dict[tuple[str, str], ReleaseSet] = field(default_factory=dict)
-    releases: dict[tuple[str, str, str], Release] = field(default_factory=dict)
+    releases: dict[tuple[str, str], Release] = field(default_factory=dict)
+    versions: dict[tuple[str, str, str], Version] = field(default_factory=dict)
     publishers: dict[tuple[str, str], Publisher] = field(default_factory=dict)
     environments: dict[tuple[str, str], Environment] = field(default_factory=dict)
     deployment_runners: dict[tuple[str, str], DeploymentRunner] = field(default_factory=dict)
@@ -126,26 +126,26 @@ class MemoryRepositories:
     def put_component(self, component: Component) -> None:
         self.components[(component.workspace_id, component.component_id)] = component
 
-    def get_release_set(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
-        return self.release_sets.get((workspace_id, release_set_id))
+    def get_release(self, release_id: str, workspace_id: str = "default") -> Release | None:
+        return self.releases.get((workspace_id, release_id))
 
-    def list_release_sets(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return sorted((item for item in self.release_sets.values() if item.workspace_id == workspace_id), key=lambda item: item.release_set_id)
+    def list_releases(self, workspace_id: str = "default") -> list[Release]:
+        return sorted((item for item in self.releases.values() if item.workspace_id == workspace_id), key=lambda item: item.release_id)
 
-    def put_release_set(self, release_set: ReleaseSet) -> None:
-        self.release_sets[(release_set.workspace_id, release_set.release_set_id)] = release_set
+    def put_release(self, release: Release) -> None:
+        self.releases[(release.workspace_id, release.release_id)] = release
 
-    def get_release(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None:
-        return self.releases.get((workspace_id, component_id, version))
+    def get_version(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+        return self.versions.get((workspace_id, component_id, version))
 
-    def create_release(self, release: Release) -> None:
-        key = (release.workspace_id, release.component_id, release.version)
-        if key in self.releases:
-            raise ConflictError(f"Release already exists: {release.component_id}/{release.version}")
-        self.releases[key] = release
+    def create_version(self, version: Version) -> None:
+        key = (version.workspace_id, version.component_id, version.version)
+        if key in self.versions:
+            raise ConflictError(f"Version already exists: {version.component_id}/{version.version}")
+        self.versions[key] = version
 
-    def list_releases(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
-        values: Iterable[Release] = (item for item in self.releases.values() if item.workspace_id == workspace_id)
+    def list_versions(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+        values: Iterable[Version] = (item for item in self.versions.values() if item.workspace_id == workspace_id)
         if component_id is not None:
             values = (item for item in values if item.component_id == component_id)
         return sorted(values, key=lambda item: (item.component_id, item.version))
@@ -159,17 +159,17 @@ class MemoryRepositories:
     def put_publisher(self, publisher: Publisher) -> None:
         self.publishers[(publisher.workspace_id, publisher.publisher_id)] = publisher
 
-    def get_release_set(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
-        return self.release_sets.get((workspace_id, release_set_id))
+    def get_release(self, release_id: str, workspace_id: str = "default") -> Release | None:
+        return self.releases.get((workspace_id, release_id))
 
-    def create_release_set(self, release_set: ReleaseSet) -> None:
-        key = (release_set.workspace_id, release_set.release_set_id)
-        if key in self.release_sets:
-            raise ConflictError(f"ReleaseSet already exists: {release_set.release_set_id}")
-        self.release_sets[key] = release_set
+    def create_release(self, release: Release) -> None:
+        key = (release.workspace_id, release.release_id)
+        if key in self.releases:
+            raise ConflictError(f"Release already exists: {release.release_id}")
+        self.releases[key] = release
 
-    def list_release_sets(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return sorted((item for item in self.release_sets.values() if item.workspace_id == workspace_id), key=lambda item: item.release_set_id)
+    def list_releases(self, workspace_id: str = "default") -> list[Release]:
+        return sorted((item for item in self.releases.values() if item.workspace_id == workspace_id), key=lambda item: item.release_id)
 
     def get_environment(self, environment_id: str, workspace_id: str = "default") -> Environment | None:
         return self.environments.get((workspace_id, environment_id))
@@ -436,35 +436,35 @@ class MemoryComponentRepository:
         self.store.put_component(component)
 
 
-class MemoryReleaseSetRepository:
-    def __init__(self, store: MemoryRepositories) -> None:
-        self.store = store
-
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
-        return self.store.get_release_set(release_set_id, workspace_id)
-
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return self.store.list_release_sets(workspace_id)
-
-    def put(self, release_set: ReleaseSet) -> None:
-        self.store.put_release_set(release_set)
-
-    def create(self, release_set: ReleaseSet) -> None:
-        self.store.put_release_set(release_set)
-
-
 class MemoryReleaseRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None:
-        return self.store.get_release(component_id, version, workspace_id)
+    def get(self, release_id: str, workspace_id: str = "default") -> Release | None:
+        return self.store.get_release(release_id, workspace_id)
+
+    def list(self, workspace_id: str = "default") -> list[Release]:
+        return self.store.list_releases(workspace_id)
+
+    def put(self, release: Release) -> None:
+        self.store.put_release(release)
 
     def create(self, release: Release) -> None:
-        self.store.create_release(release)
+        self.store.put_release(release)
 
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
-        return self.store.list_releases(component_id, workspace_id)
+
+class MemoryVersionRepository:
+    def __init__(self, store: MemoryRepositories) -> None:
+        self.store = store
+
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+        return self.store.get_version(component_id, version, workspace_id)
+
+    def create(self, version: Version) -> None:
+        self.store.create_version(version)
+
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+        return self.store.list_versions(component_id, workspace_id)
 
 
 class MemoryPublisherRepository:
@@ -668,4 +668,6 @@ class MemoryWebhookDeliveryRepository:
 
     def put(self, delivery: WebhookDelivery) -> None:
         self.store.put_webhook_delivery(delivery)
+
+
 

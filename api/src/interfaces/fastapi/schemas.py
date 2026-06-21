@@ -17,10 +17,10 @@ class PlanDeploymentRequest(ApiSchema):
         description="Target environment to plan against.",
         examples=["prod"],
     )
-    release_set_id: str = Field(
-        alias="releaseSetId",
-        description="ReleaseSet to plan.",
-        examples=["prod-default"],
+    release_id: str = Field(
+        alias="releaseId",
+        description="Release to plan.",
+        examples=["production-baseline"],
     )
     force: bool = Field(
         default=False,
@@ -96,4 +96,7 @@ class ReportExecutionItemStatusRequest(ApiSchema):
         description="Optional failure reason from the deployment runner.",
         examples=["artifact unavailable"],
     )
+
+
+
 

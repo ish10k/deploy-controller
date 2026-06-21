@@ -21,11 +21,12 @@ describe("PlanItems", () => {
           } as never,
         ]}
         currentVersions={new Map()}
-        releaseCreatedAtByKey={new Map()}
+        versionCreatedAtByKey={new Map()}
       />,
     );
 
     expect(screen.getByLabelText("No matching runner found")).toBeInTheDocument();
   });
 });
+
 

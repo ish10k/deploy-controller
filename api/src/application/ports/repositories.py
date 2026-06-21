@@ -2,7 +2,7 @@ from typing import Protocol
 
 from src.domain.models import (
     Component,
-    ReleaseSet,
+    Release,
     Deployment,
     DeploymentRunner,
     Environment,
@@ -12,7 +12,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Release,
+    Version,
     Publisher,
     Role,
     TagDefinition,
@@ -59,17 +59,17 @@ class ComponentRepository(Protocol):
     def put(self, component: Component) -> None: ...
 
 
-class ReleaseSetRepository(Protocol):
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None: ...
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]: ...
-    def put(self, release_set: ReleaseSet) -> None: ...
-    def create(self, release_set: ReleaseSet) -> None: ...
-
-
 class ReleaseRepository(Protocol):
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None: ...
+    def get(self, release_id: str, workspace_id: str = "default") -> Release | None: ...
+    def list(self, workspace_id: str = "default") -> list[Release]: ...
+    def put(self, release: Release) -> None: ...
     def create(self, release: Release) -> None: ...
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]: ...
+
+
+class VersionRepository(Protocol):
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None: ...
+    def create(self, version: Version) -> None: ...
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]: ...
 
 
 class PublisherRepository(Protocol):
@@ -169,4 +169,6 @@ class Clock(Protocol):
 
 class IdGenerator(Protocol):
     def new_id(self) -> str: ...
+
+
 

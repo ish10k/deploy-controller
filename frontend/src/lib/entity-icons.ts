@@ -2,9 +2,9 @@ import { CircleFadingArrowUp, Dock, GitCommitHorizontal, Package, Play, Puzzle, 
 
 export const ENTITY_ICONS = {
   deployment: Rocket,
-  releaseSet: Package,
-  release: GitCommitHorizontal,
-  releaseSetAlt: Dock,
+  release: Package,
+  version: GitCommitHorizontal,
+  releaseAlt: Dock,
   component: Puzzle,
   environment: Server,
   runner: Play,
@@ -15,3 +15,5 @@ export const ENTITY_ICONS = {
 } as const satisfies Record<string, LucideIcon>;
 
 export type EntityIconKind = keyof typeof ENTITY_ICONS;
+
+

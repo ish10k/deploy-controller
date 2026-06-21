@@ -1,6 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet, useNavigate } from "@tanstack/react-router";
 
-import { DeploymentDetailsPage } from "@/components/deployments/deployment-execution-details-page";
+import { DeploymentDetailsPage } from "@/components/deployments/deployment-details-page";
 import { AuthCallbackPage, ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { DeploymentsPage } from "@/components/deployments/deployments-page";
 import { EnvironmentsPage } from "@/components/environments/environments-page";
@@ -9,10 +9,10 @@ import { UnsupportedPage } from "@/components/common/api-state";
 import { DeploymentRunnerDetailsPage, DeploymentRunnersPage } from "@/components/pages/adapters-page";
 import { AuthPage } from "@/components/pages/auth-page";
 import { ComponentDetailsPage } from "@/components/pages/component-details-page";
-import { ReleaseSetDetailsPage } from "@/components/pages/deployset-details-page";
+import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
 import { ExecutionsPage } from "@/components/pages/executions-page";
 import { EventLogPage } from "@/components/pages/event-log-page";
-import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
+import { VersionDetailsPage } from "@/components/pages/version-details-page";
 import { PublisherDetailsPage, PublishersPage } from "@/components/pages/publishers-page";
 import { RegistryPage } from "@/components/pages/registry-page";
 import { RoleDetailsPage } from "@/components/pages/roles-page";
@@ -83,23 +83,23 @@ const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
 const forbiddenRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forbidden", component: ForbiddenPage });
 const workspaceSelectorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/select", component: WorkspaceSelectorPage });
-const workspaceReleaseSetsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/release-sets",
-  component: () => <RegistryPage initialView="release-sets" />,
-});
-const workspaceReleaseSetDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/release-sets/$releaseSetId",
-  component: () => {
-    const { releaseSetId } = workspaceReleaseSetDetailRoute.useParams();
-    return <ReleaseSetDetailsPage releaseSetId={releaseSetId} />;
-  },
-});
 const workspaceReleasesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/workspaces/$workspaceId/releases",
   component: () => <RegistryPage initialView="releases" />,
+});
+const workspaceReleaseDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/workspaces/$workspaceId/releases/$releaseId",
+  component: () => {
+    const { releaseId } = workspaceReleaseDetailRoute.useParams();
+    return <ReleaseDetailsPage releaseId={releaseId} />;
+  },
+});
+const workspaceVersionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/workspaces/$workspaceId/versions",
+  component: () => <RegistryPage initialView="versions" />,
 });
 const workspacePublishersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/publishers", component: PublishersPage });
 const workspacePublisherDetailRoute = createRoute({
@@ -110,12 +110,12 @@ const workspacePublisherDetailRoute = createRoute({
     return <PublisherDetailsPage publisherId={publisherId} />;
   },
 });
-const workspaceReleaseDetailRoute = createRoute({
+const workspaceVersionDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/releases/$componentId/$version",
+  path: "/workspaces/$workspaceId/versions/$componentId/$version",
   component: () => {
-    const { componentId, version } = workspaceReleaseDetailRoute.useParams();
-    return <ReleaseDetailsPage componentId={componentId} version={version} />;
+    const { componentId, version } = workspaceVersionDetailRoute.useParams();
+    return <VersionDetailsPage componentId={componentId} version={version} />;
   },
 });
 const workspaceEnvironmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/environments", component: EnvironmentsPage });
@@ -205,12 +205,12 @@ export const routeTree = rootRoute.addChildren([
   workspacePlanRoute,
   workspaceComponentsRoute,
   workspaceComponentDetailRoute,
-  workspaceReleaseSetsRoute,
-  workspaceReleaseSetDetailRoute,
   workspaceReleasesRoute,
+  workspaceReleaseDetailRoute,
+  workspaceVersionsRoute,
   workspacePublishersRoute,
   workspacePublisherDetailRoute,
-  workspaceReleaseDetailRoute,
+  workspaceVersionDetailRoute,
   workspaceEnvironmentsRoute,
   workspaceEnvironmentDetailRoute,
   workspaceExecutionsRoute,
@@ -226,5 +226,9 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+
+
+
 
 

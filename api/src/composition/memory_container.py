@@ -1,11 +1,11 @@
 from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase, RunnerEligibilityUseCases
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.registry import (
-    ReleaseSetUseCases,
+    ReleaseUseCases,
     ComponentUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
-    ReleaseUseCases,
+    VersionUseCases,
     PublisherUseCases,
     TagDefinitionUseCases,
 )
@@ -18,7 +18,7 @@ from src.composition.local_seed import seed_local_data
 from src.infrastructure.ids import EventIdGenerator, UuidIdGenerator, WebhookDeliveryIdGenerator
 from src.infrastructure.memory.repositories import (
     MemoryComponentRepository,
-    MemoryReleaseSetRepository,
+    MemoryReleaseRepository,
     MemoryDeploymentRepository,
     MemoryDeploymentRunnerRepository,
     MemoryEnvironmentRepository,
@@ -28,7 +28,7 @@ from src.infrastructure.memory.repositories import (
     MemoryOrganizationMembershipRepository,
     MemoryOrganizationRepository,
     MemoryPrincipalRepository,
-    MemoryReleaseRepository,
+    MemoryVersionRepository,
     MemoryPublisherRepository,
     MemoryRepositories,
     MemoryRoleRepository,
@@ -47,8 +47,8 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     if seeded:
         seed_local_data(store)
     components = MemoryComponentRepository(store)
-    release_sets = MemoryReleaseSetRepository(store)
     releases = MemoryReleaseRepository(store)
+    versions = MemoryVersionRepository(store)
     publishers = MemoryPublisherRepository(store)
     environments = MemoryEnvironmentRepository(store)
     runners = MemoryDeploymentRunnerRepository(store)
@@ -98,25 +98,25 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     )
     runner_eligibility = RunnerEligibilityUseCases(
         runners=runners,
-        release_sets=release_sets,
+        releases=releases,
         components=components,
         environments=environments,
     )
     planner = PlanDeploymentUseCase(
-        release_sets=release_sets,
         releases=releases,
+        versions=versions,
         environments=environments,
         executions=executions,
         runner_eligibility=runner_eligibility,
     )
     return Container(
         components=ComponentUseCases(components, events=events),
-        release_sets=ReleaseSetUseCases(release_sets=release_sets, components=components, releases=releases, executions=executions, clock=clock, events=events),
-        releases=ReleaseUseCases(releases, events=events),
+        releases=ReleaseUseCases(releases=releases, components=components, versions=versions, executions=executions, clock=clock, events=events),
+        versions=VersionUseCases(versions, events=events),
         publishers=PublisherUseCases(
             publishers=publishers,
+            versions=versions,
             releases=releases,
-            release_sets=release_sets,
             clock=clock,
             principals=identity,
             events=events,
@@ -136,7 +136,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         deployment_runners=DeploymentRunnerUseCases(
             runners=runners,
             executions=executions,
-            release_sets=release_sets,
+            releases=releases,
             components=components,
             environments=environments,
             states=states,
@@ -151,6 +151,8 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         events=events,
         webhooks=webhooks,
     )
+
+
 
 
 

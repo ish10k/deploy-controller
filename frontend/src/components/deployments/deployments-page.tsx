@@ -6,7 +6,7 @@ import { flexRender, getCoreRowModel, type ColumnDef, useReactTable } from "@tan
 import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { DeploymentWorkflowPage } from "@/components/pages/deployment-workflow-page";
-import { DeploysetsPage } from "@/components/pages/deploysets-page";
+import { ReleasesPage } from "@/components/pages/releases-page";
 import { Button } from "@/components/ui/button";
 import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
@@ -22,19 +22,19 @@ type DeploymentsPageProps = {
   onPlanClose?: () => void;
 };
 
-type DeploymentWorkspaceView = "executions" | "release-sets";
+type DeploymentWorkspaceView = "executions" | "releases";
 
 export function DeploymentsPage({ initialView = "executions", initialPlanOpen = false, onPlanClose }: DeploymentsPageProps = {}) {
   const [view, setView] = useState<DeploymentWorkspaceView>(initialView);
   const [planOpen, setPlanOpen] = useState(initialPlanOpen);
   const [planMounted, setPlanMounted] = useState(initialPlanOpen);
   const [planEntered, setPlanEntered] = useState(false);
-  const [releaseSetCreateSignal, setDeploysetCreateSignal] = useState(0);
+  const [releaseCreateSignal, setReleaseCreateSignal] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [search, setSearch] = useState("");
   const options: SwitchableCardOption<DeploymentWorkspaceView>[] = [
     { value: "executions", label: "Deployments" },
-    { value: "release-sets", label: "Release sets" },
+    { value: "releases", label: "Releases" },
   ];
   const query = useQuery({
     queryKey: queryKeys.executions(),
@@ -99,15 +99,15 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     setPlanOpen(true);
     setPlanEntered(false);
   };
-  const openDeploysetDrawer = () => {
-    setDeploysetCreateSignal((value) => value + 1);
+  const openReleaseDrawer = () => {
+    setReleaseCreateSignal((value) => value + 1);
   };
-  const clearDeploysetCreateSignal = () => {
-    setDeploysetCreateSignal(0);
+  const clearReleaseCreateSignal = () => {
+    setReleaseCreateSignal(0);
   };
   const changeView = (nextView: DeploymentWorkspaceView) => {
-    if (nextView === "release-sets") {
-      setDeploysetCreateSignal(0);
+    if (nextView === "releases") {
+      setReleaseCreateSignal(0);
     }
     setView(nextView);
   };
@@ -123,7 +123,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
 
       return [
         execution.deploymentId,
-        execution.releaseSetId,
+        execution.releaseId,
         execution.environmentId,
         execution.status,
       ]
@@ -148,9 +148,9 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
               <Rocket className="h-5 w-5" />
               Deploy
             </Button>
-            <Button className="px-4" onClick={openDeploysetDrawer}>
+            <Button className="px-4" onClick={openReleaseDrawer}>
               <Plus className="h-5 w-5" />
-              Create ReleaseSet
+              Create Release
             </Button>
           </div>
         }
@@ -191,10 +191,10 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
               </div>
             )
           ) : (
-            <DeploysetsPage
+            <ReleasesPage
               embedded
-              createSignal={releaseSetCreateSignal}
-              onCreateSignalHandled={clearDeploysetCreateSignal}
+              createSignal={releaseCreateSignal}
+              onCreateSignalHandled={clearReleaseCreateSignal}
               search={search}
               refreshSignal={refreshSignal}
             />
@@ -202,11 +202,11 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
         </SwitchableCard>
       </div>
 
-      {view !== "release-sets" ? (
-        <DeploysetsPage
+      {view !== "releases" ? (
+        <ReleasesPage
           drawerOnly
-          createSignal={releaseSetCreateSignal}
-          onCreateSignalHandled={clearDeploysetCreateSignal}
+          createSignal={releaseCreateSignal}
+          onCreateSignalHandled={clearReleaseCreateSignal}
           refreshSignal={refreshSignal}
         />
       ) : null}
@@ -228,16 +228,16 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
             <div className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-950">Create Deployment</h2>
-                <p className="mt-1 text-sm text-slate-600">Deploy a ReleaseSet to an environment.</p>
+                <p className="mt-1 text-sm text-slate-600">Deploy a Release to an environment.</p>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={closePlan} aria-label="Close deployment planner">
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="min-h-0 flex-1">
-              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} onCreateReleaseSet={() => {
+              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} onCreateRelease={() => {
                 closePlan();
-                openDeploysetDrawer();
+                openReleaseDrawer();
               }} />
             </div>
           </aside>
@@ -268,10 +268,10 @@ function ExecutionTable({
         ),
       },
       {
-        header: "ReleaseSet",
+        header: "Release",
         cell: ({ row }) => (
-          <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: row.original.releaseSetId }}>
-            {row.original.releaseSetId}
+          <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: row.original.releaseId }}>
+            {row.original.releaseId}
           </EntityLink>
         ),
       },
@@ -325,4 +325,8 @@ function ExecutionTable({
     </Table>
   );
 }
+
+
+
+
 

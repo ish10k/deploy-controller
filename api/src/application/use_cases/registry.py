@@ -1,30 +1,30 @@
 from src.application.ports import (
     Clock,
     ComponentRepository,
-    ReleaseSetRepository,
+    ReleaseRepository,
     DeploymentRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
-    ReleaseRepository,
+    VersionRepository,
     PublisherRepository,
     TagDefinitionRepository,
 )
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.deployments import RunnerEligibilityUseCases
-from src.domain.enums import ReleaseSetItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction, TagResourceType
+from src.domain.enums import ReleaseItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction, TagResourceType
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
     Component,
-    ReleaseSet,
+    Release,
     Deployment,
-    ReleaseSetCreateRequest,
-    ReleaseSetCreateResult,
-    ReleaseSetItem,
+    ReleaseCreateRequest,
+    ReleaseCreateResult,
+    ReleaseItem,
     Environment,
     EnvironmentState,
     AuthContext,
-    Release,
+    Version,
     Publisher,
     PublisherCreateRequest,
     PublisherCreateResult,
@@ -72,78 +72,78 @@ class ComponentUseCases:
         return self.components.list(workspace_id)
 
 
-class ReleaseSetUseCases:
-    def __init__(self, release_sets: ReleaseSetRepository, events: EventLogUseCases | None = None) -> None:
-        self.release_sets = release_sets
-        self.events = events
-
-    def put(self, release_set: ReleaseSet, context: AuthContext, workspace_id: str = "default") -> ReleaseSet:
-        require_permission(context, Permission.RELEASE_SETS_WRITE)
-        release_set = release_set.model_copy(update={"workspace_id": workspace_id})
-        existing = self.release_sets.get(release_set.release_set_id, workspace_id)
-        if existing is None:
-            release_set = release_set.model_copy(update={"created_by": context.principal_id})
-        self.release_sets.put(release_set)
-        if self.events:
-            self.events.append_actor(
-                actor_principal_id=context.principal_id,
-                action="release-set.created" if existing is None else "release-set.updated",
-                category="registry",
-                summary=f"{'Created' if existing is None else 'Updated'} ReleaseSet {release_set.release_set_id}",
-                resource_type="release-set",
-                resource_id=release_set.release_set_id,
-                before=existing,
-                after=release_set,
-            )
-        return release_set
-
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet:
-        release_set = self.release_sets.get(release_set_id, workspace_id)
-        if release_set is None:
-            raise NotFoundError(f"ReleaseSet not found: {release_set_id}")
-        return release_set
-
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return self.release_sets.list(workspace_id)
-
-
 class ReleaseUseCases:
     def __init__(self, releases: ReleaseRepository, events: EventLogUseCases | None = None) -> None:
         self.releases = releases
         self.events = events
 
-    def create(self, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
-        require_permission(context, Permission.RELEASES_CREATE)
-        release = release.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
-        existing = self.releases.get(release.component_id, release.version, workspace_id)
-        if existing is not None:
-            if _same(existing, release):
-                return existing
-            raise ConflictError(
-                f"Release already exists with different content: {release.component_id}/{release.version}"
-            )
-        self.releases.create(release)
+    def put(self, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
+        require_permission(context, Permission.RELEASES_WRITE)
+        release = release.model_copy(update={"workspace_id": workspace_id})
+        existing = self.releases.get(release.release_id, workspace_id)
+        if existing is None:
+            release = release.model_copy(update={"created_by": context.principal_id})
+        self.releases.put(release)
         if self.events:
             self.events.append_actor(
-                actor_principal_id=release.created_by,
-                action="release.created",
-                category="release",
-                summary=f"Created release {release.component_id} {release.version}",
+                actor_principal_id=context.principal_id,
+                action="release.created" if existing is None else "release.updated",
+                category="registry",
+                summary=f"{'Created' if existing is None else 'Updated'} Release {release.release_id}",
                 resource_type="release",
-                resource_id=f"{release.component_id}:{release.version}",
+                resource_id=release.release_id,
+                before=existing,
                 after=release,
-                metadata={"componentId": release.component_id, "version": release.version},
             )
         return release
 
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Release:
-        release = self.releases.get(component_id, version, workspace_id)
+    def get(self, release_id: str, workspace_id: str = "default") -> Release:
+        release = self.releases.get(release_id, workspace_id)
         if release is None:
-            raise NotFoundError(f"Release not found: {component_id}/{version}")
+            raise NotFoundError(f"Release not found: {release_id}")
         return release
 
-    def list(self, component_id: str | None = None, workspace_id: str = "default") -> list[Release]:
-        return self.releases.list_by_component(component_id, workspace_id)
+    def list(self, workspace_id: str = "default") -> list[Release]:
+        return self.releases.list(workspace_id)
+
+
+class VersionUseCases:
+    def __init__(self, versions: VersionRepository, events: EventLogUseCases | None = None) -> None:
+        self.versions = versions
+        self.events = events
+
+    def create(self, version: Version, context: AuthContext, workspace_id: str = "default") -> Version:
+        require_permission(context, Permission.VERSIONS_CREATE)
+        version = version.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
+        existing = self.versions.get(version.component_id, version.version, workspace_id)
+        if existing is not None:
+            if _same(existing, version):
+                return existing
+            raise ConflictError(
+                f"Version already exists with different content: {version.component_id}/{version.version}"
+            )
+        self.versions.create(version)
+        if self.events:
+            self.events.append_actor(
+                actor_principal_id=version.created_by,
+                action="version.created",
+                category="version",
+                summary=f"Created version {version.component_id} {version.version}",
+                resource_type="version",
+                resource_id=f"{version.component_id}:{version.version}",
+                after=version,
+                metadata={"componentId": version.component_id, "version": version.version},
+            )
+        return version
+
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version:
+        version = self.versions.get(component_id, version, workspace_id)
+        if version is None:
+            raise NotFoundError(f"Version not found: {component_id}/{version}")
+        return version
+
+    def list(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+        return self.versions.list_by_component(component_id, workspace_id)
 
 
 class PublisherUseCases:
@@ -151,15 +151,15 @@ class PublisherUseCases:
         self,
         *,
         publishers: PublisherRepository,
+        versions: VersionRepository,
         releases: ReleaseRepository,
-        release_sets: ReleaseSetRepository,
         clock: Clock,
         principals: PrincipalUseCases,
         events: EventLogUseCases | None = None,
     ) -> None:
         self.publishers = publishers
+        self.versions = versions
         self.releases = releases
-        self.release_sets = release_sets
         self.clock = clock
         self.principals = principals
         self.events = events
@@ -266,37 +266,37 @@ class PublisherUseCases:
             )
         return RotateTokenResult(token=token)
 
-    def publish_release(self, publisher_id: str, release: Release, context: AuthContext, workspace_id: str = "default") -> Release:
+    def publish_version(self, publisher_id: str, version: Version, context: AuthContext, workspace_id: str = "default") -> Version:
         require_permission(context, Permission.PUBLISHERS_PUBLISH)
         publisher = self.get(publisher_id, workspace_id)
         if context.principal_id.startswith("service:") and context.principal_id != publisher.principal_id:
             raise ForbiddenError(f"Publisher token cannot publish for another publisher: {publisher_id}")
         if not publisher.active:
             raise ValidationError(f"Publisher is inactive: {publisher_id}")
-        if not self._allows_component(publisher, release.component_id):
-            raise ValidationError(f"Publisher scope does not allow component: {release.component_id}")
+        if not self._allows_component(publisher, version.component_id):
+            raise ValidationError(f"Publisher scope does not allow component: {version.component_id}")
 
-        release = release.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
-        existing = self.releases.get(release.component_id, release.version, workspace_id)
+        version = version.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
+        existing = self.versions.get(version.component_id, version.version, workspace_id)
         if existing is not None:
-            if _same(existing, release):
+            if _same(existing, version):
                 return existing
             raise ConflictError(
-                f"Release already exists with different content: {release.component_id}/{release.version}"
+                f"Version already exists with different content: {version.component_id}/{version.version}"
             )
-        self.releases.create(release)
+        self.versions.create(version)
         if self.events:
             self.events.append_actor(
                 actor_principal_id=context.principal_id,
-                action="release.published",
-                category="release",
-                summary=f"Published release {release.component_id} {release.version} from {publisher_id}",
-                resource_type="release",
-                resource_id=f"{release.component_id}:{release.version}",
-                after=release,
-                metadata={"publisherId": publisher_id, "componentId": release.component_id, "version": release.version},
+                action="version.published",
+                category="version",
+                summary=f"Published version {version.component_id} {version.version} from {publisher_id}",
+                resource_type="version",
+                resource_id=f"{version.component_id}:{version.version}",
+                after=version,
+                metadata={"publisherId": publisher_id, "componentId": version.component_id, "version": version.version},
             )
-        return release
+        return version
 
     def _allows_component(self, publisher: Publisher, component_id: str) -> bool:
         scope = publisher.scope
@@ -307,54 +307,54 @@ class PublisherUseCases:
         return False
 
 
-class ReleaseSetUseCases:
+class ReleaseUseCases:
     def __init__(
         self,
         *,
-        release_sets: ReleaseSetRepository,
-        components: ComponentRepository,
         releases: ReleaseRepository,
+        components: ComponentRepository,
+        versions: VersionRepository,
         executions: DeploymentRepository,
         clock: Clock,
         events: EventLogUseCases | None = None,
     ) -> None:
-        self.release_sets = release_sets
-        self.components = components
         self.releases = releases
+        self.components = components
+        self.versions = versions
         self.executions = executions
         self.clock = clock
         self.events = events
 
-    def create(self, request: ReleaseSet | ReleaseSetCreateRequest | dict[str, object], context: AuthContext, workspace_id: str = "default") -> ReleaseSetCreateResult:
-        require_permission(context, Permission.RELEASE_SETS_CREATE)
+    def create(self, request: Release | ReleaseCreateRequest | dict[str, object], context: AuthContext, workspace_id: str = "default") -> ReleaseCreateResult:
+        require_permission(context, Permission.RELEASES_CREATE)
         if isinstance(request, dict):
-            request = ReleaseSetCreateRequest.model_validate(request)
-        if isinstance(request, ReleaseSetCreateRequest):
+            request = ReleaseCreateRequest.model_validate(request)
+        if isinstance(request, ReleaseCreateRequest):
             request = request.model_copy(update={"created_by": context.principal_id})
-        if isinstance(request, ReleaseSet):
+        if isinstance(request, Release):
             request = request.model_copy(update={"created_by": context.principal_id})
-        release_set, warnings = self._expand(request, workspace_id)
-        existing = self.release_sets.get(release_set.release_set_id, workspace_id)
+        release, warnings = self._expand(request, workspace_id)
+        existing = self.releases.get(release.release_id, workspace_id)
         if existing is not None:
-            if _same(existing, release_set):
-                return ReleaseSetCreateResult(release_set=existing, warnings=warnings)
-            raise ConflictError(f"ReleaseSet already exists with different content: {release_set.release_set_id}")
-        self.release_sets.create(release_set)
+            if _same(existing, release):
+                return ReleaseCreateResult(release=existing, warnings=warnings)
+            raise ConflictError(f"Release already exists with different content: {release.release_id}")
+        self.releases.create(release)
         if self.events:
             self.events.append_actor(
-                actor_principal_id=release_set.created_by,
-                action="release-set.created",
+                actor_principal_id=release.created_by,
+                action="release.created",
                 category="deployment",
-                summary=f"Created ReleaseSet {release_set.release_set_id}",
-                resource_type="release-set",
-                resource_id=release_set.release_set_id,
-                after=release_set,
+                summary=f"Created Release {release.release_id}",
+                resource_type="release",
+                resource_id=release.release_id,
+                after=release,
                 metadata={"warnings": warnings},
             )
-        return ReleaseSetCreateResult(release_set=release_set, warnings=warnings)
+        return ReleaseCreateResult(release=release, warnings=warnings)
 
-    def _expand(self, request: ReleaseSet | ReleaseSetCreateRequest, workspace_id: str) -> tuple[ReleaseSet, list[str]]:
-        if isinstance(request, ReleaseSet):
+    def _expand(self, request: Release | ReleaseCreateRequest, workspace_id: str) -> tuple[Release, list[str]]:
+        if isinstance(request, Release):
             request = request.model_copy(update={"workspace_id": workspace_id})
             self._validate_complete(request, workspace_id)
             return request, []
@@ -366,53 +366,53 @@ class ReleaseSetUseCases:
         inferred_versions: dict[str, str] = {}
 
         if missing:
-            if request.base_release_set_id is None and request.base_environment_id is None:
-                raise ValidationError("baseEnvironmentId or baseReleaseSetId is required when active components are missing")
+            if request.base_release_id is None and request.base_environment_id is None:
+                raise ValidationError("baseEnvironmentId or baseReleaseId is required when active components are missing")
             inferred_versions = self._infer_versions(
                 missing=missing,
-                base_release_set_id=request.base_release_set_id,
+                base_release_id=request.base_release_id,
                 base_environment_id=request.base_environment_id,
                 workspace_id=workspace_id,
             )
 
         items = [
-            ReleaseSetItem(
+            ReleaseItem(
                 component_id=component_id,
                 version=explicit_versions[component_id],
-                source=ReleaseSetItemSource.EXPLICIT,
+                source=ReleaseItemSource.EXPLICIT,
             )
             for component_id in active_component_ids
             if component_id in explicit_versions
         ]
         items.extend(
-            ReleaseSetItem(
+            ReleaseItem(
                 component_id=component_id,
                 version=inferred_versions[component_id],
-                source=ReleaseSetItemSource.INFERRED,
+                source=ReleaseItemSource.INFERRED,
             )
             for component_id in missing
         )
-        self._validate_releases(items, workspace_id)
+        self._validate_versions(items, workspace_id)
         warnings = []
         if inferred_versions:
             source = (
-                f"baseReleaseSetId={request.base_release_set_id}"
-                if request.base_release_set_id is not None
+                f"baseReleaseId={request.base_release_id}"
+                if request.base_release_id is not None
                 else f"baseEnvironmentId={request.base_environment_id}"
             )
             warnings.append(
                 f"{len(inferred_versions)} component versions were inferred from {source}. "
-                "Fully explicit ReleaseSets are recommended."
+                "Fully explicit Releases are recommended."
             )
 
         return (
-            ReleaseSet(
+            Release(
                 workspace_id=workspace_id,
-                release_set_id=request.release_set_id,
+                release_id=request.release_id,
                 schema_version=1,
                 notes=request.notes,
                 base_environment_id=request.base_environment_id,
-                base_release_set_id=request.base_release_set_id,
+                base_release_id=request.base_release_id,
                 items=items,
                 created_at=self.clock.now(),
                 created_by=request.created_by,
@@ -425,14 +425,14 @@ class ReleaseSetUseCases:
         self,
         *,
         missing: list[str],
-        base_release_set_id: str | None,
+        base_release_id: str | None,
         base_environment_id: str | None,
         workspace_id: str,
     ) -> dict[str, str]:
-        if base_release_set_id is not None:
-            base = self.release_sets.get(base_release_set_id, workspace_id)
+        if base_release_id is not None:
+            base = self.releases.get(base_release_id, workspace_id)
             if base is None:
-                raise NotFoundError(f"Base ReleaseSet not found: {base_release_set_id}")
+                raise NotFoundError(f"Base Release not found: {base_release_id}")
             base_versions = {item.component_id: item.version for item in base.items}
         else:
             executions = self.executions.list_by_environment(base_environment_id, workspace_id)
@@ -456,27 +456,27 @@ class ReleaseSetUseCases:
             inferred[component_id] = version
         return inferred
 
-    def _validate_complete(self, release_set: ReleaseSet, workspace_id: str) -> None:
+    def _validate_complete(self, release: Release, workspace_id: str) -> None:
         active_component_ids = [component.component_id for component in self.components.list(workspace_id) if component.active]
-        present = {item.component_id for item in release_set.items if item.component_id in active_component_ids}
+        present = {item.component_id for item in release.items if item.component_id in active_component_ids}
         missing = sorted(component_id for component_id in active_component_ids if component_id not in present)
         if missing:
-            raise ValidationError(f"ReleaseSet is missing active components: {', '.join(missing)}")
-        self._validate_releases([item for item in release_set.items if item.component_id in active_component_ids], workspace_id)
+            raise ValidationError(f"Release is missing active components: {', '.join(missing)}")
+        self._validate_versions([item for item in release.items if item.component_id in active_component_ids], workspace_id)
 
-    def _validate_releases(self, items: list[ReleaseSetItem], workspace_id: str) -> None:
+    def _validate_versions(self, items: list[ReleaseItem], workspace_id: str) -> None:
         for item in items:
-            if self.releases.get(item.component_id, item.version, workspace_id) is None:
-                raise NotFoundError(f"Release not found: {item.component_id}/{item.version}")
+            if self.versions.get(item.component_id, item.version, workspace_id) is None:
+                raise NotFoundError(f"Version not found: {item.component_id}/{item.version}")
 
-    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet:
-        release_set = self.release_sets.get(release_set_id, workspace_id)
-        if release_set is None:
-            raise NotFoundError(f"ReleaseSet not found: {release_set_id}")
-        return release_set
+    def get(self, release_id: str, workspace_id: str = "default") -> Release:
+        release = self.releases.get(release_id, workspace_id)
+        if release is None:
+            raise NotFoundError(f"Release not found: {release_id}")
+        return release
 
-    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
-        return self.release_sets.list(workspace_id)
+    def list(self, workspace_id: str = "default") -> list[Release]:
+        return self.releases.list(workspace_id)
 
 
 class EnvironmentUseCases:
@@ -560,4 +560,6 @@ class ReadOnlyUseCases:
 
     def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[Deployment]:
         return self.executions.list_pending(workspace_id)
+
+
 

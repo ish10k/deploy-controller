@@ -1,5 +1,5 @@
 {
-  "name": "release-set-frontend",
+  "name": "release-frontend",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.28.0",
@@ -45,3 +45,5 @@
     "vitest": "^4.0.15"
   }
 }
+
+

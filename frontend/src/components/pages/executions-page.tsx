@@ -21,10 +21,10 @@ export function ExecutionsPage() {
         rows={query.data ?? []}
         selected={selected}
         onSelect={setSelected}
-        columns={["Execution", "ReleaseSet", "Status", "Started", "Updated"]}
+        columns={["Execution", "Release", "Status", "Started", "Updated"]}
         renderRow={(execution) => [
           execution.deploymentId,
-          execution.releaseSetId,
+          execution.releaseId,
           <StatusBadge status={execution.status} />,
           formatRelativeTime(execution.startedAt, { mode: "short" }),
           formatRelativeTime(execution.completedAt ?? execution.startedAt, { mode: "short" }),
@@ -33,4 +33,6 @@ export function ExecutionsPage() {
     </>
   );
 }
+
+
 

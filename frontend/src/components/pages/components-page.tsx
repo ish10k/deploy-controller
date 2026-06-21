@@ -14,7 +14,7 @@ import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraf
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { useAppContext } from "@/lib/app-context";
-import { listComponents, listReleases, putComponent, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
+import { listComponents, listVersions, putComponent, queryKeys, type ApiComponent, type ApiVersion } from "@/lib/api-client";
 import { tagSummary } from "@/lib/format";
 import { Plus, Search } from "lucide-react";
 
@@ -36,7 +36,7 @@ export function ComponentsPage({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
-  const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
+  const versionsQuery = useQuery({ queryKey: queryKeys.versions(), queryFn: () => listVersions() });
   const refreshing = useMinimumVisible(componentsQuery.isFetching && !componentsQuery.isLoading);
   const mutation = useMutation({
     mutationFn: (component: ApiComponent) => putComponent(component.componentId, component),
@@ -55,10 +55,10 @@ export function ComponentsPage({
   useEffect(() => {
     if (refreshSignal > 0) {
       void componentsQuery.refetch();
-      void releasesQuery.refetch();
+      void versionsQuery.refetch();
     }
   }, [refreshSignal]);
-  const latestReleaseByComponent = useMemo(() => latestReleasesByComponent(releasesQuery.data ?? []), [releasesQuery.data]);
+  const latestVersionByComponent = useMemo(() => latestVersionsByComponent(versionsQuery.data ?? []), [versionsQuery.data]);
   const components = componentsQuery.data ?? [];
   const componentTypes = useMemo(() => {
     return Array.from(new Set(components.map((component) => component.type).filter(Boolean))).sort() as string[];
@@ -67,7 +67,7 @@ export function ComponentsPage({
     const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return components.filter((component) => {
-      const latestRelease = latestReleaseByComponent.get(component.componentId);
+      const latestVersion = latestVersionByComponent.get(component.componentId);
       if (typeFilter !== "all" && component.type !== typeFilter) {
         return false;
       }
@@ -76,12 +76,12 @@ export function ComponentsPage({
         return true;
       }
 
-      return [component.componentId, component.type ?? "", latestRelease?.version ?? "", tagSummary(component.tags)]
+      return [component.componentId, component.type ?? "", latestVersion?.version ?? "", tagSummary(component.tags)]
         .join(" ")
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [components, externalSearch, latestReleaseByComponent, search, typeFilter]);
+  }, [components, externalSearch, latestVersionByComponent, search, typeFilter]);
 
   if (componentsQuery.isLoading) return <LoadingPanel label="Loading components..." />;
   if (componentsQuery.error) return <ApiErrorPanel error={componentsQuery.error} onRetry={() => componentsQuery.refetch()} />;
@@ -130,7 +130,7 @@ export function ComponentsPage({
           {refreshing ? <LoadingOverlay /> : null}
           {filteredComponents.length ? (
             <Table>
-              <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
+              <ComponentsTableContent rows={filteredComponents} latestVersionByComponent={latestVersionByComponent} />
             </Table>
           ) : (
             <EmptyPanel label="No components match the current filters." />
@@ -142,7 +142,7 @@ export function ComponentsPage({
             {refreshing ? <LoadingOverlay /> : null}
             {filteredComponents.length ? (
               <Table>
-                <ComponentsTableContent rows={filteredComponents} latestReleaseByComponent={latestReleaseByComponent} />
+                <ComponentsTableContent rows={filteredComponents} latestVersionByComponent={latestVersionByComponent} />
               </Table>
             ) : (
               <EmptyPanel label="No components match the current filters." />
@@ -161,20 +161,20 @@ export function ComponentsPage({
   );
 }
 
-function ComponentsTableContent({ rows, latestReleaseByComponent }: { rows: ApiComponent[]; latestReleaseByComponent: Map<string, ApiRelease> }) {
+function ComponentsTableContent({ rows, latestVersionByComponent }: { rows: ApiComponent[]; latestVersionByComponent: Map<string, ApiVersion> }) {
   return (
     <>
               <TableHeader>
                 <TableRow>
                   <TableHead>Component</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Latest Release</TableHead>
+                  <TableHead>Latest Version</TableHead>
                   <TableHead>Tags</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((component) => {
-                  const latestRelease = latestReleaseByComponent.get(component.componentId);
+                  const latestVersion = latestVersionByComponent.get(component.componentId);
                   return (
                     <TableRow key={component.componentId} className="hover:bg-slate-50">
                       <TableCell>
@@ -188,13 +188,13 @@ function ComponentsTableContent({ rows, latestReleaseByComponent }: { rows: ApiC
                       </TableCell>
                       <TableCell>{component.type ?? "-"}</TableCell>
                       <TableCell>
-                        {latestRelease ? (
+                        {latestVersion ? (
                           <EntityLink
-                            kind="release"
-                            to="/releases/$componentId/$version"
-                            params={{ componentId: latestRelease.componentId, version: latestRelease.version }}
+                            kind="version"
+                            to="/versions/$componentId/$version"
+                            params={{ componentId: latestVersion.componentId, version: latestVersion.version }}
                           >
-                            {latestRelease.version}
+                            {latestVersion.version}
                           </EntityLink>
                         ) : (
                           <span className="text-slate-400">-</span>
@@ -254,11 +254,11 @@ function ComponentDrawer({
     <SideDrawer
       open={open}
       title="Create component"
-      description="Register a deployable unit that releases and deployments can reference."
+      description="Register a deployable unit that versions and deployments can reference."
       onClose={onClose}
       footer={
         <>
-          <p className="text-xs text-slate-500">Tags help filter components across releases, release sets, and deployments.</p>
+          <p className="text-xs text-slate-500">Tags help filter components across versions, releases, and deployments.</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -296,7 +296,7 @@ function ComponentDrawer({
             <input className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
             <span>
               <span className="block font-medium text-slate-800">Active component</span>
-              <span>Active components are available for new releases, release sets, and deployments.</span>
+              <span>Active components are available for new versions, releases, and deployments.</span>
             </span>
           </label>
         </section>
@@ -314,16 +314,18 @@ function ComponentDrawer({
   );
 }
 
-function latestReleasesByComponent(releases: ApiRelease[]) {
-  const latest = new Map<string, ApiRelease>();
+function latestVersionsByComponent(versions: ApiVersion[]) {
+  const latest = new Map<string, ApiVersion>();
 
-  for (const release of releases) {
-    const current = latest.get(release.componentId);
-    if (!current || release.createdAt.localeCompare(current.createdAt) > 0) {
-      latest.set(release.componentId, release);
+  for (const version of versions) {
+    const current = latest.get(version.componentId);
+    if (!current || version.createdAt.localeCompare(current.createdAt) > 0) {
+      latest.set(version.componentId, version);
     }
   }
 
   return latest;
 }
+
+
 

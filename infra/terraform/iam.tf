@@ -42,10 +42,10 @@ resource "aws_iam_role_policy" "lambda" {
           aws_dynamodb_table.organization_memberships.arn,
           aws_dynamodb_table.workspace_memberships.arn,
           aws_dynamodb_table.components.arn,
-          aws_dynamodb_table.release_sets.arn,
           aws_dynamodb_table.releases.arn,
+          aws_dynamodb_table.versions.arn,
           aws_dynamodb_table.publishers.arn,
-          aws_dynamodb_table.release-sets.arn,
+          aws_dynamodb_table.releases.arn,
           aws_dynamodb_table.environments.arn,
           aws_dynamodb_table.deployment_runners.arn,
           aws_dynamodb_table.principals.arn,
@@ -73,3 +73,5 @@ resource "aws_iam_role_policy" "lambda" {
     ]
   })
 }
+
+

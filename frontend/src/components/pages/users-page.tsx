@@ -35,19 +35,19 @@ import { useAuth } from "@/lib/auth-context";
 import {
   createPrincipal,
   getPrincipal,
-  listReleaseSets,
+  listReleases,
   listDeployments,
   listEvents,
   listPrincipals,
-  listReleases,
+  listVersions,
   listRoles,
   putPrincipal,
   queryKeys,
-  type ApiReleaseSet,
+  type ApiRelease,
   type ApiDeployment,
   type ApiEventLogEntry,
   type ApiPrincipal,
-  type ApiRelease,
+  type ApiVersion,
   type ApiRole,
 } from "@/lib/api-client";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
@@ -73,13 +73,13 @@ type UserActivity = {
 type UserDetailData = {
   principal: ApiPrincipal;
   deployments: ApiDeployment[];
+  versions: ApiVersion[];
   releases: ApiRelease[];
-  releaseSets: ApiReleaseSet[];
   events: ApiEventLogEntry[];
   roles: ApiRole[];
 };
 
-type UserDetailView = "event-log" | "deployments" | "releases" | "release-sets";
+type UserDetailView = "event-log" | "deployments" | "versions" | "releases";
 
 export function UsersPage({
   embedded = false,
@@ -267,11 +267,11 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
           ])
         : Promise.resolve([] as EventListResult[]);
       const roleRequest = canReadRoles ? listRoles() : Promise.resolve(USER_ROLE_OPTIONS.map((roleId) => ({ roleId }) as ApiRole));
-      const [principal, deployments, releases, releaseSets, roles, eventResults] = await Promise.all([
+      const [principal, deployments, versions, releases, roles, eventResults] = await Promise.all([
         getPrincipal(principalId),
         listDeployments(),
+        listVersions(),
         listReleases(),
-        listReleaseSets(),
         roleRequest,
         eventRequests,
       ]);
@@ -288,8 +288,8 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
             matchesUser(principal, deployment.requestedBy) ||
             deployment.items.some((item) => matchesUser(principal, item.claimedBy) || matchesUser(principal, item.reportedBy)),
         ),
+        versions: versions.filter((version) => matchesUser(principal, version.createdBy)),
         releases: releases.filter((release) => matchesUser(principal, release.createdBy)),
-        releaseSets: releaseSets.filter((releaseSet) => matchesUser(principal, releaseSet.createdBy)),
         events: [...eventsById.values()].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt)),
         roles,
       };
@@ -322,13 +322,13 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data?.principal) return <EmptyPanel label={`User ${principalId} was not found.`} />;
 
-  const { principal, deployments, releases, releaseSets, events, roles } = query.data;
-  const activities = buildUserActivity(principal, deployments, releases, releaseSets);
+  const { principal, deployments, versions, releases, events, roles } = query.data;
+  const activities = buildUserActivity(principal, deployments, versions, releases);
   const detailViewOptions: SwitchableCardOption<UserDetailView>[] = [
     { value: "event-log", label: `Event log (${events.length || activities.length})` },
     { value: "deployments", label: `Deployments (${deployments.length})` },
-    { value: "releases", label: `Releases (${releases.length})` },
-    { value: "release-sets", label: `ReleaseSets (${releaseSets.length + releaseSets.length})` },
+    { value: "versions", label: `Versions (${versions.length})` },
+    { value: "releases", label: `Releases (${releases.length + releases.length})` },
   ];
 
   return (
@@ -356,7 +356,7 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
         <FactCard icon={UserRound} label="Status" value={principal.active ? "Active" : "Inactive"} sublabel={principal.authMethod} />
         <FactCard icon={ShieldCheck} label="Roles" value={String(principal.roles?.length ?? 0)} sublabel={principal.roles?.[0] ?? "No roles"} />
         <FactCard icon={Rocket} label="Deployments" value={String(deployments.length)} sublabel="Requested or claimed" />
-        <FactCard icon={GitBranch} label="Releases" value={String(releases.length)} sublabel="Created by user" />
+        <FactCard icon={GitBranch} label="Versions" value={String(versions.length)} sublabel="Created by user" />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -372,8 +372,8 @@ export function UserDetailsPage({ principalId }: { principalId: string }) {
             activities={activities}
             events={events}
             deployments={deployments}
+            versions={versions}
             releases={releases}
-            releaseSets={releaseSets}
           />
         </SwitchableCard>
 
@@ -627,24 +627,24 @@ function UserDetailSwitcherContent({
   activities,
   events,
   deployments,
+  versions,
   releases,
-  releaseSets,
 }: {
   view: UserDetailView;
   activities: UserActivity[];
   events: ApiEventLogEntry[];
   deployments: ApiDeployment[];
+  versions: ApiVersion[];
   releases: ApiRelease[];
-  releaseSets: ApiReleaseSet[];
 }) {
   if (view === "deployments") {
     return <UserDeploymentsPanel deployments={deployments} />;
   }
+  if (view === "versions") {
+    return <UserVersionsPanel versions={versions} />;
+  }
   if (view === "releases") {
     return <UserReleasesPanel releases={releases} />;
-  }
-  if (view === "release-sets") {
-    return <UserDeploysetsPanel releaseSets={releaseSets} />;
   }
 
   return <UserEventLogPanel activities={activities} events={events} />;
@@ -727,7 +727,7 @@ function UserDeploymentsPanel({ deployments }: { deployments: ApiDeployment[] })
           <TableRow>
             <TableHead>Deployment</TableHead>
             <TableHead>Environment</TableHead>
-            <TableHead>ReleaseSet</TableHead>
+            <TableHead>Release</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Started</TableHead>
             <TableHead>Completed</TableHead>
@@ -747,8 +747,8 @@ function UserDeploymentsPanel({ deployments }: { deployments: ApiDeployment[] })
                 </EntityLink>
               </TableCell>
               <TableCell>
-                <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: deployment.releaseSetId }}>
-                  {deployment.releaseSetId}
+                <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: deployment.releaseId }}>
+                  {deployment.releaseId}
                 </EntityLink>
               </TableCell>
               <TableCell>
@@ -764,9 +764,9 @@ function UserDeploymentsPanel({ deployments }: { deployments: ApiDeployment[] })
   );
 }
 
-function UserReleasesPanel({ releases }: { releases: ApiRelease[] }) {
-  if (!releases.length) {
-    return <EmptyCardMessage>No releases found.</EmptyCardMessage>;
+function UserVersionsPanel({ versions }: { versions: ApiVersion[] }) {
+  if (!versions.length) {
+    return <EmptyCardMessage>No versions found.</EmptyCardMessage>;
   }
 
   return (
@@ -782,22 +782,22 @@ function UserReleasesPanel({ releases }: { releases: ApiRelease[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {releases.map((release) => (
-            <TableRow key={`${release.componentId}:${release.version}`}>
+          {versions.map((version) => (
+            <TableRow key={`${version.componentId}:${version.version}`}>
               <TableCell>
-                <EntityLink kind="component" to="/components/$componentId" params={{ componentId: release.componentId }}>
-                  {release.componentId}
+                <EntityLink kind="component" to="/components/$componentId" params={{ componentId: version.componentId }}>
+                  {version.componentId}
                 </EntityLink>
               </TableCell>
               <TableCell>
-                <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: release.componentId, version: release.version }}>
-                  {release.version}
+                <EntityLink kind="version" to="/versions/$componentId/$version" params={{ componentId: version.componentId, version: version.version }}>
+                  {version.version}
                 </EntityLink>
               </TableCell>
-              <TableCell className="max-w-[360px] truncate">{release.artifact.key}</TableCell>
-              <TableCell>{formatDateTime(release.createdAt)}</TableCell>
+              <TableCell className="max-w-[360px] truncate">{version.artifact.key}</TableCell>
+              <TableCell>{formatDateTime(version.createdAt)}</TableCell>
               <TableCell>
-                <TagList tags={release.tags} limit={2} />
+                <TagList tags={version.tags} limit={2} />
               </TableCell>
             </TableRow>
           ))}
@@ -807,9 +807,9 @@ function UserReleasesPanel({ releases }: { releases: ApiRelease[] }) {
   );
 }
 
-function UserDeploysetsPanel({ releaseSets }: { releaseSets: ApiReleaseSet[] }) {
-  if (!releaseSets.length) {
-    return <EmptyCardMessage>No ReleaseSets or ReleaseSets found.</EmptyCardMessage>;
+function UserReleasesPanel({ releases }: { releases: ApiRelease[] }) {
+  if (!releases.length) {
+    return <EmptyCardMessage>No Releases or Releases found.</EmptyCardMessage>;
   }
 
   return (
@@ -826,23 +826,23 @@ function UserDeploysetsPanel({ releaseSets }: { releaseSets: ApiReleaseSet[] }) 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {releaseSets.map((releaseSet) => (
-            <TableRow key={`releaseSet:${releaseSet.releaseSetId}`}>
-              <TableCell>ReleaseSet</TableCell>
+          {releases.map((release) => (
+            <TableRow key={`release:${release.releaseId}`}>
+              <TableCell>Release</TableCell>
               <TableCell>
-                <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: releaseSet.releaseSetId }}>
-                  {releaseSet.releaseSetId}
+                <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: release.releaseId }}>
+                  {release.releaseId}
                 </EntityLink>
               </TableCell>
               <TableCell>
-                <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: releaseSet.releaseSetId }}>
-                  {releaseSet.releaseSetId}
+                <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: release.releaseId }}>
+                  {release.releaseId}
                 </EntityLink>
               </TableCell>
-              <TableCell>{releaseSet.items.length}</TableCell>
-              <TableCell>{formatDateTime(releaseSet.createdAt)}</TableCell>
+              <TableCell>{release.items.length}</TableCell>
+              <TableCell>{formatDateTime(release.createdAt)}</TableCell>
               <TableCell>
-                <TagList tags={releaseSet.tags} limit={2} />
+                <TagList tags={release.tags} limit={2} />
               </TableCell>
             </TableRow>
           ))}
@@ -899,8 +899,8 @@ function UsersAccessPanel() {
 function buildUserActivity(
   principal: ApiPrincipal,
   deployments: ApiDeployment[],
+  versions: ApiVersion[],
   releases: ApiRelease[],
-  releaseSets: ApiReleaseSet[],
 ) {
   const events: UserActivity[] = [
     {
@@ -937,25 +937,25 @@ function buildUserActivity(
       at: deployment.startedAt,
       type: "Deployment",
       summary: <EntityLink kind="deployment" to="/deployments/$deploymentId" params={{ deploymentId: deployment.deploymentId }}>{deployment.deploymentId}</EntityLink>,
-      detail: `${deployment.environmentId} / ${deployment.releaseSetId} / ${deployment.status}`,
+      detail: `${deployment.environmentId} / ${deployment.releaseId} / ${deployment.status}`,
+    });
+  }
+  for (const version of versions) {
+    events.push({
+      id: `version:${version.componentId}:${version.version}`,
+      at: version.createdAt,
+      type: "Version",
+      summary: <EntityLink kind="version" to="/versions/$componentId/$version" params={{ componentId: version.componentId, version: version.version }}>{version.componentId} {version.version}</EntityLink>,
+      detail: version.artifact.key,
     });
   }
   for (const release of releases) {
     events.push({
-      id: `release:${release.componentId}:${release.version}`,
+      id: `release:${release.releaseId}`,
       at: release.createdAt,
       type: "Release",
-      summary: <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: release.componentId, version: release.version }}>{release.componentId} {release.version}</EntityLink>,
-      detail: release.artifact.key,
-    });
-  }
-  for (const releaseSet of releaseSets) {
-    events.push({
-      id: `releaseSet:${releaseSet.releaseSetId}`,
-      at: releaseSet.createdAt,
-      type: "ReleaseSet",
-      summary: <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: releaseSet.releaseSetId }}>{releaseSet.releaseSetId}</EntityLink>,
-      detail: `${releaseSet.releaseSetId} / ${releaseSet.items.length} items`,
+      summary: <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: release.releaseId }}>{release.releaseId}</EntityLink>,
+      detail: `${release.releaseId} / ${release.items.length} items`,
     });
   }
 
@@ -974,4 +974,7 @@ function rolesToTags(roles: string[]) {
 function normalizeDisplayRoles(roles: string[]) {
   return roles.map((role) => (role === "platform-admin" ? "admin" : role));
 }
+
+
+
 

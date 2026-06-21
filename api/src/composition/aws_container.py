@@ -3,11 +3,11 @@ import os
 from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase, RunnerEligibilityUseCases
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.registry import (
-    ReleaseSetUseCases,
+    ReleaseUseCases,
     ComponentUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
-    ReleaseUseCases,
+    VersionUseCases,
     PublisherUseCases,
     TagDefinitionUseCases,
 )
@@ -18,7 +18,7 @@ from src.application.use_cases.webhooks import WebhookUseCases
 from src.composition.container import Container
 from src.infrastructure.dynamodb.repositories import (
     DynamoComponentRepository,
-    DynamoReleaseSetRepository,
+    DynamoReleaseRepository,
     DynamoDeploymentRepository,
     DynamoDeploymentRunnerRepository,
     DynamoEnvironmentRepository,
@@ -28,7 +28,7 @@ from src.infrastructure.dynamodb.repositories import (
     DynamoOrganizationMembershipRepository,
     DynamoOrganizationRepository,
     DynamoPrincipalRepository,
-    DynamoReleaseRepository,
+    DynamoVersionRepository,
     DynamoPublisherRepository,
     DynamoRoleRepository,
     DynamoTagDefinitionRepository,
@@ -43,9 +43,9 @@ from src.infrastructure.time import SystemClock
 
 def build_aws_container() -> Container:
     components = DynamoComponentRepository(os.environ["COMPONENTS_TABLE"])
-    release_sets_table = os.environ.get("RELEASE_SETS_TABLE") or os.environ.get("DEPLOYSETS_TABLE") or os.environ["COMPONENT_SETS_TABLE"]
-    release_sets = DynamoReleaseSetRepository(release_sets_table)
-    releases = DynamoReleaseRepository(os.environ["RELEASES_TABLE"])
+    releases_table = os.environ.get("RELEASES_TABLE") or os.environ.get("DEPLOYSETS_TABLE") or os.environ["COMPONENT_SETS_TABLE"]
+    releases = DynamoReleaseRepository(releases_table)
+    versions = DynamoVersionRepository(os.environ["VERSIONS_TABLE"])
     publishers = DynamoPublisherRepository(os.environ["PUBLISHERS_TABLE"])
     environments = DynamoEnvironmentRepository(os.environ["ENVIRONMENTS_TABLE"])
     runners = DynamoDeploymentRunnerRepository(os.environ["DEPLOYMENT_RUNNERS_TABLE"])
@@ -95,25 +95,25 @@ def build_aws_container() -> Container:
     )
     runner_eligibility = RunnerEligibilityUseCases(
         runners=runners,
-        release_sets=release_sets,
+        releases=releases,
         components=components,
         environments=environments,
     )
     planner = PlanDeploymentUseCase(
-        release_sets=release_sets,
         releases=releases,
+        versions=versions,
         environments=environments,
         executions=executions,
         runner_eligibility=runner_eligibility,
     )
     return Container(
         components=ComponentUseCases(components, events=events),
-        release_sets=ReleaseSetUseCases(release_sets=release_sets, components=components, releases=releases, executions=executions, clock=clock, events=events),
-        releases=ReleaseUseCases(releases, events=events),
+        releases=ReleaseUseCases(releases=releases, components=components, versions=versions, executions=executions, clock=clock, events=events),
+        versions=VersionUseCases(versions, events=events),
         publishers=PublisherUseCases(
             publishers=publishers,
+            versions=versions,
             releases=releases,
-            release_sets=release_sets,
             clock=clock,
             principals=identity,
             events=events,
@@ -133,7 +133,7 @@ def build_aws_container() -> Container:
         deployment_runners=DeploymentRunnerUseCases(
             runners=runners,
             executions=executions,
-            release_sets=release_sets,
+            releases=releases,
             components=components,
             environments=environments,
             states=states,
@@ -148,6 +148,8 @@ def build_aws_container() -> Container:
         events=events,
         webhooks=webhooks,
     )
+
+
 
 
 

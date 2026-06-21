@@ -2,7 +2,7 @@ from logging import Logger
 import hashlib
 
 from src.domain.enums import (
-    ReleaseSetItemSource,
+    ReleaseItemSource,
     ExecutionStatus,
     ItemStatus,
     ReportedAction,
@@ -14,8 +14,8 @@ from src.domain.enums import (
 from src.domain.models import (
     Artifact,
     Component,
-    ReleaseSet,
-    ReleaseSetItem,
+    Release,
+    ReleaseItem,
     Deployment,
     DeploymentItem,
     DeploymentRunner,
@@ -24,7 +24,7 @@ from src.domain.models import (
     EnvironmentState,
     Organization,
     Principal,
-    Release,
+    Version,
     Publisher,
     PublisherScope,
     Source,
@@ -58,7 +58,7 @@ def _pat_fields(token: str) -> dict[str, str]:
 
 def _artifact(component_id: str, version: str) -> Artifact:
     return Artifact(
-        key=f"s3://release-set-artifacts/{component_id}/{version}/{component_id}-{version}.tar.gz",
+        key=f"s3://version-artifacts/{component_id}/{version}/{component_id}-{version}.tar.gz",
         digest=_digest(f"{component_id}:{version}"),
     )
 
@@ -70,12 +70,12 @@ def _source(component_id: str, version: str) -> Source:
     )
 
 
-def _release(component_id: str, version: str, *, created_at: str, created_by: str) -> Release:
-    return Release(
+def _version(component_id: str, version: str, *, created_at: str, created_by: str) -> Version:
+    return Version(
         component_id=component_id,
         version=version,
-        description=f"{component_id} release {version}",
-        notes=f"Release {version} prepared for the {component_id} delivery track.",
+        description=f"{component_id} version {version}",
+        notes=f"Version {version} prepared for the {component_id} delivery track.",
         artifact=_artifact(component_id, version),
         source=_source(component_id, version),
         created_at=created_at,
@@ -84,8 +84,8 @@ def _release(component_id: str, version: str, *, created_at: str, created_by: st
     )
 
 
-def _release_set_item(component_id: str, version: str) -> ReleaseSetItem:
-    return ReleaseSetItem(component_id=component_id, version=version, source=ReleaseSetItemSource.EXPLICIT)
+def _release_item(component_id: str, version: str) -> ReleaseItem:
+    return ReleaseItem(component_id=component_id, version=version, source=ReleaseItemSource.EXPLICIT)
 
 
 def _execution_item(
@@ -119,8 +119,8 @@ def _execution_item(
 
 
 def _seed_execution(store: MemoryRepositories, execution: Deployment, state: EnvironmentState) -> None:
-    release_set = store.get_release_set(execution.release_set_id, execution.workspace_id)
-    release_set_id = release_set.release_set_id if release_set else ""
+    release = store.get_release(execution.release_id, execution.workspace_id)
+    release_id = release.release_id if release else ""
     execution = execution.model_copy(
         update={
             "items": [
@@ -129,7 +129,7 @@ def _seed_execution(store: MemoryRepositories, execution: Deployment, state: Env
                         "workspace_id": execution.workspace_id,
                         "deployment_id": execution.deployment_id,
                         "environment_id": execution.environment_id,
-                        "release_set_id": release_set_id,
+                        "release_id": release_id,
                     }
                 )
                 for item in execution.items
@@ -169,10 +169,10 @@ def seed_local_data(store: MemoryRepositories) -> None:
     store.put_tag_definition(
         TagDefinition(
             key="track",
-            description="Release track promoted by this ReleaseSet.",
+            description="Version track promoted by this Release.",
             defaultValue="prod",
             allowedValues=["dev", "staging", "prod"],
-            selector=TagDefinitionSelector(resourceTypes=[TagResourceType.RELEASE_SET, TagResourceType.RELEASE]),
+            selector=TagDefinitionSelector(resourceTypes=[TagResourceType.RELEASE, TagResourceType.VERSION]),
             createdAt="2026-04-01T09:00:00Z",
             createdBy="system:local-seed",
         )
@@ -186,7 +186,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
             selector=TagDefinitionSelector(
                 resourceTypes=[
                     TagResourceType.COMPONENT,
-                    TagResourceType.RELEASE_SET,
+                    TagResourceType.RELEASE,
                     TagResourceType.DEPLOYMENT_RUNNER,
                     TagResourceType.PUBLISHER,
                     TagResourceType.WEBHOOK,
@@ -259,38 +259,44 @@ def seed_local_data(store: MemoryRepositories) -> None:
         )
     )
 
-    # Release sets
-    store.put_release_set(
-        ReleaseSet(
-            release_set_id="local-platform",
+    # Releases
+    store.put_release(
+        Release(
+            release_id="customer-platform-baseline",
             schema_version=1,
             description="Primary application stack for the checkout and account experience.",
             items=[
-                _release_set_item("web", "3.19.0"),
-                _release_set_item("api", "5.7.1"),
-                _release_set_item("worker", "5.7.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.19.0"),
+                _release_item("api", "5.7.1"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             tags={"domain": "customer-app", "environment": "shared"},
             created_at="2026-04-01T09:00:00Z",
-            created_by="platform-bootstrap",
+            created_by="service:publisher:platform-ci",
         )
     )
-    store.put_release_set(
-        ReleaseSet(
-            release_set_id="data-services",
+    store.put_release(
+        Release(
+            release_id="shared-data-platform",
             schema_version=1,
             description="Shared data services used by application stacks and batch jobs.",
             items=[
-                _release_set_item("postgres", "14.11.0"),
-                _release_set_item("redis", "7.0.12"),
+                _release_item("web", "3.18.1"),
+                _release_item("api", "5.7.0"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             tags={"domain": "data-platform", "environment": "shared"},
             created_at="2026-04-03T09:00:00Z",
-            created_by="data-platform-bootstrap",
+            created_by="service:publisher:data-ci",
         )
     )
-    # External release publishers
+    # External version publishers
     store.put_publisher(
         Publisher(
             publisher_id="platform-ci",
@@ -352,14 +358,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
             retry_policy=WebhookRetryPolicy(max_attempts=3, backoff_seconds=60),
             subscriptions=[
                 WebhookSubscription(
-                    subscription_id="sub-platform-releases",
-                    event_types=["release.created", "release.published"],
-                    filters=WebhookFilter(resource_types=["release"], categories=["registry"]),
+                    subscription_id="sub-platform-versions",
+                    event_types=["version.created", "version.published"],
+                    filters=WebhookFilter(resource_types=["version"], categories=["registry"]),
                 ),
                 WebhookSubscription(
                     subscription_id="sub-platform-deployments",
-                    event_types=["release-set.created", "deployment.created", "deployment.status_changed"],
-                    filters=WebhookFilter(resource_types=["release-set", "deployment"], categories=["deployment"]),
+                    event_types=["release.created", "deployment.created", "deployment.status_changed"],
+                    filters=WebhookFilter(resource_types=["release", "deployment"], categories=["deployment"]),
                 ),
             ],
             secret_ref="secret://webhooks/platform-events",
@@ -416,21 +422,21 @@ def seed_local_data(store: MemoryRepositories) -> None:
         WebhookDelivery(
             webhook_delivery_id="whd-platform-events-001",
             webhook_id="platform-events",
-            subscription_id="sub-platform-releases",
-            event_id="event-release-001",
-            event_type="release.created",
+            subscription_id="sub-platform-versions",
+            event_id="event-version-001",
+            event_type="version.created",
             status="succeeded",
             envelope=WebhookEnvelope(
                 deliveryId="whd-platform-events-001",
                 webhookId="platform-events",
-                subscriptionId="sub-platform-releases",
-                eventId="event-release-001",
-                eventType="release.created",
+                subscriptionId="sub-platform-versions",
+                eventId="event-version-001",
+                eventType="version.created",
                 occurredAt="2026-06-17T09:00:00Z",
                 sentAt="2026-06-17T09:00:01Z",
                 attempt=1,
                 actor=WebhookActor(principalId="service:publisher:platform-ci", type="service", origin="service"),
-                resource=WebhookResource(type="release", id="api@5.7.1"),
+                resource=WebhookResource(type="version", id="api@5.7.1"),
                 relatedResources=[],
                 data={"componentId": "api", "version": "5.7.1"},
                 changes=[],
@@ -479,141 +485,157 @@ def seed_local_data(store: MemoryRepositories) -> None:
         )
     )
 
-    # Releases
-    release_specs = [
-        ("web", "3.18.0", "2026-04-18T09:00:00Z", "frontend-release-bot"),
-        ("web", "3.18.1", "2026-05-02T10:15:00Z", "frontend-release-bot"),
-        ("web", "3.19.0", "2026-06-01T08:40:00Z", "frontend-release-bot"),
-        ("api", "5.6.0", "2026-04-14T07:30:00Z", "platform-release-bot"),
-        ("api", "5.7.0", "2026-05-15T13:20:00Z", "platform-release-bot"),
-        ("api", "5.7.1", "2026-06-05T14:05:00Z", "platform-release-bot"),
-        ("worker", "5.6.0", "2026-04-09T06:45:00Z", "platform-release-bot"),
-        ("worker", "5.7.0", "2026-05-20T12:00:00Z", "platform-release-bot"),
-        ("auth", "2.14.0", "2026-03-22T15:00:00Z", "security-release-bot"),
-        ("auth", "2.15.0", "2026-05-28T09:35:00Z", "security-release-bot"),
-        ("postgres", "14.10.0", "2026-02-11T11:25:00Z", "data-release-bot"),
-        ("postgres", "14.11.0", "2026-05-25T11:25:00Z", "data-release-bot"),
-        ("redis", "7.0.10", "2026-03-05T16:10:00Z", "data-release-bot"),
-        ("redis", "7.0.12", "2026-05-18T16:55:00Z", "data-release-bot"),
+    # Versions
+    version_specs = [
+        ("web", "3.18.0", "2026-04-18T09:00:00Z", "frontend-version-bot"),
+        ("web", "3.18.1", "2026-05-02T10:15:00Z", "frontend-version-bot"),
+        ("web", "3.19.0", "2026-06-01T08:40:00Z", "frontend-version-bot"),
+        ("api", "5.6.0", "2026-04-14T07:30:00Z", "platform-version-bot"),
+        ("api", "5.7.0", "2026-05-15T13:20:00Z", "platform-version-bot"),
+        ("api", "5.7.1", "2026-06-05T14:05:00Z", "platform-version-bot"),
+        ("worker", "5.6.0", "2026-04-09T06:45:00Z", "platform-version-bot"),
+        ("worker", "5.7.0", "2026-05-20T12:00:00Z", "platform-version-bot"),
+        ("auth", "2.14.0", "2026-03-22T15:00:00Z", "security-version-bot"),
+        ("auth", "2.15.0", "2026-05-28T09:35:00Z", "security-version-bot"),
+        ("postgres", "14.10.0", "2026-02-11T11:25:00Z", "data-version-bot"),
+        ("postgres", "14.11.0", "2026-05-25T11:25:00Z", "data-version-bot"),
+        ("redis", "7.0.10", "2026-03-05T16:10:00Z", "data-version-bot"),
+        ("redis", "7.0.12", "2026-05-18T16:55:00Z", "data-version-bot"),
     ]
-    for component_id, version, created_at, created_by in release_specs:
-        store.create_release(_release(component_id, version, created_at=created_at, created_by=created_by))
+    for component_id, version, created_at, created_by in version_specs:
+        store.create_version(_version(component_id, version, created_at=created_at, created_by=created_by))
 
-    # release_sets
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="local-default",
+    # releases
+    store.create_release(
+        Release(
+            release_id="integration-baseline",
             schema_version=1,
             description="Default local app stack for demos and smoke testing.",
             notes="Baseline local stack used for demos, smoke tests, and onboarding.",
             items=[
-                _release_set_item("web", "3.19.0"),
-                _release_set_item("api", "5.7.1"),
-                _release_set_item("worker", "5.7.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.19.0"),
+                _release_item("api", "5.7.1"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             created_at="2026-06-01T09:10:00Z",
-            created_by="release-manager",
+            created_by="service:publisher:platform-ci",
             tags={"track": "local", "ring": "demo"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="local-hotfix",
+    store.create_release(
+        Release(
+            release_id="integration-hotfix",
             schema_version=1,
-            description="Hotfix variant of the local app stack with a patched web release.",
+            description="Hotfix variant of the local app stack with a patched web version.",
             notes="Local hotfix track kept close to production while validating urgent fixes.",
             items=[
-                _release_set_item("web", "3.18.1"),
-                _release_set_item("api", "5.7.1"),
-                _release_set_item("worker", "5.7.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.18.1"),
+                _release_item("api", "5.7.1"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             created_at="2026-06-04T16:30:00Z",
-            created_by="release-manager",
+            created_by="service:publisher:platform-ci",
             tags={"track": "local", "type": "hotfix"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="dev-default",
+    store.create_release(
+        Release(
+            release_id="dev-baseline",
             schema_version=1,
             description="Integration environment baseline for day-to-day development.",
             notes="Main development baseline used by CI and shared integration testing.",
             items=[
-                _release_set_item("web", "3.19.0"),
-                _release_set_item("api", "5.7.0"),
-                _release_set_item("worker", "5.7.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.19.0"),
+                _release_item("api", "5.7.0"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             created_at="2026-06-06T09:05:00Z",
-            created_by="release-manager",
+            created_by="service:publisher:platform-ci",
             tags={"track": "dev", "ring": "integration"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="staging-default",
+    store.create_release(
+        Release(
+            release_id="staging-candidate",
             schema_version=1,
-            description="Pre-production stack used for release validation and smoke tests.",
+            description="Pre-production stack used for version validation and smoke tests.",
             notes="Staging candidate promoted after integration sign-off and before CAB review.",
             items=[
-                _release_set_item("web", "3.18.1"),
-                _release_set_item("api", "5.7.0"),
-                _release_set_item("worker", "5.7.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.18.1"),
+                _release_item("api", "5.7.0"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             created_at="2026-06-08T10:45:00Z",
-            created_by="release-manager",
+            created_by="service:publisher:platform-ci",
             tags={"track": "staging", "ring": "pre-prod"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="prod-default",
+    store.create_release(
+        Release(
+            release_id="production-baseline",
             schema_version=1,
             description="Stable production baseline for the customer-facing stack.",
             notes="Current stable production baseline approved for the primary customer ring.",
             items=[
-                _release_set_item("web", "3.18.0"),
-                _release_set_item("api", "5.6.0"),
-                _release_set_item("worker", "5.6.0"),
-                _release_set_item("auth", "2.14.0"),
+                _release_item("web", "3.18.0"),
+                _release_item("api", "5.6.0"),
+                _release_item("worker", "5.6.0"),
+                _release_item("auth", "2.14.0"),
+                _release_item("postgres", "14.10.0"),
+                _release_item("redis", "7.0.10"),
             ],
             created_at="2026-06-09T08:20:00Z",
-            created_by="change-manager",
+            created_by="service:publisher:data-ci",
             tags={"track": "prod", "ring": "stable"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="prod-hotfix",
+    store.create_release(
+        Release(
+            release_id="production-hotfix",
             schema_version=1,
             description="Production hotfix track with only the minimum approved change set.",
             notes="Emergency production track reserved for tightly scoped, approved hotfixes.",
             items=[
-                _release_set_item("web", "3.18.0"),
-                _release_set_item("api", "5.6.0"),
-                _release_set_item("worker", "5.6.0"),
-                _release_set_item("auth", "2.15.0"),
+                _release_item("web", "3.18.1"),
+                _release_item("api", "5.6.0"),
+                _release_item("worker", "5.6.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.10.0"),
+                _release_item("redis", "7.0.10"),
             ],
             created_at="2026-06-12T13:15:00Z",
-            created_by="change-manager",
+            created_by="service:publisher:data-ci",
             tags={"track": "prod", "type": "security-hotfix"},
         )
     )
-    store.create_release_set(
-        ReleaseSet(
-            release_set_id="data-default",
+    store.create_release(
+        Release(
+            release_id="shared-data-baseline",
             schema_version=1,
             description="Shared data platform baseline for storage and cache services.",
             notes="Shared data baseline coordinated with platform and database maintenance windows.",
             items=[
-                _release_set_item("postgres", "14.11.0"),
-                _release_set_item("redis", "7.0.12"),
+                _release_item("web", "3.18.1"),
+                _release_item("api", "5.7.0"),
+                _release_item("worker", "5.7.0"),
+                _release_item("auth", "2.15.0"),
+                _release_item("postgres", "14.11.0"),
+                _release_item("redis", "7.0.12"),
             ],
             created_at="2026-06-07T07:50:00Z",
-            created_by="data-release-manager",
+            created_by="service:publisher:data-ci",
             tags={"track": "shared-data", "ring": "stable"},
         )
     )
@@ -694,11 +716,11 @@ def seed_local_data(store: MemoryRepositories) -> None:
 
     # Existing runner history coverage
     for runner_id, display_name, environment_ids, component_ids, team in [
-        ("local-runner-01", "Local Runner", ["local"], ["local-platform"], "platform"),
-        ("dev-runner-01", "Dev Runner", ["dev"], ["local-platform"], "platform"),
-        ("staging-runner-01", "Staging Runner", ["staging"], ["local-platform"], "platform"),
-        ("prod-runner-01", "Prod Runner", ["prod"], ["local-platform"], "platform"),
-        ("data-runner-01", "Data Services Runner", ["shared-data"], ["data-services"], "data-platform"),
+        ("local-runner-01", "Local Runner", ["local"], ["customer-platform-baseline"], "platform"),
+        ("dev-runner-01", "Dev Runner", ["dev"], ["customer-platform-baseline"], "platform"),
+        ("staging-runner-01", "Staging Runner", ["staging"], ["customer-platform-baseline"], "platform"),
+        ("prod-runner-01", "Prod Runner", ["prod"], ["customer-platform-baseline"], "platform"),
+        ("data-runner-01", "Data Services Runner", ["shared-data"], ["shared-data-platform"], "data-platform"),
     ]:
         principal_id = f"service:deployment-runner:{runner_id}"
         store.put_deployment_runner(
@@ -735,7 +757,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="a1b2c3d4",
             environment_id="local",
-            release_set_id="local-default",
+            release_id="integration-baseline",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="dev@company.com",
             notes="Local smoke deployment requested after frontend and auth updates merged.",
@@ -784,7 +806,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="local",
-            release_set_id="local-default",
+            release_id="integration-baseline",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="a1b2c3d4",
             updated_at="2026-06-15T09:18:00Z",
@@ -795,9 +817,9 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="b2c3d4e5",
             environment_id="dev",
-            release_set_id="dev-default",
+            release_id="dev-baseline",
             status=ExecutionStatus.SUCCEEDED,
-            requested_by="ci:release-bot",
+            requested_by="ci:version-bot",
             notes="Automated dev rollout after the nightly integration promotion completed.",
             force=False,
             started_at="2026-06-12T14:02:00Z",
@@ -843,7 +865,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="dev",
-            release_set_id="dev-default",
+            release_id="dev-baseline",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="b2c3d4e5",
             updated_at="2026-06-12T14:11:00Z",
@@ -854,9 +876,9 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="c3d4e5f6",
             environment_id="staging",
-            release_set_id="staging-default",
+            release_id="staging-candidate",
             status=ExecutionStatus.FAILED,
-            requested_by="release-manager",
+            requested_by="version-manager",
             notes="Staging validation run blocked on checkout API readiness during smoke tests.",
             force=False,
             started_at="2026-06-13T10:55:00Z",
@@ -906,7 +928,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="staging",
-            release_set_id="staging-default",
+            release_id="staging-candidate",
             status=ExecutionStatus.FAILED,
             last_deployment_id="c3d4e5f6",
             updated_at="2026-06-13T11:07:00Z",
@@ -917,9 +939,9 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="d4e5f6a7",
             environment_id="staging",
-            release_set_id="staging-default",
+            release_id="staging-candidate",
             status=ExecutionStatus.PENDING,
-            requested_by="release-manager",
+            requested_by="version-manager",
             notes="Retry queued after the previous staging failure was triaged and a fix was prepared.",
             force=False,
             started_at="2026-06-16T08:30:00Z",
@@ -957,7 +979,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="staging",
-            release_set_id="staging-default",
+            release_id="staging-candidate",
             status=ExecutionStatus.PENDING,
             last_deployment_id="d4e5f6a7",
             updated_at="2026-06-16T08:30:00Z",
@@ -968,7 +990,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="e5f6a7b8",
             environment_id="prod",
-            release_set_id="prod-default",
+            release_id="production-baseline",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="change-advisory-board",
             notes="CAB-approved production rollout executed during the scheduled evening window.",
@@ -1016,7 +1038,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="prod",
-            release_set_id="prod-default",
+            release_id="production-baseline",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="e5f6a7b8",
             updated_at="2026-06-10T22:19:00Z",
@@ -1027,9 +1049,9 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="f6a7b8c9",
             environment_id="shared-data",
-            release_set_id="data-default",
+            release_id="shared-data-baseline",
             status=ExecutionStatus.SUCCEEDED,
-            requested_by="data-release-manager",
+            requested_by="data-version-manager",
             notes="Shared data services rollout coordinated with the weekly platform maintenance window.",
             force=False,
             started_at="2026-06-09T07:40:00Z",
@@ -1057,7 +1079,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="shared-data",
-            release_set_id="data-default",
+            release_id="shared-data-baseline",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="f6a7b8c9",
             updated_at="2026-06-09T07:52:00Z",
@@ -1068,9 +1090,9 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="g7h8i9j0",
             environment_id="shared-data",
-            release_set_id="data-default",
+            release_id="shared-data-baseline",
             status=ExecutionStatus.PENDING,
-            requested_by="data-release-manager",
+            requested_by="data-version-manager",
             notes="Pending docker-compose validation rollout for the example compose runner.",
             force=False,
             started_at="2026-06-18T09:15:00Z",
@@ -1094,12 +1116,17 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="shared-data",
-            release_set_id="data-default",
+            release_id="shared-data-baseline",
             status=ExecutionStatus.PENDING,
             last_deployment_id="g7h8i9j0",
             updated_at="2026-06-18T09:15:00Z",
         ),
     )
+
+
+
+
+
 
 
 

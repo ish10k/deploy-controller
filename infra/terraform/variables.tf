@@ -5,13 +5,13 @@ variable "aws_region" {
 
 variable "name_prefix" {
   type    = string
-  default = "release-set-controller"
+  default = "release-controller"
 }
 
 variable "lambda_zip_path" {
   type        = string
   description = "Path to a prebuilt Lambda deployment zip."
-  default     = "../../dist/release-set-controller.zip"
+  default     = "../../dist/release-controller.zip"
 }
 
 variable "artifact_bucket_name" {
@@ -24,4 +24,6 @@ variable "ecr_registry" {
   type        = string
   description = "ECR registry used for derived ECS artifact locations."
 }
+
+
 

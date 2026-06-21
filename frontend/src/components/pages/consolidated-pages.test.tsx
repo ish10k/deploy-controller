@@ -15,8 +15,8 @@ vi.mock("@/components/pages/components-page", () => ({
   ComponentsPage: ({ createSignal }: { createSignal: number }) => <div>Components panel {createSignal}</div>,
 }));
 
-vi.mock("@/components/pages/releases-page", () => ({
-  ReleasesPage: ({ createSignal }: { createSignal: number }) => <div>Releases panel {createSignal}</div>,
+vi.mock("@/components/pages/versions-page", () => ({
+  VersionsPage: ({ createSignal }: { createSignal: number }) => <div>Versions panel {createSignal}</div>,
 }));
 
 vi.mock("@/components/pages/users-page", () => ({
@@ -27,8 +27,8 @@ vi.mock("@/components/pages/roles-page", () => ({
   RolesPage: ({ createSignal }: { createSignal: number }) => <div>Roles panel {createSignal}</div>,
 }));
 
-vi.mock("@/components/pages/deploysets-page", () => ({
-  DeploysetsPage: ({ createSignal }: { createSignal: number }) => <div>ReleaseSets panel {createSignal}</div>,
+vi.mock("@/components/pages/releases-page", () => ({
+  ReleasesPage: ({ createSignal }: { createSignal: number }) => <div>Releases panel {createSignal}</div>,
 }));
 
 vi.mock("@/components/pages/deployment-workflow-page", () => ({
@@ -70,13 +70,13 @@ describe("consolidated pages", () => {
   it("switches registry views and opens create drawers from header actions", () => {
     render(<RegistryPage />);
 
-    expect(screen.getByText("Releases panel 0")).toBeInTheDocument();
+    expect(screen.getByText("Versions panel 0")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Select registry view"), { target: { value: "components" } });
     expect(screen.getByText("Components panel 0")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
-    fireEvent.click(screen.getByRole("button", { name: "Release" }));
-    expect(screen.getByText("Releases panel 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Version" }));
+    expect(screen.getByText("Versions panel 1")).toBeInTheDocument();
   });
 
   it("switches auth views and respects create action routing", () => {
@@ -90,15 +90,18 @@ describe("consolidated pages", () => {
     expect(screen.getByText("Roles panel 1")).toBeInTheDocument();
   });
 
-  it("switches deployments views and opens releaseSet creation from the header", async () => {
+  it("switches deployments views and opens release creation from the header", async () => {
     renderWithQueryClient(<DeploymentsPage />);
 
     await waitFor(() => expect(screen.getByText("No executions match the current filters.")).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText("Select deployment workspace view"), { target: { value: "release-sets" } });
-    expect(screen.getByText("ReleaseSets panel 0")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Select deployment workspace view"), { target: { value: "releases" } });
+    expect(screen.getByText("Releases panel 0")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create ReleaseSet" }));
-    expect(screen.getByText("ReleaseSets panel 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create Release" }));
+    expect(screen.getByText("Releases panel 1")).toBeInTheDocument();
   });
 });
+
+
+
 

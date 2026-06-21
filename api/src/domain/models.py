@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.enums import (
-    ReleaseSetItemSource,
+    ReleaseItemSource,
     DriftReason,
     EnvironmentStatus,
     EventOrigin,
@@ -108,7 +108,7 @@ class Artifact(ApiModel):
     )
 
 
-class Release(ApiModel):
+class Version(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     component_id: str = Field(alias="componentId")
     version: str
@@ -117,7 +117,7 @@ class Release(ApiModel):
     artifact: Artifact
     source: Source | None = Field(
         default=None,
-        description="Optional source object that produced the release.",
+        description="Optional source object that produced the version.",
     )
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
@@ -161,43 +161,43 @@ class PublisherCreateResult(ApiModel):
     token: str
 
 
-class ReleaseSetItem(ApiModel):
+class ReleaseItem(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
-    source: ReleaseSetItemSource = ReleaseSetItemSource.EXPLICIT
+    source: ReleaseItemSource = ReleaseItemSource.EXPLICIT
 
 
-class ReleaseSet(ApiModel):
+class Release(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
-    release_set_id: str = Field(alias="releaseSetId")
+    release_id: str = Field(alias="releaseId")
     schema_version: int = Field(alias="schemaVersion")
     description: str | None = None
     notes: str | None = None
     base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
-    base_release_set_id: str | None = Field(default=None, alias="baseReleaseSetId")
-    items: list[ReleaseSetItem]
+    base_release_id: str | None = Field(default=None, alias="baseReleaseId")
+    items: list[ReleaseItem]
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
     tags: dict[str, str] = Field(default_factory=dict)
 
 
-class ReleaseSetCreateItem(ApiModel):
+class ReleaseCreateItem(ApiModel):
     component_id: str = Field(alias="componentId")
     version: str
 
 
-class ReleaseSetCreateRequest(ApiModel):
-    release_set_id: str = Field(alias="releaseSetId")
+class ReleaseCreateRequest(ApiModel):
+    release_id: str = Field(alias="releaseId")
     base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
-    base_release_set_id: str | None = Field(default=None, alias="baseReleaseSetId")
+    base_release_id: str | None = Field(default=None, alias="baseReleaseId")
     notes: str | None = None
-    items: list[ReleaseSetCreateItem]
+    items: list[ReleaseCreateItem]
     created_by: str = Field(alias="createdBy")
     tags: dict[str, str] = Field(default_factory=dict)
 
 
-class ReleaseSetCreateResult(ApiModel):
-    release_set: ReleaseSet
+class ReleaseCreateResult(ApiModel):
+    release: Release
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -444,7 +444,7 @@ class WebhookDelivery(ApiModel):
 class EnvironmentState(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     environment_id: str = Field(alias="environmentId")
-    release_set_id: str | None = Field(default=None, alias="releaseSetId")
+    release_id: str | None = Field(default=None, alias="releaseId")
     status: EnvironmentStatus = EnvironmentStatus.IDLE
     last_deployment_id: str | None = Field(default=None, alias="lastDeploymentId")
     updated_at: str = Field(alias="updatedAt")
@@ -454,7 +454,7 @@ class DeploymentItem(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     deployment_id: str = Field(default="", alias="deploymentId")
     environment_id: str = Field(default="", alias="environmentId")
-    release_set_id: str = Field(default="", alias="releaseSetId")
+    release_id: str = Field(default="", alias="releaseId")
     component_id: str = Field(alias="componentId")
     version: str
     artifact: Artifact
@@ -480,7 +480,7 @@ class Deployment(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     deployment_id: str = Field(alias="deploymentId")
     environment_id: str = Field(alias="environmentId")
-    release_set_id: str = Field(alias="releaseSetId")
+    release_id: str = Field(alias="releaseId")
     status: ExecutionStatus
     requested_by: str = Field(alias="requestedBy")
     notes: str | None = None
@@ -494,6 +494,8 @@ class Deployment(ApiModel):
 class DeploymentPlan(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     environment_id: str = Field(alias="environmentId")
-    release_set_id: str = Field(alias="releaseSetId")
+    release_id: str = Field(alias="releaseId")
     items: list[DeploymentItem]
+
+
 

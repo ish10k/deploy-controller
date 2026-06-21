@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from settle_sdk import Artifact, DeployJob, DeploymentRunnerClient, PublisherClient, Release
+from settle_sdk import Artifact, DeployJob, DeploymentRunnerClient, PublisherClient, Version
 
 
 class FakeClient:
@@ -22,7 +22,7 @@ class FakeClient:
 
     def post(self, path: str, body: object | None = None) -> object:
         self.calls.append(("POST", path, body))
-        if path.endswith("/releases"):
+        if path.endswith("/versions"):
             assert isinstance(body, dict)
             return {
                 **body,
@@ -35,11 +35,11 @@ class FakeClient:
 
 
 class SdkTests(unittest.TestCase):
-    def test_publisher_publish_builds_release_payload(self) -> None:
+    def test_publisher_publish_builds_version_payload(self) -> None:
         client = FakeClient()
         publisher = PublisherClient(client, "platform-ci")
 
-        release = publisher.publish(
+        version = publisher.publish(
             component_id="api",
             version="1.2.3",
             artifact=Artifact(key="s3://bucket/api.tgz", digest="sha256:abc"),
@@ -47,8 +47,8 @@ class SdkTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            release,
-            Release(
+            version,
+            Version(
                 workspace_id="ws-1",
                 component_id="api",
                 version="1.2.3",
@@ -63,7 +63,7 @@ class SdkTests(unittest.TestCase):
             [
                 (
                     "POST",
-                    "/workspaces/ws-1/publishers/platform-ci/releases",
+                    "/workspaces/ws-1/publishers/platform-ci/versions",
                     {
                         "workspaceId": "ws-1",
                         "componentId": "api",
@@ -123,7 +123,7 @@ def _execution(*, status: str = "claimed") -> dict[str, object]:
         "workspaceId": "ws-1",
         "deploymentId": "exec-1",
         "environmentId": "dev",
-        "releaseSetId": "ds-1",
+        "releaseId": "ds-1",
         "status": status,
         "requestedBy": "user:admin",
         "startedAt": "2026-06-19T10:00:00Z",
@@ -137,7 +137,7 @@ def _component(*, status: str = "pending", claimed_by: str | None = None) -> dic
         "workspaceId": "ws-1",
         "deploymentId": "exec-1",
         "environmentId": "dev",
-        "releaseSetId": "platform",
+        "releaseId": "platform",
         "componentId": "api",
         "version": "1.2.3",
         "artifact": {"key": "s3://bucket/api.tgz", "digest": "sha256:abc"},
@@ -149,3 +149,5 @@ def _component(*, status: str = "pending", claimed_by: str | None = None) -> dic
 
 if __name__ == "__main__":
     unittest.main()
+
+

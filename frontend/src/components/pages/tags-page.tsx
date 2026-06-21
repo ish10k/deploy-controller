@@ -18,8 +18,8 @@ const RESOURCE_TYPE_LABELS: Record<TagResourceType, string> = {
   organization: "Organization",
   workspace: "Workspace",
   component: "Component",
-  "release-set": "ReleaseSet",
-  release: "Release",
+  "release": "Release",
+  version: "Version",
   deployment: "Deployment",
   environment: "Environment",
   "deployment-runner": "Runner",
@@ -31,8 +31,8 @@ const RESOURCE_TYPE_LABELS: Record<TagResourceType, string> = {
 const RESOURCE_TYPE_OPTIONS: Array<{ value: "all" | TagResourceType; label: string }> = [
   { value: "all", label: "All resources" },
   { value: "component", label: "Component" },
-  { value: "release-set", label: "ReleaseSet" },
   { value: "release", label: "Release" },
+  { value: "version", label: "Version" },
   { value: "environment", label: "Environment" },
   { value: "deployment", label: "Deployment" },
   { value: "deployment-runner", label: "Runner" },
@@ -217,8 +217,8 @@ const RESOURCE_TYPE_ICONS: Partial<Record<TagResourceType, typeof Building2>> = 
   organization: Building2,
   workspace: LayoutGrid,
   component: ENTITY_ICONS.component,
-  "release-set": ENTITY_ICONS.releaseSet,
-  release: ENTITY_ICONS.release,
+  "release": ENTITY_ICONS.release,
+  version: ENTITY_ICONS.version,
   deployment: ENTITY_ICONS.deployment,
   environment: ENTITY_ICONS.environment,
   "deployment-runner": ENTITY_ICONS.runner,
@@ -242,6 +242,8 @@ function TagValueList({ values, emptyLabel }: { values: string[]; emptyLabel: st
     </div>
   );
 }
+
+
 
 
 

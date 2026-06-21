@@ -1,25 +1,27 @@
-class ReleaseSetControllerError(Exception):
+class ReleaseControllerError(Exception):
     status_code = 500
 
 
-class NotFoundError(ReleaseSetControllerError):
+class NotFoundError(ReleaseControllerError):
     status_code = 404
 
 
-class ConflictError(ReleaseSetControllerError):
+class ConflictError(ReleaseControllerError):
     status_code = 409
 
 
-class ValidationError(ReleaseSetControllerError):
+class ValidationError(ReleaseControllerError):
     status_code = 400
 
 
-class UnauthorizedError(ReleaseSetControllerError):
+class UnauthorizedError(ReleaseControllerError):
     status_code = 401
 
 
-class ForbiddenError(ReleaseSetControllerError):
+class ForbiddenError(ReleaseControllerError):
     status_code = 403
+
+
 
 
 

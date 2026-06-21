@@ -142,14 +142,14 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
           sublabel={execution.force ? "Force deployment" : "Standard deployment"}
         />
         <Link
-          to="/release-sets/$releaseSetId"
-          params={{ releaseSetId: execution.releaseSetId }}
+          to="/releases/$releaseId"
+          params={{ releaseId: execution.releaseId }}
           className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <ExecutionFactCard
             icon={Package}
-            label="ReleaseSet"
-            value={execution.releaseSetId}
+            label="Release"
+            value={execution.releaseId}
             sublabel={`Environment ${execution.environmentId}`}
             interactive
           />
@@ -194,10 +194,10 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
             <CardContent className="grid gap-3 text-sm">
               <MetaRow
                 icon={Box}
-                label="ReleaseSet"
+                label="Release"
                 value={
-                  <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: execution.releaseSetId }}>
-                    {execution.releaseSetId}
+                  <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: execution.releaseId }}>
+                    {execution.releaseId}
                   </EntityLink>
                 }
               />
@@ -438,7 +438,7 @@ function VersionCell({
 }) {
   if (!currentVersion || currentVersion === targetVersion) {
     return (
-      <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId, version: targetVersion }}>
+      <EntityLink kind="version" to="/versions/$componentId/$version" params={{ componentId, version: targetVersion }}>
         {targetVersion}
       </EntityLink>
     );
@@ -447,16 +447,16 @@ function VersionCell({
   return (
     <div className="flex min-w-0 items-center gap-1">
       <EntityLink
-        kind="release"
-        to="/releases/$componentId/$version"
+        kind="version"
+        to="/versions/$componentId/$version"
         params={{ componentId, version: currentVersion }}
       >
         {currentVersion}
       </EntityLink>
       <span className="shrink-0 text-slate-400">-&gt;</span>
       <EntityLink
-        kind="release"
-        to="/releases/$componentId/$version"
+        kind="version"
+        to="/versions/$componentId/$version"
         params={{ componentId, version: targetVersion }}
       >
         {targetVersion}
@@ -464,4 +464,6 @@ function VersionCell({
     </div>
   );
 }
+
+
 

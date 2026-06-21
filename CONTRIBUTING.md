@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve OneRelease.
+Thanks for helping improve OneVersion.
 
 Run the local checks before opening a change:
 
@@ -11,4 +11,5 @@ pytest
 ```
 
 Keep `domain/` and `application/` free of framework and AWS SDK imports. Add real deployment mechanics behind ports/adapters rather than directly inside use cases.
+
 

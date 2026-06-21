@@ -24,12 +24,12 @@ type Permission = NonNullable<ApiRole["permissions"]>[number];
 const AVAILABLE_PERMISSIONS: Permission[] = [
   "components:read",
   "components:write",
-  "release-sets:read",
-  "release-sets:write",
+  "releases:read",
+  "releases:write",
+  "versions:read",
+  "versions:create",
   "releases:read",
   "releases:create",
-  "release-sets:read",
-  "release-sets:create",
   "environments:read",
   "environments:write",
   "deployments:read",
@@ -53,8 +53,8 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
 ] as const;
 
 const PERMISSION_GROUPS = [
-  { label: "Registry", prefix: ["components:", "release-sets:", "releases:", "publishers:"] },
-  { label: "Deployments", prefix: ["release-sets:", "deployments:", "executions:", "deployment_runners:"] },
+  { label: "Registry", prefix: ["components:", "releases:", "versions:", "publishers:"] },
+  { label: "Deployments", prefix: ["releases:", "deployments:", "executions:", "deployment_runners:"] },
   { label: "Governance", prefix: ["principals:", "roles:", "events:", "tag_definitions:"] },
   { label: "Webhooks", prefix: ["webhooks:", "webhook_deliveries:"] },
 ];
@@ -361,7 +361,7 @@ function RoleDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pendi
             <label className="block text-sm font-medium text-slate-700">
               Role ID
               <RequiredMark />
-              <Input className="mt-1" value={roleId} onChange={(event) => setRoleId(event.target.value)} placeholder="release-manager" />
+              <Input className="mt-1" value={roleId} onChange={(event) => setRoleId(event.target.value)} placeholder="version-manager" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Description
@@ -392,5 +392,7 @@ function RolesAccessPanel() {
     </>
   );
 }
+
+
 
 

@@ -1,0 +1,16 @@
+{
+  "releaseId": "production-baseline",
+  "baseEnvironmentId": "prod",
+  "items": [
+    { "componentId": "web", "version": "3.18.0" },
+    { "componentId": "api", "version": "5.6.0" },
+    { "componentId": "worker", "version": "5.6.0" },
+    { "componentId": "auth", "version": "2.14.0" },
+    { "componentId": "postgres", "version": "14.10.0" },
+    { "componentId": "redis", "version": "7.0.10" }
+  ],
+  "createdBy": "service:publisher:data-ci",
+  "tags": {
+    "team": "platform"
+  }
+}

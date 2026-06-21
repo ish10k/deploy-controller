@@ -37,7 +37,7 @@ import {
   listEvents,
   putEnvironment,
   queryKeys,
-  type ApiReleaseSet,
+  type ApiRelease,
   type ApiDeployment,
   type ApiEnvironment,
   type ApiEnvironmentState,
@@ -56,14 +56,14 @@ type EnvironmentDetailView = "deployments" | "current-components";
 type CurrentComponentRow = {
   componentId: string;
   version?: string;
-  releaseSetId?: string;
+  releaseId?: string;
   source: "deployed" | "desired" | "missing";
 };
 
 type EnvironmentRow = {
   environment: ApiEnvironment;
   state?: ApiEnvironmentState;
-  currentReleaseSet?: ApiReleaseSet;
+  currentRelease?: ApiRelease;
   latestExecution?: ApiDeployment;
   recentExecutions: ApiDeployment[];
   pendingExecutions: ApiDeployment[];
@@ -107,7 +107,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
     return rows.filter((row) => {
       const searchable = [
         row.environment.environmentId,
-        row.currentReleaseSet?.releaseSetId,
+        row.currentRelease?.releaseId,
         row.latestExecution ? row.latestExecution.items.map((item) => item.claimedBy).filter(Boolean).join(" ") : "",
         tagSummary(row.environment.tags),
       ]
@@ -253,22 +253,22 @@ function FocusedEnvironmentDetails({ row, onRefresh }: { row: EnvironmentRow; on
 
       <div className="grid grid-cols-4 gap-4">
         <EnvironmentFactCard icon={Globe2} label="Status" value={<EnvironmentStatusBadge status={row.status} />} sublabel={row.environment.active ? "Active target" : "Inactive target"} />
-        {row.currentReleaseSet ? (
+        {row.currentRelease ? (
           <Link
-            to="/release-sets/$releaseSetId"
-            params={{ releaseSetId: row.currentReleaseSet.releaseSetId }}
+            to="/releases/$releaseId"
+            params={{ releaseId: row.currentRelease.releaseId }}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <EnvironmentFactCard
               icon={Server}
-              label="Current ReleaseSet"
-              value={row.currentReleaseSet.releaseSetId}
-              sublabel={`Version ${row.currentReleaseSet.schemaVersion}`}
+              label="Current Release"
+              value={row.currentRelease.releaseId}
+              sublabel={`Version ${row.currentRelease.schemaVersion}`}
               interactive
             />
           </Link>
         ) : (
-          <EnvironmentFactCard icon={Server} label="Current ReleaseSet" value="None" sublabel="No environment state" />
+          <EnvironmentFactCard icon={Server} label="Current Release" value="None" sublabel="No environment state" />
         )}
         <EnvironmentFactCard icon={Hourglass} label="Pending Executions" value={String(row.pendingExecutions.length)} sublabel="Awaiting runner work" />
         <EnvironmentFactCard icon={AlertTriangle} label="Drift Signals" value={String(driftCount)} sublabel="From latest execution" />
@@ -285,7 +285,7 @@ function FocusedEnvironmentDetails({ row, onRefresh }: { row: EnvironmentRow; on
           {detailView === "deployments" ? (
             <RecentDeploymentsPanel executions={row.recentExecutions} />
           ) : (
-            <CurrentComponentsPanel rows={currentComponents} currentReleaseSet={row.currentReleaseSet} />
+            <CurrentComponentsPanel rows={currentComponents} currentRelease={row.currentRelease} />
           )}
         </SwitchableCard>
         <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
@@ -318,7 +318,7 @@ function FocusedEnvironmentDetails({ row, onRefresh }: { row: EnvironmentRow; on
           showHeader={false}
           initialEnvironmentId={row.environment.environmentId}
           lockEnvironment
-          initialReleaseSetId={row.currentReleaseSet?.releaseSetId ?? ""}
+          initialReleaseId={row.currentRelease?.releaseId ?? ""}
           onCancel={() => setDeployOpen(false)}
           onCreated={() => setDeployOpen(false)}
         />
@@ -361,7 +361,7 @@ function RecentDeploymentsPanel({ executions }: { executions: ApiDeployment[] })
         <TableHeader className="sticky top-0 z-10 bg-white">
           <TableRow>
             <TableHead>Execution</TableHead>
-            <TableHead>ReleaseSet</TableHead>
+            <TableHead>Release</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Started</TableHead>
             <TableHead>Items</TableHead>
@@ -380,8 +380,8 @@ function RecentDeploymentsPanel({ executions }: { executions: ApiDeployment[] })
                 </EntityLink>
               </TableCell>
               <TableCell>
-                <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: execution.releaseSetId }}>
-                  {execution.releaseSetId}
+                <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: execution.releaseId }}>
+                  {execution.releaseId}
                 </EntityLink>
               </TableCell>
               <TableCell>
@@ -399,15 +399,15 @@ function RecentDeploymentsPanel({ executions }: { executions: ApiDeployment[] })
 
 function CurrentComponentsPanel({
   rows,
-  currentReleaseSet,
+  currentRelease,
 }: {
   rows: CurrentComponentRow[];
-  currentReleaseSet?: ApiReleaseSet;
+  currentRelease?: ApiRelease;
 }) {
   if (!rows.length) {
     return (
       <div className="p-4">
-        <EmptyPanel label={currentReleaseSet ? "No components found in this release set." : "No current release set found for this environment."} />
+        <EmptyPanel label={currentRelease ? "No components found in this version set." : "No current version set found for this environment."} />
       </div>
     );
   }
@@ -419,7 +419,7 @@ function CurrentComponentsPanel({
           <TableRow>
             <TableHead>Component</TableHead>
             <TableHead>Latest deployed version</TableHead>
-            <TableHead>ReleaseSet</TableHead>
+            <TableHead>Release</TableHead>
             <TableHead>Source</TableHead>
           </TableRow>
         </TableHeader>
@@ -433,7 +433,7 @@ function CurrentComponentsPanel({
               </TableCell>
               <TableCell>
                 {row.version ? (
-                  <EntityLink kind="release" to="/releases/$componentId/$version" params={{ componentId: row.componentId, version: row.version }}>
+                  <EntityLink kind="version" to="/versions/$componentId/$version" params={{ componentId: row.componentId, version: row.version }}>
                     {row.version}
                   </EntityLink>
                 ) : (
@@ -441,9 +441,9 @@ function CurrentComponentsPanel({
                 )}
               </TableCell>
               <TableCell>
-                {row.releaseSetId ? (
-                  <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: row.releaseSetId }}>
-                    {row.releaseSetId}
+                {row.releaseId ? (
+                  <EntityLink kind="release" to="/releases/$releaseId" params={{ releaseId: row.releaseId }}>
+                    {row.releaseId}
                   </EntityLink>
                 ) : (
                   <span className="text-slate-500">-</span>
@@ -507,7 +507,7 @@ function EnvironmentCard({ row }: { row: EnvironmentRow }) {
         </div>
 
         <div className="grid gap-0 text-sm">
-          <CardDetailRow label="Current ReleaseSet" value={<CardValue value={row.currentReleaseSet?.releaseSetId} />} />
+          <CardDetailRow label="Current Release" value={<CardValue value={row.currentRelease?.releaseId} />} />
           <CardDetailRow label="Last Execution" value={<CardValue value={row.latestExecution?.deploymentId} />} />
           <CardDetailRow label="Last Deployment" value={<span className="font-medium text-slate-800">{row.latestExecution ? formatRelativeTime(row.latestExecution.startedAt, { mode: "short" }) : "-"}</span>} />
         </div>
@@ -555,12 +555,12 @@ function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
         <ScrollFade className="h-full" contentClassName="grid gap-3 px-4 pb-4 text-sm">
           <MetaRow
             icon={Server}
-            label="Current ReleaseSet"
+            label="Current Release"
             value={
               <ResourceLink
-                label={row.currentReleaseSet?.releaseSetId}
-                to="/release-sets/$releaseSetId"
-                params={row.currentReleaseSet ? { releaseSetId: row.currentReleaseSet.releaseSetId } : undefined}
+                label={row.currentRelease?.releaseId}
+                to="/releases/$releaseId"
+                params={row.currentRelease ? { releaseId: row.currentRelease.releaseId } : undefined}
               />
             }
           />
@@ -569,9 +569,9 @@ function EnvironmentDetailsPanel({ row }: { row: EnvironmentRow }) {
             label="Current ConfigSet"
             value={
               <ResourceLink
-                label={row.currentReleaseSet?.releaseSetId}
-                to="/release-sets/$releaseSetId"
-                params={row.currentReleaseSet ? { releaseSetId: row.currentReleaseSet.releaseSetId } : undefined}
+                label={row.currentRelease?.releaseId}
+                to="/releases/$releaseId"
+                params={row.currentRelease ? { releaseId: row.currentRelease.releaseId } : undefined}
               />
             }
           />
@@ -700,14 +700,14 @@ function ResourceLink({
   params,
 }: {
   label?: string | null;
-  to: "/release-sets" | "/release-sets/$releaseSetId";
-  params?: { releaseSetId: string };
+  to: "/releases" | "/releases/$releaseId";
+  params?: { releaseId: string };
 }) {
   if (!label) {
     return <span className="text-slate-500">-</span>;
   }
   return (
-    <EntityLink kind="releaseSet" to={to} params={params}>
+    <EntityLink kind="release" to={to} params={params}>
       {label}
     </EntityLink>
   );
@@ -771,11 +771,11 @@ function EnvironmentDrawer({
     <SideDrawer
       open={open}
       title="Create environment"
-      description="Add a runtime target that can receive release sets and report desired-state progress."
+      description="Add a runtime target that can receive releases and report desired-state progress."
       onClose={onClose}
       footer={
         <>
-          <p className="text-xs text-slate-500">New environments start without a current release set until one is applied.</p>
+          <p className="text-xs text-slate-500">New environments start without a current version set until one is applied.</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -821,7 +821,7 @@ function EnvironmentDrawer({
         <section className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
           <h3 className="text-sm font-semibold text-blue-950">What happens next?</h3>
           <p className="mt-1 text-sm text-blue-800">
-            Once created, the environment appears in the environment center. Applying a release set will populate current desired state and recent deployment activity.
+            Once created, the environment appears in the environment center. Applying a version set will populate current desired state and recent deployment activity.
           </p>
         </section>
       </div>
@@ -831,13 +831,13 @@ function EnvironmentDrawer({
 
 function buildEnvironmentRows(data: Awaited<ReturnType<typeof fetchEnvironmentCenterData>>): EnvironmentRow[] {
   const stateByEnvironment = new Map(data.environmentState.map((state) => [state.environmentId, state]));
-  const releaseSetById = new Map(data.releaseSets.map((releaseSet) => [releaseSet.releaseSetId, releaseSet]));
+  const releaseById = new Map(data.releases.map((release) => [release.releaseId, release]));
   const executionsByEnvironment = groupExecutionsByEnvironment(data.executions);
   const pendingByEnvironment = groupExecutionsByEnvironment(data.pendingExecutions);
 
   return data.environments.map((environment) => {
     const state = stateByEnvironment.get(environment.environmentId);
-    const currentReleaseSet = state?.releaseSetId ? releaseSetById.get(state.releaseSetId) : undefined;
+    const currentRelease = state?.releaseId ? releaseById.get(state.releaseId) : undefined;
     const regularExecutions = executionsByEnvironment.get(environment.environmentId) ?? [];
     const pendingExecutions = pendingByEnvironment.get(environment.environmentId) ?? [];
     const latestExecution = regularExecutions[0];
@@ -845,7 +845,7 @@ function buildEnvironmentRows(data: Awaited<ReturnType<typeof fetchEnvironmentCe
     return {
       environment,
       state,
-      currentReleaseSet,
+      currentRelease,
       latestExecution,
       recentExecutions,
       pendingExecutions,
@@ -857,8 +857,8 @@ function buildEnvironmentRows(data: Awaited<ReturnType<typeof fetchEnvironmentCe
 
 function buildCurrentComponentRows(row: EnvironmentRow): CurrentComponentRow[] {
   const deployedByComponent = new Map(row.latestExecution?.items.map((item) => [item.componentId, item]) ?? []);
-  const desiredByComponent = new Map(row.currentReleaseSet?.items.map((item) => [item.componentId, item]) ?? []);
-  const componentIds = row.currentReleaseSet?.items.map((item) => item.componentId) ?? [];
+  const desiredByComponent = new Map(row.currentRelease?.items.map((item) => [item.componentId, item]) ?? []);
+  const componentIds = row.currentRelease?.items.map((item) => item.componentId) ?? [];
 
   return componentIds.map((componentId) => {
     const deployed = deployedByComponent.get(componentId);
@@ -866,7 +866,7 @@ function buildCurrentComponentRows(row: EnvironmentRow): CurrentComponentRow[] {
       return {
         componentId,
         version: deployed.version,
-        releaseSetId: row.latestExecution?.releaseSetId,
+        releaseId: row.latestExecution?.releaseId,
         source: "deployed",
       };
     }
@@ -876,7 +876,7 @@ function buildCurrentComponentRows(row: EnvironmentRow): CurrentComponentRow[] {
       return {
         componentId,
         version: desired.version,
-        releaseSetId: row.currentReleaseSet?.releaseSetId,
+        releaseId: row.currentRelease?.releaseId,
         source: "desired",
       };
     }
@@ -941,4 +941,7 @@ function percentage(value: number, total: number) {
   }
   return `${Math.round((value / total) * 1000) / 10}% of environments`;
 }
+
+
+
 

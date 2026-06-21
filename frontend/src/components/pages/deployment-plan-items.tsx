@@ -9,11 +9,11 @@ import type { components } from "@/lib/api-types";
 export function PlanItems({
   items,
   currentVersions,
-  releaseCreatedAtByKey,
+  versionCreatedAtByKey,
 }: {
   items: components["schemas"]["DeploymentItem"][];
   currentVersions: Map<string, string>;
-  releaseCreatedAtByKey: Map<string, string>;
+  versionCreatedAtByKey: Map<string, string>;
 }) {
   return (
     <Table>
@@ -46,7 +46,7 @@ export function PlanItems({
                 componentId={item.componentId}
                 currentVersion={currentVersions.get(item.componentId)}
                 targetVersion={item.version}
-                releaseCreatedAtByKey={releaseCreatedAtByKey}
+                versionCreatedAtByKey={versionCreatedAtByKey}
               />
             </TableCell>
             <TableCell>
@@ -63,16 +63,16 @@ function VersionCell({
   componentId,
   currentVersion,
   targetVersion,
-  releaseCreatedAtByKey,
+  versionCreatedAtByKey,
 }: {
   componentId: string;
   currentVersion: string | undefined;
   targetVersion: string;
-  releaseCreatedAtByKey: Map<string, string>;
+  versionCreatedAtByKey: Map<string, string>;
 }) {
   if (!currentVersion || currentVersion === targetVersion) {
     return (
-      <EntityLink kind="release" to={"/releases/$componentId/$version" as never} params={{ componentId, version: targetVersion }}>
+      <EntityLink kind="version" to={"/versions/$componentId/$version" as never} params={{ componentId, version: targetVersion }}>
         {targetVersion}
       </EntityLink>
     );
@@ -81,19 +81,19 @@ function VersionCell({
   return (
     <div className="flex min-w-0 items-center gap-1">
       <EntityLink
-        kind="release"
-        to={"/releases/$componentId/$version" as never}
+        kind="version"
+        to={"/versions/$componentId/$version" as never}
         params={{ componentId, version: currentVersion }}
       >
         {currentVersion}
       </EntityLink>
       <ArrowIndicator
-        currentCreatedAt={releaseCreatedAtByKey.get(`${componentId}:${currentVersion}`)}
-        targetCreatedAt={releaseCreatedAtByKey.get(`${componentId}:${targetVersion}`)}
+        currentCreatedAt={versionCreatedAtByKey.get(`${componentId}:${currentVersion}`)}
+        targetCreatedAt={versionCreatedAtByKey.get(`${componentId}:${targetVersion}`)}
       />
       <EntityLink
-        kind="release"
-        to={"/releases/$componentId/$version" as never}
+        kind="version"
+        to={"/versions/$componentId/$version" as never}
         params={{ componentId, version: targetVersion }}
       >
         {targetVersion}
@@ -122,4 +122,5 @@ function ArrowIndicator({
 
   return <MoveRight className={`h-4 w-4 shrink-0 ${className}`} />;
 }
+
 

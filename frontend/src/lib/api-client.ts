@@ -1,10 +1,10 @@
 import type {
   ApiComponent,
-  ApiReleaseSet,
+  ApiRelease,
   ApiCreateDeploymentRequest,
   ApiCreateDeploymentResponse,
-  ApiReleaseSetCreateRequest,
-  ApiReleaseSetCreateResult,
+  ApiReleaseCreateRequest,
+  ApiReleaseCreateResult,
   ApiDeployment,
   ApiDeploymentItem,
   ApiDeploymentRunner,
@@ -20,7 +20,7 @@ import type {
   ApiPlanDeploymentRequest,
   ApiBootstrapState,
   ApiPrincipal,
-  ApiRelease,
+  ApiVersion,
   ApiPublisher,
   ApiPublisherCreateRequest,
   ApiPublisherCreateResult,
@@ -110,22 +110,22 @@ export const queryKeys = {
   workspace: (workspaceId: string) => ["workspaces", workspaceId] as const,
   workspaceMemberships: (workspaceId: string) => ["workspaces", workspaceId, "memberships"] as const,
   components: ["workspace", "components"] as const,
-  releaseSets: ["workspace", "release-sets"] as const,
-  releases: (componentId?: string) => ["workspace", "releases", componentId ?? "all"] as const,
+  releases: ["workspace", "releases"] as const,
+  versions: (componentId?: string) => ["workspace", "versions", componentId ?? "all"] as const,
   principals: ["principals"] as const,
   roles: ["workspace", "roles"] as const,
   role: (roleId: string) => ["workspace", "roles", roleId] as const,
   publishers: ["workspace", "publishers"] as const,
   publisher: (publisherId: string) => ["workspace", "publishers", publisherId] as const,
-  releaseSet: (releaseSetId: string) => ["workspace", "release-sets", releaseSetId] as const,
+  release: (releaseId: string) => ["workspace", "releases", releaseId] as const,
   environments: ["workspace", "environments"] as const,
   tagDefinitions: (resourceType?: TagResourceType) => ["workspace", "tag-definitions", resourceType ?? "all"] as const,
   environmentState: ["workspace", "environment-state"] as const,
   environmentCenter: ["workspace", "environment-center"] as const,
   executions: (environmentId?: string) => ["workspace", "deployments", environmentId ?? "all"] as const,
   execution: (deploymentId: string) => ["workspace", "deployments", deploymentId] as const,
-  deploymentPlan: (environmentId: string, releaseSetId: string, force: boolean) =>
-    ["workspace", "deployment-plan", environmentId || "none", releaseSetId || "none", force ? "force" : "normal"] as const,
+  deploymentPlan: (environmentId: string, releaseId: string, force: boolean) =>
+    ["workspace", "deployment-plan", environmentId || "none", releaseId || "none", force ? "force" : "normal"] as const,
   dashboard: (environmentId: string) => ["workspace", "dashboard", environmentId] as const,
   deploymentRunners: ["workspace", "deployment-runners"] as const,
   pendingExecutions: ["workspace", "runner-pending-executions"] as const,
@@ -243,34 +243,34 @@ export async function putComponent(componentId: string, component: ApiComponent)
   });
 }
 
-export async function listReleaseSets() {
-  return request<ApiReleaseSet[]>(workspacePath("/release-sets"));
+export async function listReleases() {
+  return request<ApiRelease[]>(workspacePath("/releases"));
 }
 
-export async function getReleaseSet(releaseSetId: string) {
-  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`));
+export async function getRelease(releaseId: string) {
+  return request<ApiRelease>(workspacePath(`/releases/${encodeURIComponent(releaseId)}`));
 }
 
-export async function putReleaseSet(releaseSetId: string, releaseSet: ApiReleaseSet) {
-  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`), {
+export async function putRelease(releaseId: string, release: ApiRelease) {
+  return request<ApiRelease>(workspacePath(`/releases/${encodeURIComponent(releaseId)}`), {
     method: "PUT",
-    body: releaseSet,
+    body: release,
   });
 }
 
-export async function listReleases(componentId?: string) {
+export async function listVersions(componentId?: string) {
   const query = componentId ? `?componentId=${encodeURIComponent(componentId)}` : "";
-  return request<ApiRelease[]>(workspacePath(`/releases${query}`));
+  return request<ApiVersion[]>(workspacePath(`/versions${query}`));
 }
 
-export async function getRelease(componentId: string, version: string) {
-  return request<ApiRelease>(workspacePath(`/releases/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`));
+export async function getVersion(componentId: string, version: string) {
+  return request<ApiVersion>(workspacePath(`/versions/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`));
 }
 
-export async function createRelease(release: ApiRelease) {
-  return request<ApiRelease>(workspacePath("/releases"), {
+export async function createVersion(version: ApiVersion) {
+  return request<ApiVersion>(workspacePath("/versions"), {
     method: "POST",
-    body: release,
+    body: version,
   });
 }
 
@@ -302,23 +302,15 @@ export async function putPublisher(publisherId: string, publisher: ApiPublisher)
   });
 }
 
-export async function publishReleaseFromPublisher(publisherId: string, release: ApiRelease) {
-  return request<ApiRelease>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/releases`), {
+export async function publishVersionFromPublisher(publisherId: string, version: ApiVersion) {
+  return request<ApiVersion>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/versions`), {
     method: "POST",
-    body: release,
+    body: version,
   });
 }
-
-export async function listDeploysets() {
-  return request<ApiReleaseSet[]>(workspacePath("/release-sets"));
-}
-
-export async function getDeployset(releaseSetId: string) {
-  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`));
-}
-
-export async function createDeployset(payload: ApiReleaseSetCreateRequest) {
-  return request<ApiReleaseSetCreateResult>(workspacePath("/release-sets"), {
+
+export async function createRelease(payload: ApiReleaseCreateRequest) {
+  return request<ApiReleaseCreateResult>(workspacePath("/releases"), {
     method: "POST",
     body: payload,
   });
@@ -525,10 +517,10 @@ export async function fetchDashboardData(environmentId: string) {
 }
 
 export async function fetchEnvironmentCenterData() {
-  const [environments, environmentState, releaseSets, executions, pendingExecutions] = await Promise.all([
+  const [environments, environmentState, releases, executions, pendingExecutions] = await Promise.all([
     listEnvironments(),
     listEnvironmentState(),
-    listReleaseSets(),
+    listReleases(),
     listDeployments(),
     listPendingExecutions(),
   ]);
@@ -536,7 +528,7 @@ export async function fetchEnvironmentCenterData() {
   return {
     environments,
     environmentState,
-    releaseSets,
+    releases,
     executions,
     pendingExecutions,
   };
@@ -544,10 +536,10 @@ export async function fetchEnvironmentCenterData() {
 
 export type {
   ApiComponent,
-  ApiReleaseSet,
+  ApiRelease,
   ApiCreateDeploymentResponse,
-  ApiReleaseSetCreateRequest,
-  ApiReleaseSetCreateResult,
+  ApiReleaseCreateRequest,
+  ApiReleaseCreateResult,
   ApiDeployment,
   ApiDeploymentItem,
   ApiDeploymentRunner,
@@ -562,7 +554,7 @@ export type {
   ApiOrganizationMembership,
   ApiBootstrapState,
   ApiPrincipal,
-  ApiRelease,
+  ApiVersion,
   ApiPublisher,
   ApiPublisherCreateRequest,
   ApiPublisherCreateResult,
@@ -577,4 +569,9 @@ export type {
   ApiWorkspace,
   ApiWorkspaceMembership,
 } from "@/lib/api-types";
+
+
+
+
+
 

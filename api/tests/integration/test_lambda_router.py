@@ -58,28 +58,28 @@ def test_lambda_tag_definitions_can_be_listed_and_filtered() -> None:
     response = route(
         {
             **event("GET", f"{WORKSPACE}/tag-definitions", authenticated=True),
-            "queryStringParameters": {"resourceType": "release-set"},
+            "queryStringParameters": {"resourceType": "release"},
         },
         container,
     )
     assert response["statusCode"] == 200
     filtered = json.loads(response["body"])
     assert filtered
-    assert all("release-set" in definition["selector"]["resourceTypes"] for definition in filtered)
+    assert all("release" in definition["selector"]["resourceTypes"] for definition in filtered)
 
 
 def test_lambda_deployment_notes_round_trip() -> None:
     container = authenticated_container()
 
-    release_response = route(
+    version_response = route(
         event(
             "POST",
-            f"{WORKSPACE}/releases",
+            f"{WORKSPACE}/versions",
             {
                 "componentId": "api",
                 "version": "9.9.9",
-                "description": "API release 9.9.9",
-                "notes": "Lambda router release note coverage.",
+                "description": "API version 9.9.9",
+                "notes": "Lambda router version note coverage.",
                 "artifact": {"key": "api:9.9.9", "digest": "sha256:abc123"},
                 "source": {"key": "git+https://git.example.com/api.git#9.9.9", "digest": "sha256:src-abc123"},
                 "createdAt": "2026-06-16T12:00:00Z",
@@ -89,8 +89,8 @@ def test_lambda_deployment_notes_round_trip() -> None:
         ),
         container,
     )
-    assert release_response["statusCode"] == 200
-    assert json.loads(release_response["body"])["notes"] == "Lambda router release note coverage."
+    assert version_response["statusCode"] == 200
+    assert json.loads(version_response["body"])["notes"] == "Lambda router version note coverage."
 
     response = route(
         event(
@@ -98,7 +98,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
             f"{WORKSPACE}/deployments",
             {
                 "environmentId": "prod",
-                "releaseSetId": "prod-default",
+                "releaseId": "production-baseline",
                 "requestedBy": "ops",
                 "notes": "Lambda deployment note coverage.",
                 "force": True,
@@ -131,24 +131,8 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
 
     response = route(
         event(
-            "PUT",
-            f"{WORKSPACE}/release-sets/edge-platform",
-            {
-                "releaseSetId": "ignored",
-                "components": [{"componentId": "edge-api"}],
-                "createdAt": "2026-06-19T10:00:00Z",
-                "createdBy": "test",
-            },
-            authenticated=True,
-        ),
-        container,
-    )
-    assert response["statusCode"] == 200
-
-    response = route(
-        event(
             "POST",
-            f"{WORKSPACE}/releases",
+            f"{WORKSPACE}/versions",
             {
                 "componentId": "edge-api",
                 "version": "1.0.0",
@@ -165,11 +149,10 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
     response = route(
         event(
             "POST",
-            f"{WORKSPACE}/release-sets",
+            f"{WORKSPACE}/releases",
             {
-                "releaseSetId": "edge-ds",
-                "releaseSetId": "edge-platform",
-                "items": [{"componentId": "edge-api", "version": "1.0.0"}],
+                "releaseId": "edge-platform",
+                "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "5.7.1"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}, {"componentId": "edge-api", "version": "1.0.0"}],
                 "createdBy": "test",
             },
             authenticated=True,
@@ -187,7 +170,7 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
             f"{WORKSPACE}/deployments",
             {
                 "environmentId": "edge",
-                "releaseSetId": "edge-ds",
+                "releaseId": "edge-platform",
                 "requestedBy": "ops",
                 "force": True,
             },
@@ -219,3 +202,10 @@ def test_lambda_runner_items_include_historical_and_current_work() -> None:
     items = json.loads(response["body"])
     assert any(item["status"] == "succeeded" for item in items)
     assert any(item["status"] == "pending" for item in items)
+
+
+
+
+
+
+

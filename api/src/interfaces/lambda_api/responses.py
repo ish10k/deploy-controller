@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from src.domain.errors import ReleaseSetControllerError
+from src.domain.errors import ReleaseControllerError
 
 
 def to_json(value: Any) -> Any:
@@ -26,9 +26,11 @@ def response(status_code: int, body: Any) -> dict[str, Any]:
 
 
 def error_response(exc: Exception) -> dict[str, Any]:
-    if isinstance(exc, ReleaseSetControllerError):
+    if isinstance(exc, ReleaseControllerError):
         return response(exc.status_code, {"detail": str(exc)})
     return response(500, {"detail": "Internal server error"})
+
+
 
 
 

@@ -41,9 +41,9 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
     {
       label: "Operations",
       items: [
-        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments", aliases: ["/release-sets", "/executions"] },
+        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments", aliases: ["/executions"] },
         { label: "Environments", icon: ENTITY_ICONS.environment, to: "/environments" },
-        { label: "Registry", icon: LibraryBig, to: "/registry", aliases: ["/components", "/release-sets", "/releases"] },
+        { label: "Registry", icon: LibraryBig, to: "/registry", aliases: ["/components", "/releases", "/versions"] },
       ],
     },
     {
@@ -153,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ENTITY_ICONS.deployment className="h-5 w-5" />
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-xl font-bold tracking-normal">OneRelease</span>
+            <span className="text-xl font-bold tracking-normal">OneVersion</span>
           </div>
         </div>
 
@@ -162,7 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <input
             aria-label="Search"
             className="min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-100 outline-none placeholder:text-slate-400"
-            placeholder="Search ReleaseSets, components, environments..."
+            placeholder="Search Releases, components, environments..."
           />
           <kbd className="rounded border border-white/20 bg-slate-900/50 px-2 py-0.5 text-xs text-slate-300">Ctrl K</kbd>
         </div> */}
@@ -229,7 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             Collapse
           </button>
-          <div>© 2024 ReleaseSet Project (Open Source)</div>
+          <div>© 2024 Release Project (Open Source)</div>
         </div>
       </aside>
 
@@ -473,10 +473,10 @@ function NotificationEntry({ event, unread, onNavigate }: { event: ApiEventLogEn
 }
 
 function notificationTarget(event: ApiEventLogEntry) {
-  const releaseParts = event.resourceType === "release" ? event.resourceId.split(/[:@]/) : [];
+  const versionParts = event.resourceType === "version" ? event.resourceId.split(/[:@]/) : [];
   const targets: Record<string, string> = {
     component: `/components/${encodeURIComponent(event.resourceId)}`,
-    releaseSet: `/release-sets/${encodeURIComponent(event.resourceId)}`,
+    release: `/releases/${encodeURIComponent(event.resourceId)}`,
     deployment: `/deployments/${encodeURIComponent(event.resourceId)}`,
     environment: `/environments/${encodeURIComponent(event.resourceId)}`,
     deploymentRunner: `/deployment-runners/${encodeURIComponent(event.resourceId)}`,
@@ -486,9 +486,9 @@ function notificationTarget(event: ApiEventLogEntry) {
     webhook: `/webhooks/${encodeURIComponent(event.resourceId)}`,
   };
 
-  if (event.resourceType === "release" && releaseParts.length >= 2) {
+  if (event.resourceType === "version" && versionParts.length >= 2) {
     return {
-      href: `/releases/${encodeURIComponent(releaseParts[0])}/${encodeURIComponent(releaseParts.slice(1).join(":"))}`,
+      href: `/versions/${encodeURIComponent(versionParts[0])}/${encodeURIComponent(versionParts.slice(1).join(":"))}`,
     };
   }
 
@@ -506,13 +506,13 @@ function readNotificationTimestamp(storageKey: string) {
 }
 
 const NOTIFICATION_ACTIONS = new Set([
-  "release-set.created",
+  "release.created",
   "deployment.created",
   "deployment.claimed",
   "deployment.status_changed",
   "deployment_item.status_reported",
-  "release.created",
-  "release.published",
+  "version.created",
+  "version.published",
   "publisher.created",
   "publisher.token_rotated",
   "deployment_runner.created",
@@ -532,5 +532,8 @@ function isNotificationEvent(event: ApiEventLogEntry) {
   }
   return NOTIFICATION_ACTIONS.has(event.action);
 }
+
+
+
 
 

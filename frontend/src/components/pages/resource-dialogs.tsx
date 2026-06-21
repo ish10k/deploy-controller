@@ -7,11 +7,11 @@ import { Modal } from "@/components/ui/modal";
 import { useAppContext } from "@/lib/app-context";
 import {
   type ApiComponent,
-  type ApiReleaseSetCreateRequest,
+  type ApiReleaseCreateRequest,
   type ApiEnvironment,
-  type ApiRelease,
+  type ApiVersion,
 } from "@/lib/api-client";
-import { parseReleaseSetItems, parseKeyValueList } from "@/lib/form-utils";
+import { parseReleaseItems, parseKeyValueList } from "@/lib/form-utils";
 
 export type DialogProps<T> = {
   open: boolean;
@@ -38,16 +38,16 @@ export function ComponentDialog({ open, onClose, onSubmit, pending }: DialogProp
   );
 }
 
-export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiRelease>) {
+export function VersionDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiVersion>) {
   const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState("");
   const [version, setVersion] = useState("");
-  const [artifactKey, setArtifactKey] = useState("s3://release-set-artifacts/component/version.tar.gz");
+  const [artifactKey, setArtifactKey] = useState("s3://version-artifacts/component/version.tar.gz");
   const [notes, setNotes] = useState("");
   return (
     <SimpleDialog
       open={open}
-      title="Create release"
+      title="Create version"
       onClose={onClose}
       onSave={() =>
         onSubmit({
@@ -73,10 +73,10 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
   );
 }
 
-export function ReleaseSetDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiReleaseSetCreateRequest>) {
-  const [releaseSetId, setReleaseSetId] = useState("");
+export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiReleaseCreateRequest>) {
+  const [releaseId, setReleaseId] = useState("");
   const [baseEnvironmentId, setBaseEnvironmentId] = useState("");
-  const [baseReleaseSetId, setBaseReleaseSetId] = useState("");
+  const [baseReleaseId, setBaseReleaseId] = useState("");
   const [createdBy, setCreatedBy] = useState("amit.kumar");
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("track=prod");
@@ -84,25 +84,25 @@ export function ReleaseSetDialog({ open, onClose, onSubmit, pending }: DialogPro
   return (
     <SimpleDialog
       open={open}
-      title="Create ReleaseSet"
+      title="Create Release"
       onClose={onClose}
       onSave={() =>
         onSubmit({
-          releaseSetId,
+          releaseId,
           baseEnvironmentId: baseEnvironmentId || null,
-          baseReleaseSetId: baseReleaseSetId || null,
+          baseReleaseId: baseReleaseId || null,
           notes: notes || null,
-          items: parseReleaseSetItems(items),
+          items: parseReleaseItems(items),
           createdBy,
           tags: parseKeyValueList(tags),
         })
       }
       pending={pending}
     >
-      <Field label="ReleaseSet ID" value={releaseSetId} onChange={setReleaseSetId} />
-      <Field label="ReleaseSet ID" value={releaseSetId} onChange={setReleaseSetId} />
+      <Field label="Release ID" value={releaseId} onChange={setReleaseId} />
+      <Field label="Release ID" value={releaseId} onChange={setReleaseId} />
       <Field label="Base environment ID" value={baseEnvironmentId} onChange={setBaseEnvironmentId} />
-      <Field label="Base ReleaseSet ID" value={baseReleaseSetId} onChange={setBaseReleaseSetId} />
+      <Field label="Base Release ID" value={baseReleaseId} onChange={setBaseReleaseId} />
       <Field label="Items" value={items} onChange={setItems} />
       <Field label="Created by" value={createdBy} onChange={setCreatedBy} />
       <Field label="Notes" value={notes} onChange={setNotes} />
@@ -168,4 +168,7 @@ export function Field({ label, value, onChange }: { label: string; value: string
     </label>
   );
 }
+
+
+
 

@@ -1,6 +1,6 @@
 # Core Planning Invariant
 
-ReleaseSet Controller creates execution items from a complete immutable ReleaseSet. It does not inspect provider infrastructure or derive artifact locations.
+Release Controller creates execution items from a complete immutable Release. It does not inspect provider infrastructure or derive artifact locations.
 
 The brain requests `skip` only when:
 
@@ -12,3 +12,5 @@ The brain requests `skip` only when:
 The brain requests `deploy` when no latest item exists, the latest item did not succeed, the requested version changed, or `force=true`.
 
 Adapters inspect real target state. They may report `deploy`, `noop`, or `skip`; a forced same-version deployment that succeeds is recorded as possible drift.
+
+

@@ -5,7 +5,7 @@ Python SDK for machine actors that integrate with Settle.
 The first SDK surface focuses on:
 
 - deployment runners claiming work and reporting status
-- publishers publishing releases
+- publishers publishing versions
 
 ## Install
 
@@ -47,22 +47,23 @@ For a complete runnable example that uses this SDK inside a custom package, see 
 ## Publisher
 
 ```python
-from settle_sdk import Artifact, Release, SettleClient
+from settle_sdk import Artifact, Version, SettleClient
 
 client = SettleClient("http://localhost:8000", token="pat_...")
 publisher = client.publisher("platform-ci")
 
-release = publisher.publish(
+version = publisher.publish(
     component_id="api",
     version="1.2.3",
-    artifact=Artifact(key="s3://releases/api/1.2.3.tgz", digest="sha256:abc123"),
-    description="API release",
+    artifact=Artifact(key="s3://versions/api/1.2.3.tgz", digest="sha256:abc123"),
+    description="API version",
     tags={"gitSha": "abc123"},
 )
 
-print(release.component_id, release.version)
+print(version.component_id, version.version)
 ```
 
 ## Notes
 
 The runner SDK reports component statuses. Job status is derived by the control plane from claim state and component status reports. Cancellation is a control-plane action today, so the SDK exposes `cancel` as an explicit unsupported operation rather than pretending the runner can report it.
+

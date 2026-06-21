@@ -12,10 +12,9 @@ import { Select } from "@/components/ui/select";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import {
   createDeployment,
-  listReleaseSets,
-  listDeployments,
-  listDeploysets,
   listReleases,
+  listDeployments,
+  listVersions,
   planDeployment,
   queryKeys,
 } from "@/lib/api-client";
@@ -28,19 +27,19 @@ import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 export function DeploymentWorkflowPage({
   onCreated,
   onCancel,
-  onCreateReleaseSet,
+  onCreateRelease,
   initialEnvironmentId = "",
   lockEnvironment = false,
-  initialReleaseSetId = "",
+  initialReleaseId = "",
   lockTarget = false,
   showHeader = true,
 }: {
   onCreated?: () => void;
   onCancel?: () => void;
-  onCreateReleaseSet?: () => void;
+  onCreateRelease?: () => void;
   initialEnvironmentId?: string;
   lockEnvironment?: boolean;
-  initialReleaseSetId?: string;
+  initialReleaseId?: string;
   lockTarget?: boolean;
   showHeader?: boolean;
 } = {}) {
@@ -49,35 +48,35 @@ export function DeploymentWorkflowPage({
   const toast = useToast();
   const { openModal, closeModal } = useModal();
   const { environmentId: defaultEnvironmentId, environments, environmentsLoading } = useAppContext();
-  const [releaseSetId, setReleaseSetId] = useState(initialReleaseSetId);
+  const [releaseId, setReleaseId] = useState(initialReleaseId);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(initialEnvironmentId || defaultEnvironmentId);
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const [force, setForce] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
-  const releaseSetsQuery = useQuery({ queryKey: queryKeys.releaseSets, queryFn: listReleaseSets });
-  const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
+  const releasesQuery = useQuery({ queryKey: queryKeys.releases, queryFn: listReleases });
+  const versionsQuery = useQuery({ queryKey: queryKeys.versions(), queryFn: () => listVersions() });
   const executionsQuery = useQuery({
     queryKey: queryKeys.executions(selectedEnvironmentId),
     queryFn: () => listDeployments(selectedEnvironmentId),
     enabled: Boolean(selectedEnvironmentId),
   });
   const requestedBy = "amit.kumar";
-  const releaseSetOptions = releaseSetsQuery.data ?? [];
-  const activeReleaseSetId = releaseSetId || initialReleaseSetId || releaseSetOptions[0]?.releaseSetId || "";
-  const filteredDeploysets = useMemo(() => {
-    if (!activeReleaseSetId) {
-      return releaseSetOptions;
+  const releaseOptions = releasesQuery.data ?? [];
+  const activeReleaseId = releaseId || initialReleaseId || releaseOptions[0]?.releaseId || "";
+  const filteredReleases = useMemo(() => {
+    if (!activeReleaseId) {
+      return releaseOptions;
     }
-    return releaseSetOptions.filter((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId);
-  }, [activeReleaseSetId, releaseSetOptions]);
-  const selectedDeployset = useMemo(
-    () => filteredDeploysets.find((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId) ?? null,
-    [activeReleaseSetId, filteredDeploysets],
+    return releaseOptions.filter((release) => release.releaseId === activeReleaseId);
+  }, [activeReleaseId, releaseOptions]);
+  const selectedRelease = useMemo(
+    () => filteredReleases.find((release) => release.releaseId === activeReleaseId) ?? null,
+    [activeReleaseId, filteredReleases],
   );
   const activeExecution = useMemo(() => {
-    if (!selectedEnvironmentId || !selectedDeployset) {
+    if (!selectedEnvironmentId || !selectedRelease) {
       return null;
     }
 
@@ -89,14 +88,14 @@ export function DeploymentWorkflowPage({
         if (!["pending", "claimed", "in-progress"].includes(execution.status)) {
           return false;
         }
-        return execution.releaseSetId === selectedDeployset.releaseSetId;
+        return execution.releaseId === selectedRelease.releaseId;
       }) ?? null
     );
-  }, [executionsQuery.data, selectedDeployset, selectedEnvironmentId]);
+  }, [executionsQuery.data, selectedRelease, selectedEnvironmentId]);
   const planQuery = useQuery({
-    queryKey: queryKeys.deploymentPlan(selectedEnvironmentId, activeReleaseSetId, force),
-    queryFn: () => planDeployment({ environmentId: selectedEnvironmentId, releaseSetId: activeReleaseSetId, force }),
-    enabled: Boolean(selectedEnvironmentId && activeReleaseSetId),
+    queryKey: queryKeys.deploymentPlan(selectedEnvironmentId, activeReleaseId, force),
+    queryFn: () => planDeployment({ environmentId: selectedEnvironmentId, releaseId: activeReleaseId, force }),
+    enabled: Boolean(selectedEnvironmentId && activeReleaseId),
     retry: 1,
   });
 
@@ -108,23 +107,23 @@ export function DeploymentWorkflowPage({
 
   useEffect(() => {
     if (lockTarget) {
-      setReleaseSetId(initialReleaseSetId);
+      setReleaseId(initialReleaseId);
     }
-  }, [initialReleaseSetId, initialReleaseSetId, lockTarget]);
+  }, [initialReleaseId, initialReleaseId, lockTarget]);
 
   useEffect(() => {
-    if (lockTarget || !releaseSetsQuery.data) {
+    if (lockTarget || !releasesQuery.data) {
       return;
     }
 
-    if (!releaseSetId) {
+    if (!releaseId) {
       return;
     }
 
-    if (!filteredDeploysets.some((releaseSet) => releaseSet.releaseSetId === releaseSetId)) {
-      setReleaseSetId("");
+    if (!filteredReleases.some((release) => release.releaseId === releaseId)) {
+      setReleaseId("");
     }
-  }, [releaseSetId, releaseSetsQuery.data, filteredDeploysets, lockTarget]);
+  }, [releaseId, releasesQuery.data, filteredReleases, lockTarget]);
   const createMutation = useMutation({
     mutationFn: createDeployment,
     onSuccess: async (execution) => {
@@ -168,9 +167,9 @@ export function DeploymentWorkflowPage({
     )[0];
     return new Map(latestExecution?.items.map((item) => [item.componentId, item.version]));
   }, [executionsQuery.data]);
-  const releaseCreatedAtByKey = useMemo(
-    () => new Map((releasesQuery.data ?? []).map((release) => [`${release.componentId}:${release.version}`, release.createdAt])),
-    [releasesQuery.data],
+  const versionCreatedAtByKey = useMemo(
+    () => new Map((versionsQuery.data ?? []).map((version) => [`${version.componentId}:${version.version}`, version.createdAt])),
+    [versionsQuery.data],
   );
 
   const planPreview = planQuery.data ?? null;
@@ -181,14 +180,14 @@ export function DeploymentWorkflowPage({
   const tagsError = validateTagDrafts(tags);
   const parsedTags = tagsToRecord(tags);
   const deployDisabled =
-    !activeReleaseSetId ||
+    !activeReleaseId ||
     planQuery.isFetching ||
     createMutation.isPending ||
     Boolean(tagsError) ||
     executionsQuery.isFetching ||
     Boolean(activeExecution);
-  const showLockedReleaseSetOption =
-    Boolean(activeReleaseSetId) && !releaseSetOptions.some((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId);
+  const showLockedReleaseOption =
+    Boolean(activeReleaseId) && !releaseOptions.some((release) => release.releaseId === activeReleaseId);
   const showLockedEnvironmentOption =
     Boolean(selectedEnvironmentId) && !environments.some((environment) => environment.environmentId === selectedEnvironmentId);
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
@@ -212,7 +211,7 @@ export function DeploymentWorkflowPage({
                   onConfirm={() =>
                     createMutation.mutateAsync({
                       environmentId: selectedEnvironmentId,
-                      releaseSetId: activeReleaseSetId,
+                      releaseId: activeReleaseId,
                       requestedBy,
                       notes: notes.trim() || null,
                       force,
@@ -229,7 +228,7 @@ export function DeploymentWorkflowPage({
                   ) : planQuery.error ? (
                     <ApiErrorPanel error={planQuery.error} onRetry={() => planQuery.refetch()} />
                   ) : changedPlanItems.length > 0 ? (
-                    <PlanItems items={changedPlanItems} currentVersions={currentVersions} releaseCreatedAtByKey={releaseCreatedAtByKey} />
+                    <PlanItems items={changedPlanItems} currentVersions={currentVersions} versionCreatedAtByKey={versionCreatedAtByKey} />
                   ) : (
                     <EmptyPanel label="No components need to change for this deployment." />
                   )}
@@ -281,30 +280,30 @@ export function DeploymentWorkflowPage({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-semibold">
               <span className="flex items-center gap-2">
-                <ENTITY_ICONS.releaseSet className="h-4 w-4 text-slate-500" />
-                ReleaseSet
+                <ENTITY_ICONS.release className="h-4 w-4 text-slate-500" />
+                Release
                 <RequiredMark />
               </span>
               <Select
                 variant="light"
-                value={activeReleaseSetId}
+                value={activeReleaseId}
                 onChange={(event) => {
-                  setReleaseSetId(event.target.value);
-                  setReleaseSetId("");
+                  setReleaseId(event.target.value);
+                  setReleaseId("");
                 }}
-                disabled={lockTarget || releaseSetsQuery.isLoading || !releaseSetsQuery.data?.length}
+                disabled={lockTarget || releasesQuery.isLoading || !releasesQuery.data?.length}
               >
-                {showLockedReleaseSetOption ? (
-                  <option value={activeReleaseSetId}>{activeReleaseSetId}</option>
+                {showLockedReleaseOption ? (
+                  <option value={activeReleaseId}>{activeReleaseId}</option>
                 ) : null}
-                {!releaseSetOptions.length && !showLockedReleaseSetOption ? (
+                {!releaseOptions.length && !showLockedReleaseOption ? (
                   <option value="" disabled>
-                    {releaseSetsQuery.isLoading ? "Loading release sets..." : "No release sets available"}
+                    {releasesQuery.isLoading ? "Loading releases..." : "No releases available"}
                   </option>
                 ) : null}
-                {releaseSetOptions.map((releaseSet) => (
-                  <option key={releaseSet.releaseSetId} value={releaseSet.releaseSetId}>
-                    {releaseSet.releaseSetId}
+                {releaseOptions.map((release) => (
+                  <option key={release.releaseId} value={release.releaseId}>
+                    {release.releaseId}
                   </option>
                 ))}
               </Select>
@@ -335,11 +334,11 @@ export function DeploymentWorkflowPage({
               </Select>
             </label>
           </div>
-          {onCreateReleaseSet && !lockTarget ? (
+          {onCreateRelease && !lockTarget ? (
             <div className="flex justify-start">
-              <button type="button" className="flex items-center gap-1 text-left text-xs font-bold text-blue-600" onClick={onCreateReleaseSet}>
+              <button type="button" className="flex items-center gap-1 text-left text-xs font-bold text-blue-600" onClick={onCreateRelease}>
                 <Plus className="h-3.5 w-3.5" />
-                Create new ReleaseSet
+                Create new Release
               </button>
             </div>
           ) : null}
@@ -350,7 +349,7 @@ export function DeploymentWorkflowPage({
         <CardHeader>
           <div>
             <CardTitle>Plan preview</CardTitle>
-            <p className="mt-1 text-xs font-medium text-slate-500">The components and versions to be deployed as part of this ReleaseSet.</p>
+            <p className="mt-1 text-xs font-medium text-slate-500">The components and versions to be deployed as part of this Release.</p>
           </div>
         </CardHeader>
         <CardContent>
@@ -359,9 +358,9 @@ export function DeploymentWorkflowPage({
           ) : planQuery.error ? (
             <ApiErrorPanel error={planQuery.error} onRetry={() => planQuery.refetch()} />
           ) : planPreview ? (
-            <PlanItems items={planPreview.items} currentVersions={currentVersions} releaseCreatedAtByKey={releaseCreatedAtByKey} />
+            <PlanItems items={planPreview.items} currentVersions={currentVersions} versionCreatedAtByKey={versionCreatedAtByKey} />
           ) : (
-            <EmptyPanel label="Select a ReleaseSet and environment to preview the deployment." />
+            <EmptyPanel label="Select a Release and environment to preview the deployment." />
           )}
         </CardContent>
       </Card>
@@ -395,7 +394,7 @@ export function DeploymentWorkflowPage({
       <div className="grid gap-1">
         {activeExecution ? (
           <p className="text-xs font-semibold text-red-700">
-            Deployment {activeExecution.deploymentId} is already {activeExecution.status} for this environment and release set.
+            Deployment {activeExecution.deploymentId} is already {activeExecution.status} for this environment and version set.
           </p>
         ) : null}
         <p className="text-xs font-medium text-slate-500">Review the plan before creating a pending deployment.</p>
@@ -473,4 +472,9 @@ function DeploymentConfirmFooter({
     </div>
   );
 }
+
+
+
+
+
 

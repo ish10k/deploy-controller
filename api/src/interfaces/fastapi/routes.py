@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.routing import APIRoute
 
 from src.composition import Container
-from src.domain.errors import ReleaseSetControllerError
+from src.domain.errors import ReleaseControllerError
 from src.domain.models import (
     Component,
-    ReleaseSet,
-    ReleaseSetCreateRequest,
-    ReleaseSetCreateResult,
+    Release,
+    ReleaseCreateRequest,
+    ReleaseCreateResult,
     Deployment,
     DeploymentItem,
     DeploymentRunner,
@@ -25,7 +25,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Release,
+    Version,
     Publisher,
     PublisherCreateRequest,
     PublisherCreateResult,
@@ -418,7 +418,7 @@ def _json(value: Any) -> Any:
 def _handle(fn: Any) -> Any:
     try:
         return _json(fn())
-    except ReleaseSetControllerError as exc:
+    except ReleaseControllerError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
@@ -507,38 +507,38 @@ def put_workspace_component(workspace_id: str, component_id: str, component: Com
     return _handle(lambda: container.components.put(updated, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=list[Release], responses=NOT_FOUND_RESPONSES)
-def list_workspace_releases(
+@router.get("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=list[Version], responses=NOT_FOUND_RESPONSES)
+def list_workspace_versions(
     workspace_id: str,
     container: ContainerDep,
     componentId: Annotated[str | None, Query(description="Optional component ID filter.")] = None,
-) -> list[Release]:
-    return _handle(lambda: container.releases.list(componentId, workspace_id))
+) -> list[Version]:
+    return _handle(lambda: container.versions.list(componentId, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/releases/{component_id}/{version}", tags=["Releases"], response_model=Release, responses=NOT_FOUND_RESPONSES)
-def get_workspace_release(workspace_id: str, component_id: str, version: str, container: ContainerDep) -> Release:
-    return _handle(lambda: container.releases.get(component_id, version, workspace_id))
+@router.get("/workspaces/{workspace_id}/versions/{component_id}/{version}", tags=["Versions"], response_model=Version, responses=NOT_FOUND_RESPONSES)
+def get_workspace_version(workspace_id: str, component_id: str, version: str, container: ContainerDep) -> Version:
+    return _handle(lambda: container.versions.get(component_id, version, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=Release, responses=WRITE_RESPONSES)
-def create_workspace_release(workspace_id: str, release: Release, context: AuthDep, container: ContainerDep) -> Release:
-    return _handle(lambda: container.releases.create(release, context, workspace_id))
+@router.post("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=Version, responses=WRITE_RESPONSES)
+def create_workspace_version(workspace_id: str, version: Version, context: AuthDep, container: ContainerDep) -> Version:
+    return _handle(lambda: container.versions.create(version, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/release-sets", tags=["ReleaseSets"], response_model=list[ReleaseSet], responses=NOT_FOUND_RESPONSES)
-def list_workspace_release_sets(workspace_id: str, container: ContainerDep) -> list[ReleaseSet]:
-    return _handle(lambda: container.release_sets.list(workspace_id))
+@router.get("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=list[Release], responses=NOT_FOUND_RESPONSES)
+def list_workspace_releases(workspace_id: str, container: ContainerDep) -> list[Release]:
+    return _handle(lambda: container.releases.list(workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/release-sets/{release_set_id}", tags=["ReleaseSets"], response_model=ReleaseSet, responses=NOT_FOUND_RESPONSES)
-def get_workspace_release_set(workspace_id: str, release_set_id: str, container: ContainerDep) -> ReleaseSet:
-    return _handle(lambda: container.release_sets.get(release_set_id, workspace_id))
+@router.get("/workspaces/{workspace_id}/releases/{release_id}", tags=["Releases"], response_model=Release, responses=NOT_FOUND_RESPONSES)
+def get_workspace_release(workspace_id: str, release_id: str, container: ContainerDep) -> Release:
+    return _handle(lambda: container.releases.get(release_id, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/release-sets", tags=["ReleaseSets"], response_model=ReleaseSetCreateResult, responses=WRITE_RESPONSES)
-def create_workspace_release_set(workspace_id: str, request: ReleaseSetCreateRequest, context: AuthDep, container: ContainerDep) -> ReleaseSetCreateResult:
-    return _handle(lambda: container.release_sets.create(request, context, workspace_id))
+@router.post("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=ReleaseCreateResult, responses=WRITE_RESPONSES)
+def create_workspace_release(workspace_id: str, request: ReleaseCreateRequest, context: AuthDep, container: ContainerDep) -> ReleaseCreateResult:
+    return _handle(lambda: container.releases.create(request, context, workspace_id))
 
 
 @router.get("/workspaces/{workspace_id}/environments", tags=["Environments"], response_model=list[Environment], responses=NOT_FOUND_RESPONSES)
@@ -608,7 +608,7 @@ def cancel_workspace_deployment_execution(
 
 @router.post("/workspaces/{workspace_id}/deployments/plan", tags=["Deployments"], response_model=DeploymentPlan, responses=WRITE_RESPONSES)
 def plan_workspace_deployment(workspace_id: str, request: PlanDeploymentRequest, context: AuthDep, container: ContainerDep) -> DeploymentPlan:
-    return _handle(lambda: container.plan_deployment.execute(environment_id=request.environment_id, release_set_id=request.release_set_id, workspace_id=workspace_id, force=request.force))
+    return _handle(lambda: container.plan_deployment.execute(environment_id=request.environment_id, release_id=request.release_id, workspace_id=workspace_id, force=request.force))
 
 
 @router.post("/workspaces/{workspace_id}/deployments", tags=["Deployments"], response_model=CreateDeploymentResponse, responses=WRITE_RESPONSES)
@@ -617,7 +617,7 @@ def create_workspace_deployment(workspace_id: str, request: CreateDeploymentRequ
         lambda: {
             "deploymentId": container.create_deployment.execute(
                 environment_id=request.environment_id,
-                release_set_id=request.release_set_id,
+                release_id=request.release_id,
                 context=context,
                 workspace_id=workspace_id,
                 notes=request.notes,
@@ -741,13 +741,15 @@ def rotate_workspace_publisher_token(workspace_id: str, publisher_id: str, conte
     return _handle(lambda: container.publishers.rotate_token(publisher_id, context, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/releases", tags=["Publishers"], response_model=Release, responses=WRITE_RESPONSES)
-def publish_workspace_release_from_publisher(
+@router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/versions", tags=["Publishers"], response_model=Version, responses=WRITE_RESPONSES)
+def publish_workspace_version_from_publisher(
     workspace_id: str,
     publisher_id: str,
-    release: Release,
+    version: Version,
     context: AuthDep,
     container: ContainerDep,
-) -> Release:
-    return _handle(lambda: container.publishers.publish_release(publisher_id, release, context, workspace_id))
+) -> Version:
+    return _handle(lambda: container.publishers.publish_version(publisher_id, version, context, workspace_id))
+
+
 

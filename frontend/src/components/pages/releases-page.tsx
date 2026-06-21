@@ -1,78 +1,187 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { AlertTriangle, CheckCheck, Copy, Plus, Search, X } from "lucide-react";
 
-import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, PageHeader, useMinimumVisible } from "@/components/common/api-state";
+import { ApiErrorPanel, EmptyPanel, LoadingOverlay, LoadingPanel, useMinimumVisible } from "@/components/common/api-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EntityLink } from "@/components/ui/entity-link";
 import { Input } from "@/components/ui/input";
 import { NotesCard } from "@/components/ui/notes-card";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { Select } from "@/components/ui/select";
-import { SideDrawer } from "@/components/ui/side-drawer";
+import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/components/ui/toast";
+import {
+  createRelease,
+  listReleases,
+  listEnvironmentState,
+  listEnvironments,
+  listVersions,
+  queryKeys,
+  type ApiRelease,
+  type ApiReleaseCreateRequest,
+  type ApiEnvironmentState,
+  type ApiVersion,
+} from "@/lib/api-client";
+import { formatRelativeTime, tagSummary } from "@/lib/format";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
-import { useAppContext } from "@/lib/app-context";
-import { createRelease, listComponents, listReleases, queryKeys, type ApiRelease } from "@/lib/api-client";
-import { formatRelativeTime } from "@/lib/format";
+
+type ReleaseItemDraft = {
+  id: string;
+  componentId: string;
+  version: string;
+};
+
+type ReleaseFormState = {
+  releaseId: string;
+  baseEnvironmentId: string;
+  baseReleaseId: string;
+  notes: string;
+  tags: TagDraft[];
+  items: ReleaseItemDraft[];
+};
+
+const draftId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+
+const draftItem = (componentId = "", version = ""): ReleaseItemDraft => ({
+  id: draftId(),
+  componentId,
+  version,
+});
+
+const defaultForm = (): ReleaseFormState => ({
+  releaseId: "",
+  baseEnvironmentId: "",
+  baseReleaseId: "",
+  notes: "",
+  tags: [createTagDraft()],
+  items: [],
+});
 
 export function ReleasesPage({
   embedded = false,
+  drawerOnly = false,
   createSignal = 0,
+  onCreateSignalHandled,
   search: externalSearch,
   refreshSignal = 0,
-  onCreateComponent,
 }: {
   embedded?: boolean;
+  drawerOnly?: boolean;
   createSignal?: number;
+  onCreateSignalHandled?: () => void;
   search?: string;
   refreshSignal?: number;
-  onCreateComponent?: () => void;
 } = {}) {
-  const [search, setSearch] = useState("");
-  const [componentFilter, setComponentFilter] = useState("");
-  const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useWorkspaceNavigate();
-  const query = useQuery({ queryKey: queryKeys.releases(componentFilter || undefined), queryFn: () => listReleases(componentFilter || undefined) });
-  const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
-  const allReleasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
-  const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
-  const mutation = useMutation({
+  const toast = useToast();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
+  const [drawerEntered, setDrawerEntered] = useState(false);
+  const [search, setSearch] = useState("");
+  const [releaseFilter, setReleaseFilter] = useState("all");
+
+  const releasesQuery = useQuery({ queryKey: queryKeys.releases, queryFn: listReleases });
+  const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
+  const environmentStateQuery = useQuery({ queryKey: queryKeys.environmentState, queryFn: listEnvironmentState });
+  const versionsQuery = useQuery({ queryKey: queryKeys.versions(), queryFn: () => listVersions() });
+  const refreshing = useMinimumVisible(releasesQuery.isFetching && !releasesQuery.isLoading);
+
+  const createMutation = useMutation({
     mutationFn: createRelease,
-    onSuccess: async (release) => {
-      setOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["releases"] });
-      await navigate({ to: "/releases/$componentId/$version", params: { componentId: release.componentId, version: release.version } });
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.releases });
+      closeDrawer();
+      toast({
+        title: "Release created",
+        description: `${result.release.releaseId} is ready with ${result.release.items.length} component versions.`,
+        variant: "success",
+      });
+      await navigate({ to: "/releases/$releaseId", params: { releaseId: result.release.releaseId } });
     },
   });
 
   useEffect(() => {
     if (createSignal > 0) {
-      setOpen(true);
+      openDrawer();
+      onCreateSignalHandled?.();
     }
-  }, [createSignal]);
+  }, [createSignal, onCreateSignalHandled]);
   useEffect(() => {
     if (refreshSignal > 0) {
-      void query.refetch();
-      void componentsQuery.refetch();
-      void allReleasesQuery.refetch();
+      void releasesQuery.refetch();
+      void environmentsQuery.refetch();
+      void environmentStateQuery.refetch();
+      void versionsQuery.refetch();
     }
   }, [refreshSignal]);
-  const releases = query.data ?? [];
-  const componentOptions = useMemo(() => {
-    const registered = (componentsQuery.data ?? []).map((component) => component.componentId);
-    const released = (allReleasesQuery.data ?? releases).map((release) => release.componentId);
-    return Array.from(new Set([...registered, ...released])).sort();
-  }, [allReleasesQuery.data, componentsQuery.data, releases]);
-  const latestReleaseByComponent = useMemo(() => latestReleasesByComponent(allReleasesQuery.data ?? releases), [allReleasesQuery.data, releases]);
+
+  useEffect(() => {
+    if (drawerOpen) {
+      setDrawerMounted(true);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setDrawerMounted(false), 250);
+    return () => window.clearTimeout(timeout);
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (!drawerMounted) {
+      return;
+    }
+
+    if (drawerOpen) {
+      const frame = window.requestAnimationFrame(() => setDrawerEntered(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    setDrawerEntered(false);
+  }, [drawerMounted, drawerOpen]);
+
+  useEffect(() => {
+    if (!drawerMounted) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeDrawer();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [drawerMounted]);
+
+  const openDrawer = () => {
+    setDrawerMounted(true);
+    setDrawerOpen(true);
+    setDrawerEntered(false);
+  };
+
+  const closeDrawer = () => {
+    setDrawerEntered(false);
+    setDrawerOpen(false);
+  };
+
+  const releases = releasesQuery.data ?? [];
   const filteredReleases = useMemo(() => {
     const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
     return releases.filter((release) => {
-      if (componentFilter && release.componentId !== componentFilter) {
+      if (releaseFilter !== "all" && release.releaseId !== releaseFilter) {
         return false;
       }
 
@@ -80,26 +189,52 @@ export function ReleasesPage({
         return true;
       }
 
-      return [release.componentId, release.version, release.description ?? "", release.notes ?? "", release.artifact.key]
+      return [release.releaseId, release.releaseId, release.createdBy, tagSummary(release.tags)]
         .join(" ")
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [componentFilter, externalSearch, releases, search]);
+  }, [releaseFilter, releases, externalSearch, search]);
+
+  if (releasesQuery.isLoading) {
+    return <LoadingPanel label="Loading releases..." />;
+  }
+
+  if (releasesQuery.error) {
+    return <ApiErrorPanel error={releasesQuery.error} onRetry={() => releasesQuery.refetch()} />;
+  }
+
+  const drawer = drawerMounted ? (
+    <CreateReleaseDrawer
+      open={drawerEntered}
+      releases={releasesQuery.data ?? []}
+      environments={environmentsQuery.data ?? []}
+      environmentState={environmentStateQuery.data ?? []}
+      versions={versionsQuery.data ?? []}
+      pending={createMutation.isPending}
+      error={createMutation.error}
+      onClose={closeDrawer}
+      onSubmit={(request) => createMutation.mutate(request)}
+    />
+  ) : null;
+
+  if (drawerOnly) {
+    return <>{drawer}</>;
+  }
 
   return (
-    <>
+    <div className={embedded ? "flex min-h-0 flex-col overflow-hidden" : "flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden"}>
       {!embedded ? (
-        <PageHeader
-          title="Releases"
-          subtitle="Component artifact versions available to ReleaseSets."
-          action={
-            <Button className="px-4" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Release
-            </Button>
-          }
-        />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-normal text-slate-950">Releases</h1>
+            <p className="mt-1 text-sm font-medium text-slate-600">Immutable desired component-version sets ready for deployment.</p>
+          </div>
+          <Button className="px-4" onClick={openDrawer}>
+            <Plus className="h-5 w-5" />
+            Create Release
+          </Button>
+        </div>
       ) : null}
       {!embedded ? <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-3">
@@ -112,276 +247,542 @@ export function ReleasesPage({
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
-          <Select
-            variant="light"
-            value={componentFilter || "all"}
-            onChange={(event) => setComponentFilter(event.target.value === "all" ? "" : event.target.value)}
-            className="w-[220px]"
-          >
-            <option value="all">Component: All</option>
-            {componentOptions.map((componentId) => (
-              <option key={componentId} value={componentId}>
-                {componentId}
+          <Select variant="light" value={releaseFilter} onChange={(event) => setReleaseFilter(event.target.value)} className="w-[220px]">
+            <option value="all">Release: All</option>
+            {(releasesQuery.data ?? []).map((release) => (
+              <option key={release.releaseId} value={release.releaseId}>
+                {release.releaseId}
               </option>
             ))}
           </Select>
         </div>
-        <Button variant="outline" onClick={() => query.refetch()}>
+        <Button variant="outline" onClick={() => releasesQuery.refetch()}>
           Refresh
         </Button>
       </div> : null}
-      {query.isLoading ? (
-        <LoadingPanel label="Loading releases..." />
-      ) : query.error ? (
-        <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />
-      ) : releases.length ? (
-        embedded ? (
-          <div className="relative">
+
+      {embedded ? (
+        <div className="relative">
+          {refreshing ? <LoadingOverlay /> : null}
+          {filteredReleases.length ? (
+            <ScrollFade className="flex-1 rounded-t-lg">
+              <ReleasesTable rows={filteredReleases} />
+            </ScrollFade>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-4">
+              <EmptyPanel label="No Releases match the current filters." />
+            </div>
+          )}
+        </div>
+      ) : (
+        <Card className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
             {refreshing ? <LoadingOverlay /> : null}
             {filteredReleases.length ? (
-              <Table>
-                <ReleasesTableContent rows={filteredReleases} />
-              </Table>
+              <ScrollFade className="flex-1 rounded-t-lg">
+                <ReleasesTable rows={filteredReleases} />
+              </ScrollFade>
             ) : (
-              <EmptyPanel label="No releases match the current filters." />
+              <div className="flex flex-1 items-center justify-center p-4">
+                <EmptyPanel label="No Releases match the current filters." />
+              </div>
             )}
-          </div>
-        ) : (
-          <Card className="relative mt-4 overflow-hidden">
-            <CardContent className="p-3">
-              {refreshing ? <LoadingOverlay /> : null}
-              {filteredReleases.length ? (
-                <Table>
-                  <ReleasesTableContent rows={filteredReleases} />
-                </Table>
-              ) : (
-                <EmptyPanel label="No releases match the current filters." />
-              )}
-            </CardContent>
-          </Card>
-        )
-      ) : (
-        <EmptyPanel label="No releases found." />
+          </CardContent>
+        </Card>
       )}
-      <ReleaseDrawer
-        componentOptions={componentOptions}
-        latestReleaseByComponent={latestReleaseByComponent}
-        open={open}
-        onClose={() => setOpen(false)}
-        onSubmit={(value) => mutation.mutate(value)}
-        pending={mutation.isPending}
-        onCreateComponent={onCreateComponent}
-      />
-    </>
+
+      {drawer}
+    </div>
   );
 }
 
-function ReleasesTableContent({ rows }: { rows: ApiRelease[] }) {
+function ReleasesTable({ rows }: { rows: ApiRelease[] }) {
   return (
-    <>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Component</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((release) => (
-                    <TableRow key={`${release.componentId}:${release.version}`} className="hover:bg-slate-50">
-                      <TableCell>
-                        <EntityLink
-                          kind="component"
-                          to="/components/$componentId"
-                          params={{ componentId: release.componentId }}
-                        >
-                          {release.componentId}
-                        </EntityLink>
-                      </TableCell>
-                      <TableCell>
-                        <EntityLink
-                          kind="release"
-                          to="/releases/$componentId/$version"
-                          params={{ componentId: release.componentId, version: release.version }}
-                        >
-                          {release.version}
-                        </EntityLink>
-                      </TableCell>
-                      <TableCell>{formatRelativeTime(release.createdAt, { mode: "short" })}</TableCell>
-                      <TableCell className="max-w-[420px] truncate">{release.notes ?? "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-    </>
+    <Table>
+      <TableHeader className="sticky top-0 z-10 bg-white">
+        <TableRow>
+          <TableHead>Release</TableHead>
+          <TableHead>Created By</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead>Tags</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((release) => (
+          <TableRow key={release.releaseId} className="hover:bg-blue-50/40">
+            <TableCell>
+              <EntityLink
+                kind="release"
+                to="/releases/$releaseId"
+                params={{ releaseId: release.releaseId }}
+              >
+                {release.releaseId}
+              </EntityLink>
+            </TableCell>
+            <TableCell>
+              <EntityLink
+                kind="user"
+                to="/users/$principalId"
+                params={{ principalId: release.createdBy }}
+              >
+                {release.createdBy}
+              </EntityLink>
+            </TableCell>
+            <TableCell>{formatRelativeTime(release.createdAt, { mode: "short" })}</TableCell>
+            <TableCell>
+              <TagList tags={release.tags} limit={3} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-export function ReleaseDrawer({
-  componentOptions,
-  latestReleaseByComponent,
+function CreateReleaseDrawer({
   open,
+  releases,
+  environments,
+  environmentState,
+  versions,
+  pending,
+  error,
   onClose,
   onSubmit,
-  pending,
-  onCreateComponent,
-  initialComponentId = "",
-  lockComponent = false,
 }: {
-  componentOptions: string[];
-  latestReleaseByComponent: Map<string, ApiRelease>;
   open: boolean;
-  onClose: () => void;
-  onSubmit: (release: ApiRelease) => void;
+  releases: ApiRelease[];
+  environments: { environmentId: string }[];
+  environmentState: ApiEnvironmentState[];
+  versions: ApiVersion[];
   pending: boolean;
-  onCreateComponent?: () => void;
-  initialComponentId?: string;
-  lockComponent?: boolean;
+  error: unknown;
+  onClose: () => void;
+  onSubmit: (request: ApiReleaseCreateRequest) => void;
 }) {
-  const { workspaceId } = useAppContext();
-  const [componentId, setComponentId] = useState(initialComponentId);
-  const [version, setVersion] = useState("");
-  const [artifactKey, setArtifactKey] = useState("");
-  const [artifactDigest, setArtifactDigest] = useState("");
-  const [notes, setNotes] = useState("");
-  const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
-  const trimmedComponentId = componentId.trim();
-  const trimmedVersion = version.trim();
-  const trimmedArtifactKey = artifactKey.trim();
-  const tagsError = validateTagDrafts(tags);
-  const latestRelease = latestReleaseByComponent.get(componentId);
+  const [form, setForm] = useState<ReleaseFormState>(() => defaultForm());
+  const selectedRelease = useMemo(
+    () => releases.find((release) => release.releaseId === form.releaseId),
+    [releases, form.releaseId],
+  );
+  const componentIds = useMemo(() => selectedRelease?.items?.map((item) => item.componentId) ?? [], [selectedRelease]);
+  const releaseById = useMemo(() => new Map(releases.map((release) => [release.releaseId, release])), [releases]);
+  const environmentStateById = useMemo(() => new Map(environmentState.map((state) => [state.environmentId, state])), [environmentState]);
+  const versionsByComponent = useMemo(() => {
+    const grouped = new Map<string, ApiVersion[]>();
+
+    for (const version of versions) {
+      grouped.set(version.componentId, [...(grouped.get(version.componentId) ?? []), version]);
+    }
+
+    for (const [componentId, componentVersions] of grouped) {
+      grouped.set(
+        componentId,
+        [...componentVersions].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+      );
+    }
+
+    return grouped;
+  }, [versions]);
+  const resolvedBaseRelease = useMemo(() => {
+    if (form.baseReleaseId) {
+      return releaseById.get(form.baseReleaseId);
+    }
+
+    const state = form.baseEnvironmentId ? environmentStateById.get(form.baseEnvironmentId) : undefined;
+    return state?.releaseId ? releaseById.get(state.releaseId) : undefined;
+  }, [releaseById, environmentStateById, form.baseReleaseId, form.baseEnvironmentId]);
+  const baseSourceLabel = form.baseReleaseId || (form.baseEnvironmentId ? `${form.baseEnvironmentId} current state` : "");
+
+  const errors = validateForm(form);
+  const canSubmit = Boolean(form.releaseId.trim()) && Object.keys(errors).length === 0 && !pending;
+  const parsedTags = tagsToRecord(form.tags);
 
   useEffect(() => {
-    if (lockComponent) {
-      setComponentId(initialComponentId);
+    if (!form.releaseId && releases[0]?.releaseId) {
+      setForm((current) => ({ ...current, releaseId: releases[0].releaseId }));
     }
-  }, [initialComponentId, lockComponent]);
+  }, [releases, form.releaseId]);
 
-  const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
-    setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
+  useEffect(() => {
+    setForm((current) => {
+      const existingByComponent = new Map(current.items.map((item) => [item.componentId, item]));
+      const nextItems = componentIds.map((componentId) => {
+        const existing = existingByComponent.get(componentId);
+        return existing ? { ...existing } : draftItem(componentId);
+      });
+
+      if (
+        nextItems.length === current.items.length &&
+        nextItems.every((item, index) => item.componentId === current.items[index]?.componentId && item.version === current.items[index]?.version)
+      ) {
+        return current;
+      }
+
+      return { ...current, items: nextItems };
+    });
+  }, [componentIds]);
+
+  const updateItemVersion = (id: string, version: string) => {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item) => (item.id === id ? { ...item, version } : item)),
+    }));
+  };
+
+  const useBaseForItems = () => {
+    if (!resolvedBaseRelease) {
+      return;
+    }
+
+    const baseItemByComponent = new Map(resolvedBaseRelease.items.map((item) => [item.componentId, item]));
+
+    setForm((current) => ({
+      ...current,
+      releaseId: current.releaseId || resolvedBaseRelease.releaseId,
+      items: current.items.length
+        ? current.items.map((item) => ({
+            ...item,
+            version: baseItemByComponent.get(item.componentId)?.version ?? item.version,
+          }))
+        : resolvedBaseRelease.items.map((item) => draftItem(item.componentId, item.version)),
+    }));
+  };
+
+  const updateTag = (id: string, patch: Partial<TagDraft>) => {
+    setForm((current) => ({
+      ...current,
+      tags: current.tags.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)),
+    }));
+  };
+
+  const removeTag = (id: string) => {
+    setForm((current) => ({ ...current, tags: current.tags.filter((tag) => tag.id !== id) }));
   };
 
   const submit = () => {
-    if (!trimmedComponentId || !trimmedVersion || !trimmedArtifactKey || tagsError) {
+    if (!canSubmit) {
       return;
     }
 
     onSubmit({
-      workspaceId,
-      componentId: trimmedComponentId,
-      version: trimmedVersion,
-      description: `${trimmedComponentId} ${trimmedVersion}`,
-      artifact: { key: trimmedArtifactKey, digest: artifactDigest.trim() || "" },
-      source: null,
-      notes: notes.trim() || null,
-      createdAt: new Date().toISOString(),
+      releaseId: form.releaseId,
+      baseEnvironmentId: form.baseEnvironmentId || null,
+      baseReleaseId: form.baseReleaseId || null,
+      notes: form.notes.trim() || null,
+      items: form.items.map((item) => ({ componentId: item.componentId.trim(), version: item.version.trim() })),
       createdBy: "amit.kumar",
-      tags: tagsToRecord(tags),
+      tags: parsedTags,
     });
   };
 
   return (
-    <SideDrawer
-      open={open}
-      title="Create release"
-      description="Capture the component version and artifact metadata that release sets will consume."
-      onClose={onClose}
-      footer={
-        <>
-          <p className="text-xs text-slate-500">A release is immutable and cannot be changed after creation.</p>
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close Release creator"
+        className={`absolute inset-0 z-0 bg-slate-950/30 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
+        onClick={onClose}
+      />
+      <aside
+        className={`absolute right-0 top-0 z-10 flex h-full w-full max-w-[860px] transform flex-col border-l border-slate-200 bg-slate-50 shadow-2xl transition-transform duration-300 ease-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+        aria-label="Create Release"
+      >
+        <div className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Create Release</h2>
+            <p className="mt-1 text-sm text-slate-600">Compose an immutable desired state from pinned component versions.</p>
+          </div>
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close Release creator">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden p-5">
+          <ScrollFade className="h-full rounded-lg" contentClassName="space-y-4 pr-1">
+            <SectionCard title="Identity" description="Name the Release and attach it to the version set it satisfies.">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <Field label="Release ID" required>
+                  <Input value={form.releaseId} onChange={(event) => setForm({ ...form, releaseId: event.target.value })} placeholder="webstack-prod-v6" />
+                </Field>
+                <Field label="Release" required error={errors.releaseId}>
+                  <Select variant="light" value={form.releaseId} onChange={(event) => setForm({ ...form, releaseId: event.target.value })}>
+                    <option value="">Select version set</option>
+                    {releases.map((release) => (
+                      <option key={release.releaseId} value={release.releaseId}>
+                        {release.releaseId}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Components"
+              required
+              description="Choose one source to derive context from, then set the desired versions for this version set."
+              action={
+                <Button type="button" variant="outline" disabled={!resolvedBaseRelease} onClick={useBaseForItems}>
+                  Set versions from base
+                </Button>
+              }
+            >
+              <div className="flex items-end gap-3">
+                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold text-slate-800">
+                  Base environment
+                  <Select
+                    variant="light"
+                    value={form.baseEnvironmentId}
+                    onChange={(event) => setForm({ ...form, baseEnvironmentId: event.target.value, baseReleaseId: "" })}
+                  >
+                    <option value=""></option>
+                    {environments.map((environment) => (
+                      <option key={environment.environmentId} value={environment.environmentId}>
+                        {environment.environmentId}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-xs font-bold uppercase tracking-wide text-slate-400">Or</div>
+                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold text-slate-800">
+                  Base Release
+                  <Select
+                    variant="light"
+                    value={form.baseReleaseId}
+                    onChange={(event) => setForm({ ...form, baseReleaseId: event.target.value, baseEnvironmentId: "" })}
+                  >
+                    <option value=""></option>
+                    {releases.map((release) => (
+                      <option key={release.releaseId} value={release.releaseId}>
+                        {release.releaseId}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              </div>
+
+              <div className="mt-4 overflow-hidden border-t border-slate-100 pt-3">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Component</TableHead>
+                      <TableHead>
+                        Version
+                        <RequiredMark />
+                      </TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y-0">
+                    {form.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <ReadonlyUnderlineValue value={item.componentId} />
+                        </TableCell>
+                        <TableCell colSpan={2}>
+                          <UnderlineSelect
+                            value={item.version}
+                            onChange={(event) => updateItemVersion(item.id, event.target.value)}
+                            aria-label={`${item.componentId} version`}
+                          >
+                            <option value="">Select version</option>
+                            {versionOptionsForComponent(item.componentId, item.version, versionsByComponent).map((version) => (
+                              <option key={version} value={version}>
+                                {version}
+                              </option>
+                            ))}
+                          </UnderlineSelect>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {!form.items.length ? <p className="mt-3 text-xs font-medium text-slate-500">Select a version set to choose versions.</p> : null}
+              {errors.items ? <InlineFormError message={errors.items} /> : null}
+            </SectionCard>
+
+            <TagsCard
+              tags={form.tags}
+              error={errors.tags}
+              resourceType="release"
+              onReplace={(tags) => setForm((current) => ({ ...current, tags }))}
+              onAdd={() => setForm((current) => ({ ...current, tags: [...current.tags, createTagDraft()] }))}
+              onChange={updateTag}
+              onRemove={removeTag}
+            />
+
+            <NotesCard
+              value={form.notes}
+              onChange={(notes) => setForm((current) => ({ ...current, notes }))}
+              description="Capture why this Release was created, approval context, or rollout intent."
+              placeholder="Why this Release was created, approval context, rollout intent..."
+            />
+
+            {error ? (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-normal text-red-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                {error instanceof Error ? error.message : "Unable to create Release."}
+              </div>
+            ) : null}
+          </ScrollFade>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-5 py-4">
+          <p className="text-xs font-medium text-slate-500">
+            Releases are immutable after creation, so double-check component versions before saving.
+          </p>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button disabled={pending || !trimmedComponentId || !trimmedVersion || !trimmedArtifactKey || Boolean(tagsError)} onClick={submit}>
-              {pending ? "Creating..." : "Create release"}
+            <Button type="button" disabled={!canSubmit} onClick={submit}>
+              <CheckCheck className="h-4 w-4" />
+              Create Release
             </Button>
           </div>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900">Release target</h3>
-          <p className="mt-1 text-sm text-slate-500">Choose the component and the immutable version label.</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="block text-sm font-medium text-slate-700">
-              Component ID
-              <RequiredMark />
-              <Select variant="light" className="mt-1" value={componentId} onChange={(event) => setComponentId(event.target.value)} disabled={lockComponent}>
-                {!componentId ? <option value="">Select component</option> : null}
-                {componentId && !componentOptions.includes(componentId) ? (
-                  <option value={componentId}>{componentId}</option>
-                ) : null}
-                {componentOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </Select>
-              {onCreateComponent && !lockComponent ? (
-                <button type="button" className="mt-2 text-xs font-bold text-blue-600" onClick={onCreateComponent}>
-                  Create new component
-                </button>
-              ) : null}
-              {componentId ? (
-                <span className="mt-1 block text-xs font-medium text-slate-500">
-                  {latestRelease ? `Latest version: ${latestRelease.version}` : "No releases yet for this component."}
-                </span>
-              ) : null}
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Version
-              <RequiredMark />
-              <Input className="mt-1" value={version} onChange={(event) => setVersion(event.target.value)} placeholder="2026.06.17.1" />
-            </label>
-          </div>
-        </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900">Artifact</h3>
-          <p className="mt-1 text-sm text-slate-500">Store the artifact key now; the digest can be refined later if the build pipeline fills it in.</p>
-          <div className="mt-4 space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Artifact key
-              <RequiredMark />
-              <Input className="mt-1" value={artifactKey} onChange={(event) => setArtifactKey(event.target.value)} placeholder="artifacts/checkout-api/2026.06.17.1.zip" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Artifact digest
-              <Input className="mt-1" value={artifactDigest} onChange={(event) => setArtifactDigest(event.target.value)} placeholder="sha256:..." />
-            </label>
-          </div>
-        </section>
-        <TagsCard
-          tags={tags}
-          error={tagsError}
-          resourceType="release"
-          onReplace={setTags}
-          onAdd={() => setTags((current) => [...current, createTagDraft()])}
-          onChange={updateTag}
-          onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}
-        />
-        <NotesCard
-          value={notes}
-          onChange={setNotes}
-          description="Capture what changed, rollout notes, or links to build context."
-          placeholder="What changed, rollout notes, links to build context..."
-        />
-      </div>
-    </SideDrawer>
+        </div>
+      </aside>
+    </div>
   );
 }
 
-function latestReleasesByComponent(releases: ApiRelease[]) {
-  const latest = new Map<string, ApiRelease>();
+function SectionCard({
+  title,
+  description,
+  action,
+  required = false,
+  children,
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-bold text-slate-950">
+              {title}
+              {required ? <RequiredMark /> : null}
+            </div>
+            <div className="mt-1 text-xs font-medium text-slate-500">{description}</div>
+          </div>
+          {action}
+        </div>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
 
-  for (const release of releases) {
-    const current = latest.get(release.componentId);
-    if (!current || release.createdAt.localeCompare(current.createdAt) > 0) {
-      latest.set(release.componentId, release);
-    }
+function Field({
+  label,
+  error,
+  hint,
+  required = false,
+  children,
+}: {
+  label: string;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1">
+      <label className="text-sm font-semibold text-slate-800">
+        {label}
+        {required ? <RequiredMark /> : null}
+        {children}
+      </label>
+      {hint ? <span className="text-xs font-medium text-slate-500">{hint}</span> : null}
+      {error ? <InlineFormError message={error} /> : null}
+    </div>
+  );
+}
+
+function InlineFormError({ message }: { message: string }) {
+  return (
+    <span className="mt-1 flex items-center gap-1.5 text-xs font-normal text-red-600">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      {message}
+    </span>
+  );
+}
+
+function UnderlineSelect({ children, onBlur, onFocus, style, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <select
+      {...props}
+      onBlur={(event) => {
+        setFocused(false);
+        onBlur?.(event);
+      }}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
+      style={{
+        ...style,
+        borderBottomColor: focused ? "#94a3b8" : "#cbd5e1",
+        borderBottomWidth: focused ? 2 : 1,
+        transition: "border-bottom-color 140ms ease, border-bottom-width 140ms ease",
+      }}
+      className="h-7 w-full appearance-none border-0 border-b border-solid bg-transparent px-1 pb-0.5 text-sm font-medium text-slate-950 outline-none"
+    >
+      {children}
+    </select>
+  );
+}
+
+function ReadonlyUnderlineValue({ value }: { value: string }) {
+  return (
+    <div
+      className="flex h-7 w-full items-center border-0 border-b border-solid bg-transparent px-1 pb-0.5 text-sm font-semibold text-slate-900"
+      style={{ borderBottomColor: "#cbd5e1", borderBottomWidth: 1 }}
+    >
+      {value}
+    </div>
+  );
+}
+
+function versionOptionsForComponent(componentId: string, currentVersion: string, versionsByComponent: Map<string, ApiVersion[]>) {
+  const versions = versionsByComponent.get(componentId)?.map((version) => version.version) ?? [];
+  return Array.from(new Set([currentVersion, ...versions].filter(Boolean)));
+}
+
+function validateForm(form: ReleaseFormState) {
+  const errors: Partial<Record<keyof ReleaseFormState, string>> = {};
+
+  if (!form.releaseId) {
+    errors.releaseId = "Choose a version set.";
   }
 
-  return latest;
+  const tagError = validateTagDrafts(form.tags);
+  if (tagError) {
+    errors.tags = tagError;
+  }
+
+  if (!form.items.length) {
+    errors.items = "Add at least one component version.";
+  } else if (form.items.some((item) => !item.componentId.trim() || !item.version.trim())) {
+    errors.items = "Every component needs a selected version.";
+  }
+
+  return errors;
 }
+
+
+
+
+
 

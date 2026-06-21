@@ -11,10 +11,10 @@ TagResourceType = Literal[
     "organization",
     "workspace",
     "component",
-    "release-set",
     "release",
-    "release-set",
-    "deployment-execution",
+    "version",
+    "release",
+    "deployment",
     "environment",
     "deployment-runner",
     "publisher",
@@ -50,7 +50,7 @@ class Source:
 
 
 @dataclass(frozen=True)
-class Release:
+class Version:
     component_id: str
     version: str
     artifact: Artifact
@@ -83,7 +83,7 @@ class Release:
         return payload
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Release:
+    def from_dict(cls, data: dict[str, Any]) -> Version:
         source = data.get("source")
         return cls(
             workspace_id=str(data.get("workspaceId", "default")),
@@ -150,7 +150,7 @@ class DeploymentItem:
     workspace_id: str
     deployment_id: str
     environment_id: str
-    release_set_id: str
+    release_id: str
     component_id: str
     version: str
     artifact: Artifact
@@ -178,7 +178,7 @@ class DeploymentItem:
             workspace_id=str(data.get("workspaceId", "default")),
             deployment_id=str(data.get("deploymentId", "")),
             environment_id=str(data.get("environmentId", "")),
-            release_set_id=str(data.get("releaseSetId", "")),
+            release_id=str(data.get("releaseId", "")),
             version=str(data["version"]),
             artifact=Artifact.from_dict(_dict(data["artifact"])),
             requested_action=_requested_action(data.get("requestedAction")),
@@ -204,7 +204,7 @@ class DeploymentItem:
 class Deployment:
     deployment_id: str
     environment_id: str
-    releaseSet_id: str
+    release_id: str
     status: ExecutionStatus
     requested_by: str
     started_at: str
@@ -222,7 +222,7 @@ class Deployment:
             workspace_id=str(data.get("workspaceId", "default")),
             deployment_id=str(data["deploymentId"]),
             environment_id=str(data["environmentId"]),
-            release_set_id=str(data["releaseSetId"]),
+            release_id=str(data["releaseId"]),
             status=_execution_status(data.get("status")),
             requested_by=str(data["requestedBy"]),
             notes=_optional_str(data.get("notes")),
@@ -275,3 +275,6 @@ def _requested_action(value: object) -> RequestedAction:
     if value in {"deploy", "skip"}:
         return value
     raise ValueError(f"unsupported requested action: {value!r}")
+
+
+

@@ -42,15 +42,15 @@ def test_webhook_subscriptions_create_one_delivery_per_matching_rule() -> None:
         on_append=webhooks.enqueue_for_event,
     )
     webhooks.put(
-        "release-events",
+        "version-events",
         Webhook(
             webhookId="ignored",
-            displayName="Release events",
+            displayName="Version events",
             url="https://example.com/webhook",
             active=True,
             retryPolicy=WebhookRetryPolicy(maxAttempts=2, backoffSeconds=60),
             subscriptions=[
-                WebhookSubscription(subscriptionId="sub-release", eventTypes=["release.created"], filters=WebhookFilter(resourceTypes=["release"])),
+                WebhookSubscription(subscriptionId="sub-version", eventTypes=["version.created"], filters=WebhookFilter(resourceTypes=["version"])),
                 WebhookSubscription(subscriptionId="sub-audit", eventTypes=["eventlog.created"], filters=WebhookFilter(categories=["registry"])),
             ],
             createdAt=clock.now(),
@@ -61,19 +61,19 @@ def test_webhook_subscriptions_create_one_delivery_per_matching_rule() -> None:
 
     events.append_actor(
         actor_principal_id="user:test-admin",
-        action="release.created",
+        action="version.created",
         category="registry",
-        summary="Created release api 1.2.3",
-        resource_type="release",
+        summary="Created version api 1.2.3",
+        resource_type="version",
         resource_id="api@1.2.3",
         metadata={"token": "must-redact", "componentId": "api"},
     )
 
-    deliveries = store.list_webhook_deliveries(webhook_id="release-events")
+    deliveries = store.list_webhook_deliveries(webhook_id="version-events")
     assert len(deliveries) == 2
-    assert {delivery.subscription_id for delivery in deliveries} == {"sub-release", "sub-audit"}
+    assert {delivery.subscription_id for delivery in deliveries} == {"sub-version", "sub-audit"}
     assert {delivery.envelope.schema_version for delivery in deliveries} == {"webhook.v1"}
-    assert {delivery.envelope.event_type for delivery in deliveries} == {"release.created"}
+    assert {delivery.envelope.event_type for delivery in deliveries} == {"version.created"}
     assert all(delivery.status == WebhookDeliveryStatus.FAILED for delivery in deliveries)
     assert all(delivery.attempts == 1 for delivery in deliveries)
     assert all(delivery.next_attempt_at is not None for delivery in deliveries)
@@ -95,12 +95,14 @@ def test_webhook_matching_honors_resource_filters() -> None:
         actorPrincipalId="user:test-admin",
         actorType="user",
         origin=EventOrigin.USER,
-        action="release-set.created",
+        action="release.created",
         category="registry",
-        summary="Created release_set",
-        resourceType="release-set",
+        summary="Created release",
+        resourceType="release",
         resourceId="ds-1",
     )
 
-    assert webhooks._matches(event, ["release-set.created"], {"resourceTypes": ["release-set"]})  # noqa: SLF001
-    assert not webhooks._matches(event, ["release-set.created"], {"resourceTypes": ["release"]})  # noqa: SLF001
+    assert webhooks._matches(event, ["release.created"], {"resourceTypes": ["release"]})  # noqa: SLF001
+    assert not webhooks._matches(event, ["release.created"], {"resourceTypes": ["version"]})  # noqa: SLF001
+
+

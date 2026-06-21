@@ -1,7 +1,7 @@
 from src.application.use_cases.events import EventLogUseCases, build_changes
 from src.composition.memory_container import build_memory_container
 from src.domain.enums import EventOrigin, Permission, PrincipalType
-from src.domain.models import AuthContext, EventLogEntry, Release
+from src.domain.models import AuthContext, EventLogEntry, Version
 from src.infrastructure.memory.repositories import MemoryEventLogRepository, MemoryRepositories
 
 
@@ -72,10 +72,10 @@ def test_memory_event_log_lists_newest_first_and_filters() -> None:
     assert [event.action for event in deployment_result.events] == ["deployment.claimed"]
 
 
-def test_idempotent_release_create_does_not_emit_duplicate_event() -> None:
+def test_idempotent_version_create_does_not_emit_duplicate_event() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
-    release = Release(
+    version = Version(
         componentId="api",
         version="1.0.0",
         artifact={"key": "api:1.0.0", "digest": "sha256:abc"},
@@ -84,15 +84,15 @@ def test_idempotent_release_create_does_not_emit_duplicate_event() -> None:
         createdBy="ci",
     )
 
-    container.releases.create(release, admin_context())
-    container.releases.create(release, admin_context())
+    container.versions.create(version, admin_context())
+    container.versions.create(version, admin_context())
 
-    release_events = [
+    version_events = [
         event
         for event in store.event_log.values()
-        if event.action == "release.created" and event.resource_type == "release"
+        if event.action == "version.created" and event.resource_type == "version"
     ]
-    assert len(release_events) == 1
+    assert len(version_events) == 1
 
 
 def test_event_append_failure_does_not_escape() -> None:
@@ -118,3 +118,4 @@ def test_event_append_failure_does_not_escape() -> None:
         resource_type="test",
         resource_id="one",
     )
+

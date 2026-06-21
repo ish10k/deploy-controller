@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "settle-sdk"
 version = "0.1.0"
-description = "Python SDK for Settle deployment runners and release publishers."
+description = "Python SDK for Settle deployment runners and version publishers."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -34,3 +34,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+

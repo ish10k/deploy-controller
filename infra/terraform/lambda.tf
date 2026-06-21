@@ -16,10 +16,10 @@ resource "aws_lambda_function" "deploy_controller" {
       ORGANIZATION_MEMBERSHIPS_TABLE = aws_dynamodb_table.organization_memberships.name
       WORKSPACE_MEMBERSHIPS_TABLE    = aws_dynamodb_table.workspace_memberships.name
       COMPONENTS_TABLE               = aws_dynamodb_table.components.name
-      COMPONENT_SETS_TABLE           = aws_dynamodb_table.release_sets.name
-      RELEASES_TABLE                 = aws_dynamodb_table.releases.name
+      COMPONENT_SETS_TABLE           = aws_dynamodb_table.releases.name
+      VERSIONS_TABLE                 = aws_dynamodb_table.versions.name
       PUBLISHERS_TABLE               = aws_dynamodb_table.publishers.name
-      DEPLOYSETS_TABLE               = aws_dynamodb_table.release-sets.name
+      DEPLOYSETS_TABLE               = aws_dynamodb_table.releases.name
       ENVIRONMENTS_TABLE             = aws_dynamodb_table.environments.name
       DEPLOYMENT_RUNNERS_TABLE       = aws_dynamodb_table.deployment_runners.name
       PRINCIPALS_TABLE               = aws_dynamodb_table.principals.name
@@ -37,3 +37,5 @@ resource "aws_lambda_function" "deploy_controller" {
     aws_cloudwatch_log_group.lambda
   ]
 }
+
+

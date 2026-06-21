@@ -65,19 +65,19 @@ resource "aws_dynamodb_table" "components" {
   }
 }
 
-resource "aws_dynamodb_table" "release_sets" {
-  name         = "${var.name_prefix}-release-sets"
+resource "aws_dynamodb_table" "releases" {
+  name         = "${var.name_prefix}-releases"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "releaseSetId"
+  hash_key     = "releaseId"
 
   attribute {
-    name = "releaseSetId"
+    name = "releaseId"
     type = "S"
   }
 }
 
-resource "aws_dynamodb_table" "releases" {
-  name         = "${var.name_prefix}-releases"
+resource "aws_dynamodb_table" "versions" {
+  name         = "${var.name_prefix}-versions"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "componentId"
   range_key    = "version"
@@ -104,13 +104,13 @@ resource "aws_dynamodb_table" "publishers" {
   }
 }
 
-resource "aws_dynamodb_table" "release-sets" {
-  name         = "${var.name_prefix}-release-sets"
+resource "aws_dynamodb_table" "releases" {
+  name         = "${var.name_prefix}-releases"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "releaseSetId"
+  hash_key     = "releaseId"
 
   attribute {
-    name = "releaseSetId"
+    name = "releaseId"
     type = "S"
   }
 }
@@ -282,3 +282,5 @@ resource "aws_dynamodb_table" "webhook_deliveries" {
     type = "S"
   }
 }
+
+

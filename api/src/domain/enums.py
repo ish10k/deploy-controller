@@ -48,7 +48,7 @@ class ItemStatus(StrEnum):
     SKIPPED = "skipped"
 
 
-class ReleaseSetItemSource(StrEnum):
+class ReleaseItemSource(StrEnum):
     EXPLICIT = "explicit"
     INFERRED = "inferred"
 
@@ -74,8 +74,8 @@ class TagResourceType(StrEnum):
     ORGANIZATION = "organization"
     WORKSPACE = "workspace"
     COMPONENT = "component"
-    RELEASE_SET = "release-set"
     RELEASE = "release"
+    VERSION = "version"
     DEPLOYMENT = "deployment"
     ENVIRONMENT = "environment"
     DEPLOYMENT_RUNNER = "deployment-runner"
@@ -96,11 +96,11 @@ class Permission(StrEnum):
     WORKSPACE_MEMBERSHIPS_WRITE = "workspace_memberships:write"
     COMPONENTS_READ = "components:read"
     COMPONENTS_WRITE = "components:write"
-    RELEASE_SETS_READ = "release-sets:read"
-    RELEASE_SETS_WRITE = "release-sets:write"
-    RELEASE_SETS_CREATE = "release-sets:create"
     RELEASES_READ = "releases:read"
+    RELEASES_WRITE = "releases:write"
     RELEASES_CREATE = "releases:create"
+    VERSIONS_READ = "versions:read"
+    VERSIONS_CREATE = "versions:create"
     ENVIRONMENTS_READ = "environments:read"
     ENVIRONMENTS_WRITE = "environments:write"
     DEPLOYMENTS_READ = "deployments:read"
@@ -124,7 +124,7 @@ class Permission(StrEnum):
 
 
 class WebhookEvent(StrEnum):
-    DEPLOYSET_CREATED = "release-set.created"
+    DEPLOYSET_CREATED = "release.created"
     DEPLOYMENT_CREATED = "deployment.created"
     DEPLOYMENT_STATUS_CHANGED = "deployment.status_changed"
     DEPLOYMENT_ITEM_STATUS_CHANGED = "deployment_item.status_changed"
@@ -145,4 +145,6 @@ class DriftReason(StrEnum):
     SAME_VERSION_REDEPLOYED = "same_version_redeployed"
     SAME_VERSION_TARGET_MISSING = "same_version_target_missing"
     SAME_VERSION_ARTIFACT_MISMATCH = "same_version_artifact_mismatch"
+
+
 

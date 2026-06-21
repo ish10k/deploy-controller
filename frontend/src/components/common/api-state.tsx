@@ -109,7 +109,7 @@ export function EmptyPanel({ label = "No records returned by the API." }: { labe
 }
 
 export function ApiErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  const message = error instanceof Error ? error.message : "Unable to reach the ReleaseSet API.";
+  const message = error instanceof Error ? error.message : "Unable to reach the Release API.";
   const status = error instanceof ApiRequestError ? error.status : null;
   const isConnectionError = status === null;
   const title = status === 404 ? "Record not found" : status ? "API request failed" : "API connection needed";
@@ -172,4 +172,6 @@ function LoadingSpinner({ label }: { label: string }) {
     </>
   );
 }
+
+
 

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "release-set-controller"
+name = "release-controller"
 version = "0.1.0"
-description = "Control-plane MVP for ReleaseSet-based deployment planning."
+description = "Control-plane MVP for Release-based deployment planning."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -45,3 +45,5 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+

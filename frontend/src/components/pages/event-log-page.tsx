@@ -31,10 +31,10 @@ const EMPTY_FILTERS: EventLogFilterDraft = {
 const RESOURCE_TYPE_OPTIONS = [
   ["", "Any resource"],
   ["component", "Component"],
-  ["releaseSet", "ReleaseSet"],
   ["release", "Release"],
+  ["version", "Version"],
   ["publisher", "Publisher"],
-  ["release-set", "ReleaseSet"],
+  ["release", "Release"],
   ["deployment", "Deployment"],
   ["deploymentRunner", "Runner"],
   ["environment", "Environment"],
@@ -378,4 +378,6 @@ function renderChangeValue(field: string, value: unknown) {
 
   return formatValue(value);
 }
+
+
 

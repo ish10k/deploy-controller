@@ -15,10 +15,16 @@ let mockUser: ApiWhoAmI | null = {
   permissions: ["principals:read"],
 };
 
+let mockPathname = "/workspaces/default/deployments";
+
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
+  Link: ({ children, to, className }: { children: ReactNode; to: string; className?: string }) => (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  ),
   useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) =>
-    select({ location: { pathname: "/workspaces/default/deployments" } }),
+    select({ location: { pathname: mockPathname } }),
   useNavigate: () => vi.fn(),
 }));
 
@@ -46,6 +52,7 @@ afterEach(() => cleanup());
 
 describe("AppShell", () => {
   beforeEach(() => {
+    mockPathname = "/workspaces/default/deployments";
     mockUser = {
       principalId: "user:ops",
       type: "user",
@@ -72,11 +79,22 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/workspaces/default/deployments");
     expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/workspaces/default/registry");
     expect(screen.getByRole("link", { name: /Change workspace/ })).toHaveAttribute("href", "/workspaces/select");
-    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Roles" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Components" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "ReleaseSets" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "ReleaseSets" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Releases" })).not.toBeInTheDocument();
+  });
+
+  it("marks registry active for release detail pages", () => {
+    mockPathname = "/workspaces/default/releases/production-baseline";
+
+    render(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "Registry" })).toHaveClass("bg-blue-50");
+    expect(screen.getByRole("link", { name: "Deployments" })).not.toHaveClass("bg-blue-50");
   });
 
   it("hides users navigation without user view permission", () => {

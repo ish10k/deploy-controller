@@ -430,6 +430,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspace_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Workspace Versions */
+        get: operations["listWorkspaceVersions"];
+        put?: never;
+        /** Create Workspace Version */
+        post: operations["createWorkspaceVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspace_id}/versions/{component_id}/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workspace Version */
+        get: operations["getWorkspaceVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspace_id}/releases": {
         parameters: {
             query?: never;
@@ -440,7 +475,7 @@ export interface paths {
         /** List Workspace Releases */
         get: operations["listWorkspaceReleases"];
         put?: never;
-        /** Create Workspace Release */
+        /** Create Workspace Version Set */
         post: operations["createWorkspaceRelease"];
         delete?: never;
         options?: never;
@@ -448,50 +483,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspace_id}/releases/{component_id}/{version}": {
+    "/workspaces/{workspace_id}/releases/{release_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Workspace Release */
+        /** Get Workspace Version Set */
         get: operations["getWorkspaceRelease"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspace_id}/release-sets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Workspace Release Sets */
-        get: operations["listWorkspaceReleaseSets"];
-        put?: never;
-        /** Create Workspace Release Set */
-        post: operations["createWorkspaceReleaseSet"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspace_id}/release-sets/{release_set_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Workspace Release Set */
-        get: operations["getWorkspaceReleaseSet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -594,7 +594,7 @@ export interface paths {
             cookie?: never;
         };
         /** List Workspace Deployment Executions */
-        get: operations["listWorkspaceDeploymentExecutions"];
+        get: operations["listWorkspaceDeployments"];
         put?: never;
         /** Create Workspace Deployment */
         post: operations["createWorkspaceDeployment"];
@@ -612,7 +612,7 @@ export interface paths {
             cookie?: never;
         };
         /** List Workspace Pending Deployment Executions */
-        get: operations["listWorkspacePendingDeploymentExecutions"];
+        get: operations["listWorkspacePendingDeployments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -629,7 +629,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Workspace Deployment Execution */
-        get: operations["getWorkspaceDeploymentExecution"];
+        get: operations["getWorkspaceDeployment"];
         put?: never;
         post?: never;
         delete?: never;
@@ -648,7 +648,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Cancel Workspace Deployment Execution */
-        post: operations["cancelWorkspaceDeploymentExecution"];
+        post: operations["cancelWorkspaceDeployment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -863,7 +863,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspace_id}/publishers/{publisher_id}/releases": {
+    "/workspaces/{workspace_id}/publishers/{publisher_id}/versions": {
         parameters: {
             query?: never;
             header?: never;
@@ -872,8 +872,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish Workspace Release From Publisher */
-        post: operations["publishWorkspaceReleaseFromPublisher"];
+        /** Publish Workspace Version From Publisher */
+        post: operations["publishWorkspaceVersionFromPublisher"];
         delete?: never;
         options?: never;
         head?: never;
@@ -957,11 +957,11 @@ export interface components {
              */
             environmentId: string;
             /**
-             * Releasesetid
-             * @description ReleaseSet to plan.
-             * @example prod-default
+             * Versionsetid
+             * @description Release to plan.
+             * @example production-baseline
              */
-            releaseSetId: string;
+            releaseId: string;
             /**
              * Force
              * @description Force a redeploy even when the latest successful execution already matches.
@@ -1017,8 +1017,8 @@ export interface components {
             deploymentId: string;
             /** Environmentid */
             environmentId: string;
-            /** Releasesetid */
-            releaseSetId: string;
+            /** Versionsetid */
+            releaseId: string;
             status: components["schemas"]["ExecutionStatus"];
             /** Requestedby */
             requestedBy: string;
@@ -1058,10 +1058,10 @@ export interface components {
              */
             environmentId: string;
             /**
-             * Releasesetid
+             * Versionsetid
              * @default
              */
-            releaseSetId: string;
+            releaseId: string;
             /** Componentid */
             componentId: string;
             /** Version */
@@ -1112,8 +1112,8 @@ export interface components {
             workspaceId: string;
             /** Environmentid */
             environmentId: string;
-            /** Releasesetid */
-            releaseSetId: string;
+            /** Versionsetid */
+            releaseId: string;
             /** Items */
             items: components["schemas"]["DeploymentItem"][];
         };
@@ -1244,8 +1244,8 @@ export interface components {
             workspaceId: string;
             /** Environmentid */
             environmentId: string;
-            /** Releasesetid */
-            releaseSetId?: string | null;
+            /** Versionsetid */
+            releaseId?: string | null;
             /** @default idle */
             status: components["schemas"]["EnvironmentStatus"];
             /** Lastdeploymentid */
@@ -1401,7 +1401,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "organizations:read" | "organizations:write" | "workspaces:read" | "workspaces:write" | "workspaces:create" | "organization_memberships:read" | "organization_memberships:write" | "workspace_memberships:read" | "workspace_memberships:write" | "components:read" | "components:write" | "release-sets:read" | "release-sets:write" | "release-sets:create" | "releases:read" | "releases:create" | "environments:read" | "environments:write" | "deployments:read" | "deployments:create" | "deployments:cancel" | "executions:claim" | "executions:report_status" | "deployment_runners:write" | "publishers:write" | "publishers:publish" | "principals:read" | "principals:write" | "roles:read" | "roles:write" | "webhooks:read" | "webhooks:write" | "webhook_deliveries:read" | "webhook_deliveries:retry" | "events:read" | "tag_definitions:read";
+        Permission: "organizations:read" | "organizations:write" | "workspaces:read" | "workspaces:write" | "workspaces:create" | "organization_memberships:read" | "organization_memberships:write" | "workspace_memberships:read" | "workspace_memberships:write" | "components:read" | "components:write" | "releases:read" | "releases:write" | "releases:create" | "versions:read" | "versions:create" | "environments:read" | "environments:write" | "deployments:read" | "deployments:create" | "deployments:cancel" | "executions:claim" | "executions:report_status" | "deployment_runners:write" | "publishers:write" | "publishers:publish" | "principals:read" | "principals:write" | "roles:read" | "roles:write" | "webhooks:read" | "webhooks:write" | "webhook_deliveries:read" | "webhook_deliveries:retry" | "events:read" | "tag_definitions:read";
         /** PlanDeploymentRequest */
         PlanDeploymentRequest: {
             /**
@@ -1411,11 +1411,11 @@ export interface components {
              */
             environmentId: string;
             /**
-             * Releasesetid
-             * @description ReleaseSet to plan.
-             * @example prod-default
+             * Versionsetid
+             * @description Release to plan.
+             * @example production-baseline
              */
-            releaseSetId: string;
+            releaseId: string;
             /**
              * Force
              * @description Force a redeploy even when the latest successful execution already matches.
@@ -1534,8 +1534,8 @@ export interface components {
             /** Componentids */
             componentIds?: string[];
         };
-        /** Release */
-        Release: {
+        /** Version */
+        Version: {
             /**
              * Workspaceid
              * @default default
@@ -1550,7 +1550,7 @@ export interface components {
             /** Notes */
             notes?: string | null;
             artifact: components["schemas"]["Artifact"];
-            /** @description Optional source object that produced the release. */
+            /** @description Optional source object that produced the version. */
             source?: components["schemas"]["Source"] | null;
             /** Createdat */
             createdAt: string;
@@ -1561,15 +1561,15 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** ReleaseSet */
-        ReleaseSet: {
+        /** Release */
+        Release: {
             /**
              * Workspaceid
              * @default default
              */
             workspaceId: string;
-            /** Releasesetid */
-            releaseSetId: string;
+            /** Versionsetid */
+            releaseId: string;
             /** Schemaversion */
             schemaVersion: number;
             /** Description */
@@ -1578,10 +1578,10 @@ export interface components {
             notes?: string | null;
             /** Baseenvironmentid */
             baseEnvironmentId?: string | null;
-            /** Basereleasesetid */
-            baseReleaseSetId?: string | null;
+            /** Baseversionsetid */
+            baseReleaseId?: string | null;
             /** Items */
-            items: components["schemas"]["ReleaseSetItem"][];
+            items: components["schemas"]["ReleaseItem"][];
             /** Createdat */
             createdAt: string;
             /** Createdby */
@@ -1591,25 +1591,25 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** ReleaseSetCreateItem */
-        ReleaseSetCreateItem: {
+        /** ReleaseCreateItem */
+        ReleaseCreateItem: {
             /** Componentid */
             componentId: string;
             /** Version */
             version: string;
         };
-        /** ReleaseSetCreateRequest */
-        ReleaseSetCreateRequest: {
-            /** Releasesetid */
-            releaseSetId: string;
+        /** ReleaseCreateRequest */
+        ReleaseCreateRequest: {
+            /** Versionsetid */
+            releaseId: string;
             /** Baseenvironmentid */
             baseEnvironmentId?: string | null;
-            /** Basereleasesetid */
-            baseReleaseSetId?: string | null;
+            /** Baseversionsetid */
+            baseReleaseId?: string | null;
             /** Notes */
             notes?: string | null;
             /** Items */
-            items: components["schemas"]["ReleaseSetCreateItem"][];
+            items: components["schemas"]["ReleaseCreateItem"][];
             /** Createdby */
             createdBy: string;
             /** Tags */
@@ -1617,26 +1617,26 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** ReleaseSetCreateResult */
-        ReleaseSetCreateResult: {
-            release_set: components["schemas"]["ReleaseSet"];
+        /** ReleaseCreateResult */
+        ReleaseCreateResult: {
+            release: components["schemas"]["Release"];
             /** Warnings */
             warnings?: string[];
         };
-        /** ReleaseSetItem */
-        ReleaseSetItem: {
+        /** ReleaseItem */
+        ReleaseItem: {
             /** Componentid */
             componentId: string;
             /** Version */
             version: string;
             /** @default explicit */
-            source: components["schemas"]["ReleaseSetItemSource"];
+            source: components["schemas"]["ReleaseItemSource"];
         };
         /**
-         * ReleaseSetItemSource
+         * ReleaseItemSource
          * @enum {string}
          */
-        ReleaseSetItemSource: "explicit" | "inferred";
+        ReleaseItemSource: "explicit" | "inferred";
         /** ReportExecutionItemStatusRequest */
         ReportExecutionItemStatusRequest: {
             /**
@@ -1756,7 +1756,7 @@ export interface components {
          * TagResourceType
          * @enum {string}
          */
-        TagResourceType: "organization" | "workspace" | "component" | "release-set" | "release" | "deployment" | "environment" | "deployment-runner" | "publisher" | "principal" | "webhook";
+        TagResourceType: "organization" | "workspace" | "component" | "release" | "version" | "deployment" | "environment" | "deployment-runner" | "publisher" | "principal" | "webhook";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -3815,12 +3815,158 @@ export interface operations {
             };
         };
     };
-    listWorkspaceReleases: {
+    listWorkspaceVersions: {
         parameters: {
             query?: {
                 /** @description Optional component ID filter. */
                 componentId?: string | null;
             };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Version"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createWorkspaceVersion: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Version"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Version"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getWorkspaceVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                component_id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Version"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listWorkspaceReleases: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 workspace_id: string;
@@ -3871,7 +4017,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Release"];
+                "application/json": components["schemas"]["ReleaseCreateRequest"];
             };
         };
         responses: {
@@ -3881,7 +4027,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Release"];
+                    "application/json": components["schemas"]["ReleaseCreateResult"];
                 };
             };
             /** @description Validation error */
@@ -3928,8 +4074,7 @@ export interface operations {
             header?: never;
             path: {
                 workspace_id: string;
-                component_id: string;
-                version: string;
+                release_id: string;
             };
             cookie?: never;
         };
@@ -3942,151 +4087,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Release"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    listWorkspaceReleaseSets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                workspace_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseSet"][];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    createWorkspaceReleaseSet: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                workspace_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReleaseSetCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseSetCreateResult"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    getWorkspaceReleaseSet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                workspace_id: string;
-                release_set_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseSet"];
                 };
             };
             /** @description Resource not found */
@@ -4381,7 +4381,7 @@ export interface operations {
             };
         };
     };
-    listWorkspaceDeploymentExecutions: {
+    listWorkspaceDeployments: {
         parameters: {
             query?: {
                 /** @description Optional environment ID filter. */
@@ -4488,7 +4488,7 @@ export interface operations {
             };
         };
     };
-    listWorkspacePendingDeploymentExecutions: {
+    listWorkspacePendingDeployments: {
         parameters: {
             query?: never;
             header?: never;
@@ -4528,7 +4528,7 @@ export interface operations {
             };
         };
     };
-    getWorkspaceDeploymentExecution: {
+    getWorkspaceDeployment: {
         parameters: {
             query?: never;
             header?: never;
@@ -4569,7 +4569,7 @@ export interface operations {
             };
         };
     };
-    cancelWorkspaceDeploymentExecution: {
+    cancelWorkspaceDeployment: {
         parameters: {
             query?: never;
             header?: {
@@ -5513,7 +5513,7 @@ export interface operations {
             };
         };
     };
-    publishWorkspaceReleaseFromPublisher: {
+    publishWorkspaceVersionFromPublisher: {
         parameters: {
             query?: never;
             header?: {
@@ -5527,7 +5527,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Release"];
+                "application/json": components["schemas"]["Version"];
             };
         };
         responses: {
@@ -5537,7 +5537,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Release"];
+                    "application/json": components["schemas"]["Version"];
                 };
             };
             /** @description Validation error */
@@ -5583,11 +5583,11 @@ export interface operations {
 export type ApiComponent = components["schemas"]["Component"];
 export type ApiCreateDeploymentRequest = components["schemas"]["CreateDeploymentRequest"];
 export type ApiCreateDeploymentResponse = components["schemas"]["CreateDeploymentResponse"];
-export type ApiReleaseSetItem = components["schemas"]["ReleaseSetItem"];
-export type ApiReleaseSet = components["schemas"]["ReleaseSet"];
-export type ApiReleaseSetCreateItem = components["schemas"]["ReleaseSetCreateItem"];
-export type ApiReleaseSetCreateRequest = components["schemas"]["ReleaseSetCreateRequest"];
-export type ApiReleaseSetCreateResult = components["schemas"]["ReleaseSetCreateResult"];
+export type ApiReleaseItem = components["schemas"]["ReleaseItem"];
+export type ApiRelease = components["schemas"]["Release"];
+export type ApiReleaseCreateItem = components["schemas"]["ReleaseCreateItem"];
+export type ApiReleaseCreateRequest = components["schemas"]["ReleaseCreateRequest"];
+export type ApiReleaseCreateResult = components["schemas"]["ReleaseCreateResult"];
 export type ApiDeployment = components["schemas"]["Deployment"];
 export type ApiDeploymentItem = components["schemas"]["DeploymentItem"];
 export type ApiDeploymentPlan = components["schemas"]["DeploymentPlan"];
@@ -5603,7 +5603,7 @@ export type ApiOrganizationMembership = components["schemas"]["OrganizationMembe
 export type ApiPlanDeploymentRequest = components["schemas"]["PlanDeploymentRequest"];
 export type ApiBootstrapState = components["schemas"]["BootstrapState"];
 export type ApiPrincipal = components["schemas"]["Principal"];
-export type ApiRelease = components["schemas"]["Release"];
+export type ApiVersion = components["schemas"]["Version"];
 export type ApiPublisher = components["schemas"]["Publisher"];
 export type ApiPublisherCreateRequest = components["schemas"]["PublisherCreateRequest"];
 export type ApiPublisherCreateResult = components["schemas"]["PublisherCreateResult"];
@@ -5619,3 +5619,7 @@ export type ApiWebhookFilter = components["schemas"]["WebhookFilter"];
 export type ApiWebhookSubscription = components["schemas"]["WebhookSubscription"];
 export type ApiWorkspace = components["schemas"]["Workspace"];
 export type ApiWorkspaceMembership = components["schemas"]["WorkspaceMembership"];
+
+
+
+
