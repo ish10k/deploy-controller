@@ -61,7 +61,7 @@ def test_memory_event_log_lists_newest_first_and_filters() -> None:
         action="deployment.claimed",
         category="deployment",
         summary="Claimed execution",
-        resource_type="deploymentExecution",
+        resource_type="deployment",
         resource_id="dep-1",
     )
 

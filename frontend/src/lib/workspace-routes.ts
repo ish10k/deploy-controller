@@ -20,3 +20,4 @@ export function workspaceRelativePath(pathname: string) {
   const match = /^\/workspaces\/[^/]+(\/.*)?$/.exec(pathname);
   return match?.[1] || "/deployments";
 }
+

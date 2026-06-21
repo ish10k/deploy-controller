@@ -14,6 +14,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
+import { useAppContext } from "@/lib/app-context";
 import { createRelease, listComponents, listReleases, queryKeys, type ApiRelease } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -91,7 +92,7 @@ export function ReleasesPage({
       {!embedded ? (
         <PageHeader
           title="Releases"
-          subtitle="Component artifact versions available to DeploySets."
+          subtitle="Component artifact versions available to ReleaseSets."
           action={
             <Button className="px-4" onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -237,6 +238,7 @@ export function ReleaseDrawer({
   initialComponentId?: string;
   lockComponent?: boolean;
 }) {
+  const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState(initialComponentId);
   const [version, setVersion] = useState("");
   const [artifactKey, setArtifactKey] = useState("");
@@ -265,6 +267,7 @@ export function ReleaseDrawer({
     }
 
     onSubmit({
+      workspaceId,
       componentId: trimmedComponentId,
       version: trimmedVersion,
       description: `${trimmedComponentId} ${trimmedVersion}`,
@@ -281,7 +284,7 @@ export function ReleaseDrawer({
     <SideDrawer
       open={open}
       title="Create release"
-      description="Capture the component version and artifact metadata that deploy sets will consume."
+      description="Capture the component version and artifact metadata that release sets will consume."
       onClose={onClose}
       footer={
         <>
@@ -381,3 +384,4 @@ function latestReleasesByComponent(releases: ApiRelease[]) {
 
   return latest;
 }
+

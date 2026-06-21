@@ -76,3 +76,4 @@ def get_auth_context(
         bootstrap_allowed_subject=os.getenv("SETTLE_BOOTSTRAP_ALLOWED_SUB"),
         claims=claims,
     )
+

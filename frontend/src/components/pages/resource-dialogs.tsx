@@ -4,14 +4,14 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { useAppContext } from "@/lib/app-context";
 import {
   type ApiComponent,
-  type ApiComponentSet,
-  type ApiDeploySetCreateRequest,
+  type ApiReleaseSetCreateRequest,
   type ApiEnvironment,
   type ApiRelease,
 } from "@/lib/api-client";
-import { parseDeploySetItems, parseKeyValueList } from "@/lib/form-utils";
+import { parseReleaseSetItems, parseKeyValueList } from "@/lib/form-utils";
 
 export type DialogProps<T> = {
   open: boolean;
@@ -21,48 +21,28 @@ export type DialogProps<T> = {
 };
 
 export function ComponentDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiComponent>) {
+  const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState("");
   const [type, setType] = useState("ecs");
   return (
-    <SimpleDialog open={open} title="Create or update component" onClose={onClose} onSave={() => onSubmit({ componentId, type, active: true, tags: {} })} pending={pending}>
+    <SimpleDialog
+      open={open}
+      title="Create or update component"
+      onClose={onClose}
+      onSave={() => onSubmit({ workspaceId, componentId, type, active: true, tags: {} })}
+      pending={pending}
+    >
       <Field label="Component ID" value={componentId} onChange={setComponentId} />
       <Field label="Type" value={type} onChange={setType} />
     </SimpleDialog>
   );
 }
 
-export function ComponentSetDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiComponentSet>) {
-  const [componentSetId, setComponentSetId] = useState("");
-  const [description, setDescription] = useState("");
-  const [components, setComponents] = useState("api,worker");
-  return (
-    <SimpleDialog
-      open={open}
-      title="Create or update component set"
-      onClose={onClose}
-      onSave={() =>
-        onSubmit({
-          componentSetId,
-          description,
-          components: components.split(",").map((componentId) => ({ componentId: componentId.trim() })),
-          tags: {},
-          createdAt: new Date().toISOString(),
-          createdBy: "amit.kumar",
-        })
-      }
-      pending={pending}
-    >
-      <Field label="Component Set ID" value={componentSetId} onChange={setComponentSetId} />
-      <Field label="Description" value={description} onChange={setDescription} />
-      <Field label="Components" value={components} onChange={setComponents} />
-    </SimpleDialog>
-  );
-}
-
 export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiRelease>) {
+  const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState("");
   const [version, setVersion] = useState("");
-  const [artifactKey, setArtifactKey] = useState("s3://deployset-artifacts/component/version.tar.gz");
+  const [artifactKey, setArtifactKey] = useState("s3://release-set-artifacts/component/version.tar.gz");
   const [notes, setNotes] = useState("");
   return (
     <SimpleDialog
@@ -71,6 +51,7 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
       onClose={onClose}
       onSave={() =>
         onSubmit({
+          workspaceId,
           componentId,
           version,
           description: `${componentId} ${version}`,
@@ -92,11 +73,10 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
   );
 }
 
-export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiDeploySetCreateRequest>) {
-  const [deploySetId, setDeploySetId] = useState("");
-  const [componentSetId, setComponentSetId] = useState("");
+export function ReleaseSetDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiReleaseSetCreateRequest>) {
+  const [releaseSetId, setReleaseSetId] = useState("");
   const [baseEnvironmentId, setBaseEnvironmentId] = useState("");
-  const [baseDeploySetId, setBaseDeploySetId] = useState("");
+  const [baseReleaseSetId, setBaseReleaseSetId] = useState("");
   const [createdBy, setCreatedBy] = useState("amit.kumar");
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("track=prod");
@@ -104,26 +84,25 @@ export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProp
   return (
     <SimpleDialog
       open={open}
-      title="Create DeploySet"
+      title="Create ReleaseSet"
       onClose={onClose}
       onSave={() =>
         onSubmit({
-          deploySetId,
-          componentSetId,
+          releaseSetId,
           baseEnvironmentId: baseEnvironmentId || null,
-          baseDeploySetId: baseDeploySetId || null,
+          baseReleaseSetId: baseReleaseSetId || null,
           notes: notes || null,
-          items: parseDeploySetItems(items),
+          items: parseReleaseSetItems(items),
           createdBy,
           tags: parseKeyValueList(tags),
         })
       }
       pending={pending}
     >
-      <Field label="DeploySet ID" value={deploySetId} onChange={setDeploySetId} />
-      <Field label="Component Set ID" value={componentSetId} onChange={setComponentSetId} />
+      <Field label="ReleaseSet ID" value={releaseSetId} onChange={setReleaseSetId} />
+      <Field label="ReleaseSet ID" value={releaseSetId} onChange={setReleaseSetId} />
       <Field label="Base environment ID" value={baseEnvironmentId} onChange={setBaseEnvironmentId} />
-      <Field label="Base DeploySet ID" value={baseDeploySetId} onChange={setBaseDeploySetId} />
+      <Field label="Base ReleaseSet ID" value={baseReleaseSetId} onChange={setBaseReleaseSetId} />
       <Field label="Items" value={items} onChange={setItems} />
       <Field label="Created by" value={createdBy} onChange={setCreatedBy} />
       <Field label="Notes" value={notes} onChange={setNotes} />
@@ -133,9 +112,16 @@ export function DeploySetDialog({ open, onClose, onSubmit, pending }: DialogProp
 }
 
 export function EnvironmentDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiEnvironment>) {
+  const { workspaceId } = useAppContext();
   const [environmentId, setEnvironmentId] = useState("");
   return (
-    <SimpleDialog open={open} title="Create or update environment" onClose={onClose} onSave={() => onSubmit({ environmentId, active: true, tags: {} })} pending={pending}>
+    <SimpleDialog
+      open={open}
+      title="Create or update environment"
+      onClose={onClose}
+      onSave={() => onSubmit({ workspaceId, environmentId, active: true, tags: {} })}
+      pending={pending}
+    >
       <Field label="Environment ID" value={environmentId} onChange={setEnvironmentId} />
     </SimpleDialog>
   );
@@ -182,3 +168,4 @@ export function Field({ label, value, onChange }: { label: string; value: string
     </label>
   );
 }
+

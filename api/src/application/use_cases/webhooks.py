@@ -248,3 +248,4 @@ class WebhookUseCases:
 def _add_seconds(value: str, seconds: int) -> str:
     normalized = value.replace("Z", "+00:00")
     return (datetime.fromisoformat(normalized) + timedelta(seconds=seconds)).astimezone(UTC).isoformat().replace("+00:00", "Z")
+

@@ -1,6 +1,6 @@
 # Core Planning Invariant
 
-DeploySet Controller creates execution items from a complete immutable DeploySet. It does not inspect provider infrastructure or derive artifact locations.
+ReleaseSet Controller creates execution items from a complete immutable ReleaseSet. It does not inspect provider infrastructure or derive artifact locations.
 
 The brain requests `skip` only when:
 

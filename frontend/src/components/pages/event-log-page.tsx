@@ -31,11 +31,11 @@ const EMPTY_FILTERS: EventLogFilterDraft = {
 const RESOURCE_TYPE_OPTIONS = [
   ["", "Any resource"],
   ["component", "Component"],
-  ["componentSet", "Component Set"],
+  ["releaseSet", "ReleaseSet"],
   ["release", "Release"],
   ["publisher", "Publisher"],
-  ["deployset", "DeploySet"],
-  ["deploymentExecution", "Deployment"],
+  ["release-set", "ReleaseSet"],
+  ["deployment", "Deployment"],
   ["deploymentRunner", "Runner"],
   ["environment", "Environment"],
   ["principal", "User"],
@@ -228,7 +228,7 @@ function SeverityBadge({ severity }: { severity: ApiEventLogEntry["severity"] })
 }
 
 function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClose: () => void }) {
-  const metadata = event ? splitMetadata(event.metadata) : null;
+  const metadata = event ? splitMetadata(event.metadata ?? {}) : null;
 
   return (
     <SideDrawer
@@ -275,7 +275,7 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
               <CardTitle>Changes</CardTitle>
             </CardHeader>
             <CardContent className="p-3">
-              {event.changes.length ? (
+              {(event.changes ?? []).length ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -285,7 +285,7 @@ function EventDrawer({ event, onClose }: { event: ApiEventLogEntry | null; onClo
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {event.changes.map((change) => (
+                    {(event.changes ?? []).map((change) => (
                       <TableRow key={change.field}>
                         <TableCell className="font-mono text-[11px]">{change.field}</TableCell>
                         <TableCell className="max-w-[320px] whitespace-normal font-mono text-[11px]">
@@ -378,3 +378,4 @@ function renderChangeValue(field: string, value: unknown) {
 
   return formatValue(value);
 }
+

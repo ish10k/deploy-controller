@@ -1,4 +1,4 @@
-from src.domain.models import DeploymentExecutionItem
+from src.domain.models import DeploymentItem
 from src.domain.planning import possible_drift_reason, requested_action_for_item
 
 
@@ -9,8 +9,8 @@ def artifact(version: str) -> dict[str, object]:
     }
 
 
-def item(*, version: str = "1.0.0", status: str = "succeeded") -> DeploymentExecutionItem:
-    return DeploymentExecutionItem(
+def item(*, version: str = "1.0.0", status: str = "succeeded") -> DeploymentItem:
+    return DeploymentItem(
         componentId="api",
         version=version,
         artifact=artifact(version),

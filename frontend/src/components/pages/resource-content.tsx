@@ -87,3 +87,4 @@ export function ResourceContent<T>({ query, rows, selected, onSelect, columns, r
     </div>
   );
 }
+

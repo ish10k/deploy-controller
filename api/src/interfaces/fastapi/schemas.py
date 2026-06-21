@@ -17,9 +17,9 @@ class PlanDeploymentRequest(ApiSchema):
         description="Target environment to plan against.",
         examples=["prod"],
     )
-    deployset_id: str = Field(
-        alias="deploySetId",
-        description="DeploySet to plan.",
+    release_set_id: str = Field(
+        alias="releaseSetId",
+        description="ReleaseSet to plan.",
         examples=["prod-default"],
     )
     force: bool = Field(
@@ -36,25 +36,25 @@ class CreateDeploymentRequest(PlanDeploymentRequest):
     )
     notes: str | None = Field(
         default=None,
-        description="Optional operator notes for the deployment execution.",
+        description="Optional operator notes for the deployment.",
         examples=["Approved under CAB-1421 after staging validation."],
     )
     tags: dict[str, str] = Field(
         default_factory=dict,
-        description="Optional deployment execution metadata tags.",
+        description="Optional deployment metadata tags.",
         examples=[{"track": "prod"}],
     )
 
 
 class CreateDeploymentResponse(ApiSchema):
-    deployment_execution_id: str = Field(
-        alias="deploymentExecutionId",
-        description="Identifier of the created deployment execution.",
+    deployment_id: str = Field(
+        alias="deploymentId",
+        description="Identifier of the created deployment.",
         examples=["dep_exec_123"],
     )
     status: ExecutionStatus = Field(
         default=ExecutionStatus.PENDING,
-        description="Initial deployment execution status.",
+        description="Initial deployment status.",
         examples=[ExecutionStatus.PENDING],
     )
 
@@ -96,3 +96,4 @@ class ReportExecutionItemStatusRequest(ApiSchema):
         description="Optional failure reason from the deployment runner.",
         examples=["artifact unavailable"],
     )
+

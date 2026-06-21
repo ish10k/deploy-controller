@@ -13,14 +13,15 @@ describe("router", () => {
     expect(routesByPath?.["/workspaces/$workspaceId/registry"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users"]).toBeDefined();
     expect(routesByPath?.["/workspaces/select"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/deploysets"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/release-sets"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/components"]).toBeDefined();
-    expect(routesByPath?.["/workspaces/$workspaceId/component-sets"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/release-sets"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/releases"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/users/$principalId"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/roles"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/roles/$roleId"]).toBeDefined();
+    expect(routesByPath?.["/workspaces/$workspaceId/tags"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/audit"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/publishers"]).toBeDefined();
     expect(routesByPath?.["/workspaces/$workspaceId/publishers/$publisherId"]).toBeDefined();

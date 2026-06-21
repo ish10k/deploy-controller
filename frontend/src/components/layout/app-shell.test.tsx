@@ -53,7 +53,7 @@ describe("AppShell", () => {
       displayName: "Ops User",
       email: "ops@example.local",
       roles: ["admin"],
-      permissions: ["principals:read", "roles:read", "webhooks:read"],
+      permissions: ["principals:read", "roles:read", "webhooks:read", "tag_definitions:read"],
     };
   });
 
@@ -68,14 +68,15 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Audit" })).toHaveAttribute("href", "/workspaces/default/audit");
     expect(screen.getByRole("link", { name: "Publishers" })).toHaveAttribute("href", "/workspaces/default/publishers");
     expect(screen.getByRole("link", { name: "Webhooks" })).toHaveAttribute("href", "/workspaces/default/webhooks");
+    expect(screen.getByRole("link", { name: "Tags" })).toHaveAttribute("href", "/workspaces/default/tags");
     expect(screen.getByRole("link", { name: "Deployments" })).toHaveAttribute("href", "/workspaces/default/deployments");
     expect(screen.getByRole("link", { name: "Registry" })).toHaveAttribute("href", "/workspaces/default/registry");
     expect(screen.getByRole("link", { name: /Change workspace/ })).toHaveAttribute("href", "/workspaces/select");
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Roles" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Components" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Component Sets" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "DeploySets" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ReleaseSets" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ReleaseSets" })).not.toBeInTheDocument();
   });
 
   it("hides users navigation without user view permission", () => {
@@ -92,5 +93,6 @@ describe("AppShell", () => {
 
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deployments" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Tags" })).not.toBeInTheDocument();
   });
 });

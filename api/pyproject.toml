@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "deployset-controller"
+name = "release-set-controller"
 version = "0.1.0"
-description = "Control-plane MVP for DeploySet-based deployment planning."
+description = "Control-plane MVP for ReleaseSet-based deployment planning."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"

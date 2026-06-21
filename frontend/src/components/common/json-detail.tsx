@@ -14,3 +14,4 @@ export function JsonDetail({ title, value }: { title: string; value: unknown }) 
     </Card>
   );
 }
+

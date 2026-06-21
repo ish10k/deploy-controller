@@ -19,3 +19,4 @@ class WebhookDeliveryIdGenerator:
 class WebhookSubscriptionIdGenerator:
     def new_id(self) -> str:
         return f"sub-{uuid4()}"
+

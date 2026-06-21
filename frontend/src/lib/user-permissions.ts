@@ -1,5 +1,7 @@
 import type { ApiWhoAmI } from "@/lib/api-types";
 
+type Permission = NonNullable<ApiWhoAmI["permissions"]>[number];
+
 export const USER_PERMISSIONS = {
   viewUsers: "principals:read",
   createUsers: "principals:write",
@@ -13,6 +15,7 @@ export const USER_PERMISSIONS = {
   viewWebhookDeliveries: "webhook_deliveries:read",
   retryWebhookDeliveries: "webhook_deliveries:retry",
   viewEvents: "events:read",
+  viewTags: "tag_definitions:read",
 } as const;
 
 export function canViewUsers(user: ApiWhoAmI | null | undefined) {
@@ -63,6 +66,10 @@ export function canViewEvents(user: ApiWhoAmI | null | undefined) {
   return hasPermission(user, USER_PERMISSIONS.viewEvents);
 }
 
-function hasPermission(user: ApiWhoAmI | null | undefined, permission: string) {
-  return Boolean(user?.permissions.includes(permission));
+export function canViewTags(user: ApiWhoAmI | null | undefined) {
+  return hasPermission(user, USER_PERMISSIONS.viewTags);
+}
+
+function hasPermission(user: ApiWhoAmI | null | undefined, permission: Permission) {
+  return Boolean(user?.permissions?.includes(permission));
 }

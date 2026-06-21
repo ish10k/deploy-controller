@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
 const schema = z.object({
-  deploySetId: z.string().min(3),
-  componentSetId: z.string().min(3),
+  releaseSetId: z.string().min(3),
   createdBy: z.string().min(2),
 });
 
@@ -21,7 +20,7 @@ type Props = {
   onClose: () => void;
 };
 
-export function CreateDeploySetDialog({ open, onClose }: Props) {
+export function CreateReleaseSetDialog({ open, onClose }: Props) {
   const {
     register,
     handleSubmit,
@@ -29,25 +28,21 @@ export function CreateDeploySetDialog({ open, onClose }: Props) {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      deploySetId: "webstack-prod-v6",
-      componentSetId: "prod-config-2024-06-01",
+      releaseSetId: "webstack-prod-v6",
       createdBy: "amit.kumar",
     },
   });
 
   return (
-    <Modal open={open} title="Create DeploySet" onClose={onClose}>
+    <Modal open={open} title="Create ReleaseSet" onClose={onClose}>
       <form
         className="space-y-4 p-4"
         onSubmit={handleSubmit(() => {
           onClose();
         })}
       >
-        <Field label="DeploySet ID" error={errors.deploySetId?.message}>
-          <Input {...register("deploySetId")} />
-        </Field>
-        <Field label="ConfigSet" error={errors.componentSetId?.message}>
-          <Input {...register("componentSetId")} />
+        <Field label="ReleaseSet ID" error={errors.releaseSetId?.message}>
+          <Input {...register("releaseSetId")} />
         </Field>
         <Field label="Created by" error={errors.createdBy?.message}>
           <Input {...register("createdBy")} />
@@ -75,3 +70,4 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     </label>
   );
 }
+

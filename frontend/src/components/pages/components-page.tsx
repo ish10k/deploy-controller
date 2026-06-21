@@ -13,6 +13,7 @@ import { TagList } from "@/components/ui/tag-list";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
+import { useAppContext } from "@/lib/app-context";
 import { listComponents, listReleases, putComponent, queryKeys, type ApiComponent, type ApiRelease } from "@/lib/api-client";
 import { tagSummary } from "@/lib/format";
 import { Plus, Search } from "lucide-react";
@@ -30,6 +31,7 @@ export function ComponentsPage({
 } = {}) {
   const queryClient = useQueryClient();
   const navigate = useWorkspaceNavigate();
+  const { workspaceId } = useAppContext();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -222,6 +224,7 @@ function ComponentDrawer({
   onSubmit: (component: ApiComponent) => void;
   pending: boolean;
 }) {
+  const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState("");
   const [type, setType] = useState("");
   const [active, setActive] = useState(true);
@@ -239,6 +242,7 @@ function ComponentDrawer({
     }
 
     onSubmit({
+      workspaceId,
       componentId: trimmedComponentId,
       type: type.trim() || null,
       active,
@@ -250,11 +254,11 @@ function ComponentDrawer({
     <SideDrawer
       open={open}
       title="Create component"
-      description="Register a deployable unit that releases and deploy sets can reference."
+      description="Register a deployable unit that releases and deployments can reference."
       onClose={onClose}
       footer={
         <>
-          <p className="text-xs text-slate-500">Tags help filter components across releases, component sets, and deploy sets.</p>
+          <p className="text-xs text-slate-500">Tags help filter components across releases, release sets, and deployments.</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -292,7 +296,7 @@ function ComponentDrawer({
             <input className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
             <span>
               <span className="block font-medium text-slate-800">Active component</span>
-              <span>Active components are available for new releases, component sets, and deploy sets.</span>
+              <span>Active components are available for new releases, release sets, and deployments.</span>
             </span>
           </label>
         </section>
@@ -322,3 +326,4 @@ function latestReleasesByComponent(releases: ApiRelease[]) {
 
   return latest;
 }
+

@@ -8,10 +8,10 @@ from src.application.use_cases.auth import require_pat_context
 from src.domain.errors import NotFoundError
 from src.domain.models import (
     Component,
-    ComponentSet,
+    ReleaseSet,
     DeploymentRunner,
     DeploymentRunnerCreateRequest,
-    DeploySetCreateRequest,
+    ReleaseSetCreateRequest,
     Environment,
     Organization,
     OrganizationMembership,
@@ -123,25 +123,21 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         if method == "PUT" and len(scoped) == 2 and scoped[0] == "components":
             component = _body(event, Component).model_copy(update={"workspace_id": workspace_id, "component_id": scoped[1]})
             return response(200, container.components.put(component, _auth_context(event, container), workspace_id))
-        if method == "GET" and scoped == ["component-sets"]:
-            return response(200, container.component_sets.list(workspace_id))
-        if method == "GET" and len(scoped) == 2 and scoped[0] == "component-sets":
-            return response(200, container.component_sets.get(scoped[1], workspace_id))
-        if method == "PUT" and len(scoped) == 2 and scoped[0] == "component-sets":
-            component_set = _body(event, ComponentSet).model_copy(update={"workspace_id": workspace_id, "component_set_id": scoped[1]})
-            return response(200, container.component_sets.put(component_set, _auth_context(event, container), workspace_id))
+        if method == "GET" and scoped == ["release-sets"]:
+            return response(200, container.release_sets.list(workspace_id))
+        if method == "GET" and len(scoped) == 2 and scoped[0] == "release-sets":
+            return response(200, container.release_sets.get(scoped[1], workspace_id))
+        if method == "PUT" and len(scoped) == 2 and scoped[0] == "release-sets":
+            release_set = _body(event, ReleaseSet).model_copy(update={"workspace_id": workspace_id, "release_set_id": scoped[1]})
+            return response(200, container.release_sets.put(release_set, _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["releases"]:
             return response(200, container.releases.list(_query(event, "componentId"), workspace_id))
         if method == "GET" and len(scoped) == 3 and scoped[0] == "releases":
             return response(200, container.releases.get(scoped[1], scoped[2], workspace_id))
         if method == "POST" and scoped == ["releases"]:
             return response(200, container.releases.create(_body(event, Release), _auth_context(event, container), workspace_id))
-        if method == "GET" and scoped == ["deploysets"]:
-            return response(200, container.deploysets.list(workspace_id))
-        if method == "GET" and len(scoped) == 2 and scoped[0] == "deploysets":
-            return response(200, container.deploysets.get(scoped[1], workspace_id))
-        if method == "POST" and scoped == ["deploysets"]:
-            return response(200, container.deploysets.create(_body(event, DeploySetCreateRequest), _auth_context(event, container), workspace_id))
+        if method == "POST" and scoped == ["release-sets"]:
+            return response(200, container.release_sets.create(_body(event, ReleaseSetCreateRequest), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["environments"]:
             return response(200, container.environments.list(workspace_id))
         if method == "GET" and scoped == ["tag-definitions"]:
@@ -163,19 +159,19 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.read_only.list_environment_states(workspace_id))
         if method == "GET" and len(scoped) == 2 and scoped[0] == "environment-state":
             return response(200, container.read_only.get_environment_state(scoped[1], workspace_id))
-        if method == "GET" and scoped == ["deployment-executions"]:
+        if method == "GET" and scoped == ["deployments"]:
             return response(200, container.read_only.list_deployment_executions(_query(event, "environmentId"), workspace_id))
-        if method == "GET" and scoped == ["deployment-executions", "pending"]:
+        if method == "GET" and scoped == ["deployments", "pending"]:
             return response(200, container.read_only.list_pending_deployment_executions(workspace_id))
-        if method == "GET" and len(scoped) == 2 and scoped[0] == "deployment-executions":
+        if method == "GET" and len(scoped) == 2 and scoped[0] == "deployments":
             return response(200, container.read_only.get_deployment_execution(scoped[1], workspace_id))
-        if method == "POST" and len(scoped) == 3 and scoped[0] == "deployment-executions" and scoped[2] == "cancel":
+        if method == "POST" and len(scoped) == 3 and scoped[0] == "deployments" and scoped[2] == "cancel":
             return response(200, container.create_deployment.cancel(scoped[1], _auth_context(event, container), workspace_id))
         if method == "POST" and scoped == ["deployments", "plan"]:
             plan_request = _body(event, PlanDeploymentRequest)
             return response(200, container.plan_deployment.execute(
                 environment_id=plan_request.environment_id,
-                deployset_id=plan_request.deployset_id,
+                release_set_id=plan_request.release_set_id,
                 workspace_id=workspace_id,
                 force=plan_request.force,
             ))
@@ -183,14 +179,14 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             deployment_request = _body(event, CreateDeploymentRequest)
             execution = container.create_deployment.execute(
                 environment_id=deployment_request.environment_id,
-                deployset_id=deployment_request.deployset_id,
+                release_set_id=deployment_request.release_set_id,
                 context=_auth_context(event, container),
                 workspace_id=workspace_id,
                 notes=deployment_request.notes,
                 force=deployment_request.force,
                 tags=deployment_request.tags,
             )
-            return response(200, {"deploymentExecutionId": execution.deployment_execution_id, "status": "pending"})
+            return response(200, {"deploymentId": execution.deployment_id, "status": "pending"})
         if method == "GET" and scoped == ["publishers"]:
             return response(200, container.publishers.list(workspace_id))
         if method == "POST" and scoped == ["publishers"]:
@@ -243,7 +239,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             item_status_request = _body(event, ReportExecutionItemStatusRequest)
             return response(200, container.deployment_runners.report_item_status(
                 runner_id=scoped[1],
-                deployment_execution_id=scoped[3],
+                deployment_id=scoped[3],
                 component_id=scoped[5],
                 status=item_status_request.status,
                 reported_action=item_status_request.reported_action,
@@ -302,3 +298,4 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         return response(200, container.events.get(_auth_context(event, container), parts[1]))
 
     raise NotFoundError(f"Route not found: {method} {path}")
+

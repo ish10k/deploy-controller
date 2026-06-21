@@ -31,9 +31,9 @@ DEFAULT_ROLES: dict[str, Role] = {
         description="Can read deployment metadata and create deployments.",
         permissions=[
             Permission.COMPONENTS_READ,
-            Permission.COMPONENT_SETS_READ,
+            Permission.RELEASE_SETS_READ,
             Permission.RELEASES_READ,
-            Permission.DEPSETS_READ,
+            Permission.RELEASE_SETS_READ,
             Permission.DEPLOYMENTS_READ,
             Permission.DEPLOYMENTS_CREATE,
             Permission.TAG_DEFINITIONS_READ,
@@ -45,9 +45,9 @@ DEFAULT_ROLES: dict[str, Role] = {
         description="Read-only platform visibility, including the audit event log.",
         permissions=[
             Permission.COMPONENTS_READ,
-            Permission.COMPONENT_SETS_READ,
+            Permission.RELEASE_SETS_READ,
             Permission.RELEASES_READ,
-            Permission.DEPSETS_READ,
+            Permission.RELEASE_SETS_READ,
             Permission.ENVIRONMENTS_READ,
             Permission.DEPLOYMENTS_READ,
             Permission.EVENTS_READ,
@@ -161,3 +161,4 @@ class RoleUseCases:
                 after=updated,
             )
         return updated
+

@@ -13,7 +13,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SwitchableCard, type SwitchableCardOption } from "@/components/ui/switchable-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
-import { listDeploymentExecutions, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
+import { listDeployments, queryKeys, type ApiDeployment } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 type DeploymentsPageProps = {
@@ -22,23 +22,23 @@ type DeploymentsPageProps = {
   onPlanClose?: () => void;
 };
 
-type DeploymentWorkspaceView = "executions" | "deploysets";
+type DeploymentWorkspaceView = "executions" | "release-sets";
 
 export function DeploymentsPage({ initialView = "executions", initialPlanOpen = false, onPlanClose }: DeploymentsPageProps = {}) {
   const [view, setView] = useState<DeploymentWorkspaceView>(initialView);
   const [planOpen, setPlanOpen] = useState(initialPlanOpen);
   const [planMounted, setPlanMounted] = useState(initialPlanOpen);
   const [planEntered, setPlanEntered] = useState(false);
-  const [deploysetCreateSignal, setDeploysetCreateSignal] = useState(0);
+  const [releaseSetCreateSignal, setDeploysetCreateSignal] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [search, setSearch] = useState("");
   const options: SwitchableCardOption<DeploymentWorkspaceView>[] = [
     { value: "executions", label: "Deployments" },
-    { value: "deploysets", label: "DeploySets" },
+    { value: "release-sets", label: "Release sets" },
   ];
   const query = useQuery({
     queryKey: queryKeys.executions(),
-    queryFn: () => listDeploymentExecutions(),
+    queryFn: () => listDeployments(),
     retry: 1,
   });
   const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
@@ -106,7 +106,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
     setDeploysetCreateSignal(0);
   };
   const changeView = (nextView: DeploymentWorkspaceView) => {
-    if (nextView === "deploysets") {
+    if (nextView === "release-sets") {
       setDeploysetCreateSignal(0);
     }
     setView(nextView);
@@ -122,8 +122,8 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
       }
 
       return [
-        execution.deploymentExecutionId,
-        execution.deploySetId,
+        execution.deploymentId,
+        execution.releaseSetId,
         execution.environmentId,
         execution.status,
       ]
@@ -150,7 +150,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
             </Button>
             <Button className="px-4" onClick={openDeploysetDrawer}>
               <Plus className="h-5 w-5" />
-              Create DeploySet
+              Create ReleaseSet
             </Button>
           </div>
         }
@@ -193,7 +193,7 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
           ) : (
             <DeploysetsPage
               embedded
-              createSignal={deploysetCreateSignal}
+              createSignal={releaseSetCreateSignal}
               onCreateSignalHandled={clearDeploysetCreateSignal}
               search={search}
               refreshSignal={refreshSignal}
@@ -202,10 +202,10 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
         </SwitchableCard>
       </div>
 
-      {view !== "deploysets" ? (
+      {view !== "release-sets" ? (
         <DeploysetsPage
           drawerOnly
-          createSignal={deploysetCreateSignal}
+          createSignal={releaseSetCreateSignal}
           onCreateSignalHandled={clearDeploysetCreateSignal}
           refreshSignal={refreshSignal}
         />
@@ -228,14 +228,14 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
             <div className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-950">Create Deployment</h2>
-                <p className="mt-1 text-sm text-slate-600">Deploy a DeploySet to an environment.</p>
+                <p className="mt-1 text-sm text-slate-600">Deploy a ReleaseSet to an environment.</p>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={closePlan} aria-label="Close deployment planner">
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="min-h-0 flex-1">
-              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} onCreateDeploySet={() => {
+              <DeploymentWorkflowPage showHeader={false} onCreated={closePlan} onCancel={closePlan} onCreateReleaseSet={() => {
                 closePlan();
                 openDeploysetDrawer();
               }} />
@@ -250,28 +250,28 @@ export function DeploymentsPage({ initialView = "executions", initialPlanOpen = 
 function ExecutionTable({
   rows,
 }: {
-  rows: ApiDeploymentExecution[];
+  rows: ApiDeployment[];
 }) {
-  const columns = useMemo<ColumnDef<ApiDeploymentExecution>[]>(
+  const columns = useMemo<ColumnDef<ApiDeployment>[]>(
     () => [
       {
-        header: "Execution ID",
-        accessorKey: "deploymentExecutionId",
+        header: "Deployment ID",
+        accessorKey: "deploymentId",
         cell: ({ row }) => (
           <EntityLink
             kind="deployment"
-            to="/deployments/$deploymentExecutionId"
-            params={{ deploymentExecutionId: row.original.deploymentExecutionId }}
+            to="/deployments/$deploymentId"
+            params={{ deploymentId: row.original.deploymentId }}
           >
-            {row.original.deploymentExecutionId}
+            {row.original.deploymentId}
           </EntityLink>
         ),
       },
       {
-        header: "DeploySet",
+        header: "ReleaseSet",
         cell: ({ row }) => (
-          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: row.original.deploySetId }}>
-            {row.original.deploySetId}
+          <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: row.original.releaseSetId }}>
+            {row.original.releaseSetId}
           </EntityLink>
         ),
       },
@@ -292,7 +292,7 @@ function ExecutionTable({
       {
         id: "actions",
         cell: ({ row }) => (
-          <Link to="/deployments/$deploymentExecutionId" params={{ deploymentExecutionId: row.original.deploymentExecutionId }} aria-label={`View ${row.original.deploymentExecutionId}`}>
+          <Link to="/deployments/$deploymentId" params={{ deploymentId: row.original.deploymentId }} aria-label={`View ${row.original.deploymentId}`}>
             <MoreHorizontal className="ml-auto h-4 w-4 text-blue-700" />
           </Link>
         ),
@@ -325,3 +325,4 @@ function ExecutionTable({
     </Table>
   );
 }
+

@@ -13,13 +13,13 @@ import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import {
-  getDeploymentExecution,
-  listDeploymentExecutions,
+  getDeployment,
+  listDeployments,
   listEvents,
-  cancelDeploymentExecution,
+  cancelDeployment,
   queryKeys,
-  type ApiDeploymentExecution,
-  type ApiDeploymentExecutionItem,
+  type ApiDeployment,
+  type ApiDeploymentItem,
   type ApiEventLogEntry,
   ApiRequestError,
 } from "@/lib/api-client";
@@ -29,50 +29,50 @@ import { useToast } from "@/components/ui/toast";
 import { canCancelDeployments } from "@/lib/user-permissions";
 import { formatRelativeTime } from "@/lib/format";
 
-export function DeploymentExecutionDetailsPage({ deploymentExecutionId }: { deploymentExecutionId: string }) {
+export function DeploymentDetailsPage({ deploymentId }: { deploymentId: string }) {
   const query = useQuery({
-    queryKey: queryKeys.execution(deploymentExecutionId),
-    queryFn: () => getDeploymentExecution(deploymentExecutionId),
+    queryKey: queryKeys.execution(deploymentId),
+    queryFn: () => getDeployment(deploymentId),
     retry: 1,
     refetchInterval: (query) => (["pending", "claimed", "in-progress"].includes(query.state.data?.status ?? "") ? 5_000 : false),
     refetchIntervalInBackground: true,
   });
-  if (query.isLoading) return <LoadingPanel label="Loading deployment execution..." />;
+  if (query.isLoading) return <LoadingPanel label="Loading deployment..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
   if (!query.data) return <EmptyPanel label="Deployment execution not found." />;
 
   return <ExecutionDetailsView execution={query.data} onRefresh={() => query.refetch()} />;
 }
 
-function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeploymentExecution; onRefresh: () => Promise<unknown> }) {
+function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployment; onRefresh: () => Promise<unknown> }) {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const toast = useToast();
-  const canReadEvents = Boolean(auth.user?.permissions.includes("events:read"));
+  const canReadEvents = Boolean(auth.user?.permissions?.includes("events:read"));
   const canCancel = canCancelDeployments(auth.user) && ["pending", "claimed", "in-progress"].includes(execution.status);
   const eventQuery = useQuery({
-    queryKey: queryKeys.events({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
+    queryKey: queryKeys.events({ resourceType: "deployment", resourceId: execution.deploymentId, limit: 50 }),
     enabled: canReadEvents,
-    queryFn: () => listEvents({ resourceType: "deploymentExecution", resourceId: execution.deploymentExecutionId, limit: 50 }),
+    queryFn: () => listEvents({ resourceType: "deployment", resourceId: execution.deploymentId, limit: 50 }),
     refetchInterval: ["pending", "claimed", "in-progress"].includes(execution.status) ? 5_000 : false,
     refetchIntervalInBackground: true,
   });
   const executionsQuery = useQuery({
     queryKey: queryKeys.executions(execution.environmentId),
-    queryFn: () => listDeploymentExecutions(execution.environmentId),
+    queryFn: () => listDeployments(execution.environmentId),
     refetchInterval: ["pending", "claimed", "in-progress"].includes(execution.status) ? 5_000 : false,
     refetchIntervalInBackground: true,
   });
   const cancelMutation = useMutation({
-    mutationFn: () => cancelDeploymentExecution(execution.deploymentExecutionId),
+    mutationFn: () => cancelDeployment(execution.deploymentId),
     onSuccess: async () => {
       toast({
         variant: "success",
         title: "Deployment cancelled",
-        description: `Execution ${execution.deploymentExecutionId} is now cancelled.`,
+        description: `Execution ${execution.deploymentId} is now cancelled.`,
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.execution(execution.deploymentExecutionId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.execution(execution.deploymentId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.executions() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.environmentCenter }),
         queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
@@ -93,7 +93,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
   const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   const currentVersions = new Map(
     executionsQuery.data
-      ?.find((candidate) => candidate.deploymentExecutionId !== execution.deploymentExecutionId)
+      ?.find((candidate) => candidate.deploymentId !== execution.deploymentId)
       ?.items.map((item) => [item.componentId, item.version]) ?? [],
   );
   const events = eventQuery.data?.events ?? [];
@@ -101,7 +101,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={`Deployment: ${execution.deploymentExecutionId}`}
+        title={`Deployment: ${execution.deploymentId}`}
         subtitle="Deployment execution details, component actions, and event history."
         action={
           <div className="flex flex-wrap gap-2">
@@ -142,14 +142,14 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
           sublabel={execution.force ? "Force deployment" : "Standard deployment"}
         />
         <Link
-          to="/deploysets/$deploySetId"
-          params={{ deploySetId: execution.deploySetId }}
+          to="/release-sets/$releaseSetId"
+          params={{ releaseSetId: execution.releaseSetId }}
           className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <ExecutionFactCard
             icon={Package}
-            label="DeploySet"
-            value={execution.deploySetId}
+            label="ReleaseSet"
+            value={execution.releaseSetId}
             sublabel={`Environment ${execution.environmentId}`}
             interactive
           />
@@ -194,10 +194,10 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
             <CardContent className="grid gap-3 text-sm">
               <MetaRow
                 icon={Box}
-                label="DeploySet"
+                label="ReleaseSet"
                 value={
-                  <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
-                    {execution.deploySetId}
+                  <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: execution.releaseSetId }}>
+                    {execution.releaseSetId}
                   </EntityLink>
                 }
               />
@@ -262,7 +262,7 @@ function AuditEventList({ events }: { events: ApiEventLogEntry[] }) {
   );
 }
 
-function SyntheticExecutionEvents({ execution }: { execution: ApiDeploymentExecution }) {
+function SyntheticExecutionEvents({ execution }: { execution: ApiDeployment }) {
   const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   return (
     <ScrollFade className="h-full" contentClassName="space-y-3 pb-4">
@@ -301,7 +301,7 @@ export function ComponentActionsTable({
   rows,
   currentVersions,
 }: {
-  rows: ApiDeploymentExecutionItem[];
+  rows: ApiDeploymentItem[];
   currentVersions: Map<string, string>;
 }) {
   if (!rows.length) return <EmptyPanel label="This execution has no item records." />;
@@ -464,3 +464,4 @@ function VersionCell({
     </div>
   );
 }
+

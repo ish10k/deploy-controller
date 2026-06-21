@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from settle_sdk.errors import UnsupportedOperationError
-from settle_sdk.models import DeploymentExecution, DeploymentExecutionItem, ReportedAction
+from settle_sdk.models import Deployment, DeploymentItem, ReportedAction
 
 if TYPE_CHECKING:
     from settle_sdk.client import SettleClient
 
 
-DeployJob = DeploymentExecutionItem
+DeployJob = DeploymentItem
 DeployJobRef = str | DeployJob
 
 
@@ -39,7 +39,7 @@ class DeploymentRunnerClient:
             body,
         )
         item = DeployJob.from_dict(_dict(data))
-        self.current_execution_id = item.deployment_execution_id
+        self.current_execution_id = item.deployment_id
         return item
 
     def next(self, *, claim_timeout_seconds: int | None = None) -> DeployJob | None:
@@ -47,7 +47,7 @@ class DeploymentRunnerClient:
         if not pending:
             return None
         item = pending[0]
-        return self.claim(item.deployment_execution_id, item.component_id, claim_timeout_seconds=claim_timeout_seconds)
+        return self.claim(item.deployment_id, item.component_id, claim_timeout_seconds=claim_timeout_seconds)
 
     def started(
         self,
@@ -55,7 +55,7 @@ class DeploymentRunnerClient:
         *,
         execution_id: str | None = None,
         reported_by: str | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         return self.report_item(
             job,
             status="in-progress",
@@ -70,7 +70,7 @@ class DeploymentRunnerClient:
         *,
         execution_id: str | None = None,
         reported_by: str | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         return self.report_item(
             job,
             status="succeeded",
@@ -86,7 +86,7 @@ class DeploymentRunnerClient:
         execution_id: str | None = None,
         failure_reason: str | None = None,
         reported_by: str | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         return self.report_item(
             job,
             status="failed",
@@ -102,7 +102,7 @@ class DeploymentRunnerClient:
         *,
         execution_id: str | None = None,
         reported_by: str | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         return self.report_item(
             job,
             status="skipped",
@@ -120,7 +120,7 @@ class DeploymentRunnerClient:
         execution_id: str | None = None,
         reported_by: str | None = None,
         failure_reason: str | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         resolved_execution_id = execution_id or _component_execution_id(job) or self.current_execution_id
         if not resolved_execution_id:
             raise ValueError("execution_id is required before work has been claimed")
@@ -141,8 +141,8 @@ class DeploymentRunnerClient:
             ),
             body,
         )
-        execution = DeploymentExecution.from_dict(_dict(data))
-        self.current_execution_id = execution.deployment_execution_id
+        execution = Deployment.from_dict(_dict(data))
+        self.current_execution_id = execution.deployment_id
         return execution
 
     def _path(self, suffix: str = "") -> str:
@@ -150,19 +150,19 @@ class DeploymentRunnerClient:
 
 
 def _component_id(job: DeployJobRef) -> str:
-    if isinstance(job, DeploymentExecutionItem):
+    if isinstance(job, DeploymentItem):
         return job.component_id
     return job
 
 
 def _component_execution_id(job: DeployJobRef) -> str | None:
-    if isinstance(job, DeploymentExecutionItem):
-        return job.deployment_execution_id or None
+    if isinstance(job, DeploymentItem):
+        return job.deployment_id or None
     return None
 
 
 def _reported_action_for(job: DeployJobRef) -> ReportedAction:
-    if isinstance(job, DeploymentExecutionItem) and job.requested_action == "skip":
+    if isinstance(job, DeploymentItem) and job.requested_action == "skip":
         return "skip"
     return "deploy"
 

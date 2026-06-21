@@ -1,4 +1,4 @@
-import type { ApiDeploySetCreateItem } from "@/lib/api-types";
+import type { ApiReleaseSetCreateItem } from "@/lib/api-types";
 
 export function parseKeyValueList(value: string) {
   return Object.fromEntries(
@@ -14,7 +14,7 @@ export function parseKeyValueList(value: string) {
   );
 }
 
-export function parseDeploySetItems(value: string): ApiDeploySetCreateItem[] {
+export function parseReleaseSetItems(value: string): ApiReleaseSetCreateItem[] {
   return value
     .split(",")
     .map((entry) => entry.trim())
@@ -28,3 +28,4 @@ export function parseDeploySetItems(value: string): ApiDeploySetCreateItem[] {
     })
     .filter((item) => item.componentId && item.version);
 }
+

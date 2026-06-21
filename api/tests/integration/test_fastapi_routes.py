@@ -97,11 +97,11 @@ def test_fastapi_tag_definitions_can_be_listed_and_filtered() -> None:
     definitions = response.json()
     assert any(definition["key"] == "track" for definition in definitions)
 
-    response = client_instance.get(f"{WORKSPACE}/tag-definitions?resourceType=deployset")
+    response = client_instance.get(f"{WORKSPACE}/tag-definitions?resourceType=release_set")
     assert response.status_code == 200
     filtered = response.json()
     assert filtered
-    assert all("deployset" in definition["selector"]["resourceTypes"] for definition in filtered)
+    assert all("release-set" in definition["selector"]["resourceTypes"] for definition in filtered)
     assert any(definition["defaultValue"] == "prod" for definition in filtered)
 
 
@@ -176,25 +176,25 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
     assert release_response.status_code == 200
     assert release_response.json()["notes"] == "Built from commit abc123 and approved by platform."
 
-    deployset_response = client_instance.post(
-        f"{WORKSPACE}/deploysets",
+    releaseSet_response = client_instance.post(
+        f"{WORKSPACE}/release-sets",
         json={
-            "deploySetId": "notes-ds",
-            "componentSetId": "local-platform",
+            "releaseSetId": "notes-ds",
+            "releaseSetId": "local-platform",
             "notes": "Promote api 9.9.9 while inheriting the current worker release.",
-            "baseDeploySetId": "local-default",
+            "baseReleaseSetId": "local-default",
             "items": [{"componentId": "api", "version": "9.9.9"}],
             "createdBy": "ci",
         },
     )
-    assert deployset_response.status_code == 200
-    assert deployset_response.json()["deployset"]["notes"] == "Promote api 9.9.9 while inheriting the current worker release."
+    assert releaseSet_response.status_code == 200
+    assert releaseSet_response.json()["release-set"]["notes"] == "Promote api 9.9.9 while inheriting the current worker release."
 
     deployment_response = client_instance.post(
         f"{WORKSPACE}/deployments",
         json={
             "environmentId": "prod",
-            "deploySetId": "prod-default",
+            "releaseSetId": "prod-default",
             "requestedBy": "ops",
             "notes": "Production rollout requested after change window opened.",
             "force": True,
@@ -202,13 +202,13 @@ def test_fastapi_release_and_deployment_notes_round_trip() -> None:
     )
     assert deployment_response.status_code == 200
 
-    execution_id = deployment_response.json()["deploymentExecutionId"]
+    execution_id = deployment_response.json()["deploymentId"]
     assert re.fullmatch(r"[0-9a-f]{8}", execution_id)
-    execution_response = client_instance.get(f"{WORKSPACE}/deployment-executions/{execution_id}")
+    execution_response = client_instance.get(f"{WORKSPACE}/deployments/{execution_id}")
     assert execution_response.status_code == 200
     assert execution_response.json()["notes"] == "Production rollout requested after change window opened."
 
-    cancel_response = client_instance.post(f"{WORKSPACE}/deployment-executions/{execution_id}/cancel")
+    cancel_response = client_instance.post(f"{WORKSPACE}/deployments/{execution_id}/cancel")
     assert cancel_response.status_code == 200
     assert cancel_response.json()["status"] == "cancelled"
 
@@ -220,9 +220,9 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
     assert response.status_code == 200
 
     response = client_instance.put(
-        f"{WORKSPACE}/component-sets/edge-platform",
+        f"{WORKSPACE}/release-sets/edge-platform",
         json={
-            "componentSetId": "ignored",
+            "releaseSetId": "ignored",
             "components": [{"componentId": "edge-api"}],
             "createdAt": "2026-06-19T10:00:00Z",
             "createdBy": "test",
@@ -243,10 +243,10 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
     assert response.status_code == 200
 
     response = client_instance.post(
-        f"{WORKSPACE}/deploysets",
+        f"{WORKSPACE}/release-sets",
         json={
-            "deploySetId": "edge-ds",
-            "componentSetId": "edge-platform",
+            "releaseSetId": "edge-ds",
+            "releaseSetId": "edge-platform",
             "items": [{"componentId": "edge-api", "version": "1.0.0"}],
             "createdBy": "test",
         },
@@ -260,15 +260,15 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
         f"{WORKSPACE}/deployments",
         json={
             "environmentId": "edge",
-            "deploySetId": "edge-ds",
+            "releaseSetId": "edge-ds",
             "requestedBy": "ops",
             "force": True,
         },
     )
     assert response.status_code == 200
-    execution_id = response.json()["deploymentExecutionId"]
+    execution_id = response.json()["deploymentId"]
 
-    response = client_instance.get(f"{WORKSPACE}/deployment-executions/{execution_id}")
+    response = client_instance.get(f"{WORKSPACE}/deployments/{execution_id}")
     assert response.status_code == 200
     assert any(item["runnerMatchWarning"] for item in response.json()["items"])
 
@@ -276,7 +276,7 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
 def test_fastapi_pending_deployment_executions_route_is_not_shadowed() -> None:
     client_instance = client()
 
-    response = client_instance.get(f"{WORKSPACE}/deployment-executions/pending")
+    response = client_instance.get(f"{WORKSPACE}/deployments/pending")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 

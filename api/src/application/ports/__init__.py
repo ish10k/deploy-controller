@@ -1,10 +1,10 @@
 from src.application.ports.repositories import (
     Clock,
     ComponentRepository,
-    ComponentSetRepository,
-    DeploymentExecutionRepository,
+    ReleaseSetRepository,
+    DeploymentRepository,
     DeploymentRunnerRepository,
-    DeploySetRepository,
+    ReleaseSetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
     EventLogRepository,
@@ -26,9 +26,9 @@ from src.application.ports.repositories import (
 __all__ = [
     "Clock",
     "ComponentRepository",
-    "ComponentSetRepository",
-    "DeploySetRepository",
-    "DeploymentExecutionRepository",
+    "ReleaseSetRepository",
+    "ReleaseSetRepository",
+    "DeploymentRepository",
     "DeploymentRunnerRepository",
     "BootstrapStateRepository",
     "EnvironmentRepository",
@@ -47,3 +47,4 @@ __all__ = [
     "ReleaseRepository",
     "PublisherRepository",
 ]
+

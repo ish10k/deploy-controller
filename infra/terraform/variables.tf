@@ -5,13 +5,13 @@ variable "aws_region" {
 
 variable "name_prefix" {
   type    = string
-  default = "deployset-controller"
+  default = "release-set-controller"
 }
 
 variable "lambda_zip_path" {
   type        = string
   description = "Path to a prebuilt Lambda deployment zip."
-  default     = "../../dist/deployset-controller.zip"
+  default     = "../../dist/release-set-controller.zip"
 }
 
 variable "artifact_bucket_name" {

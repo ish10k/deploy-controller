@@ -4,14 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/common/api-state";
 import { StatusBadge } from "@/components/deployments/status-badge";
 import { ResourceContent } from "@/components/pages/resource-content";
-import { listDeploymentExecutions, queryKeys, type ApiDeploymentExecution } from "@/lib/api-client";
+import { listDeployments, queryKeys, type ApiDeployment } from "@/lib/api-client";
 import { useAppContext } from "@/lib/app-context";
 import { formatRelativeTime } from "@/lib/format";
 
 export function ExecutionsPage() {
   const { environmentId } = useAppContext();
-  const [selected, setSelected] = useState<ApiDeploymentExecution | null>(null);
-  const query = useQuery({ queryKey: queryKeys.executions(environmentId), queryFn: () => listDeploymentExecutions(environmentId) });
+  const [selected, setSelected] = useState<ApiDeployment | null>(null);
+  const query = useQuery({ queryKey: queryKeys.executions(environmentId), queryFn: () => listDeployments(environmentId) });
 
   return (
     <>
@@ -21,10 +21,10 @@ export function ExecutionsPage() {
         rows={query.data ?? []}
         selected={selected}
         onSelect={setSelected}
-        columns={["Execution", "DeploySet", "Status", "Started", "Updated"]}
+        columns={["Execution", "ReleaseSet", "Status", "Started", "Updated"]}
         renderRow={(execution) => [
-          execution.deploymentExecutionId,
-          execution.deploySetId,
+          execution.deploymentId,
+          execution.releaseSetId,
           <StatusBadge status={execution.status} />,
           formatRelativeTime(execution.startedAt, { mode: "short" }),
           formatRelativeTime(execution.completedAt ?? execution.startedAt, { mode: "short" }),
@@ -33,3 +33,4 @@ export function ExecutionsPage() {
     </>
   );
 }
+

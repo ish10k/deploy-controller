@@ -124,3 +124,4 @@ def verify_oidc_token(token: str, settings: OidcSettings) -> dict[str, Any]:
             f'OIDC token subject claim "{settings.subject_claim}" is required. Available claims: {available_claims}'
         )
     return claims
+

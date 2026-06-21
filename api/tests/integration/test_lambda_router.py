@@ -58,14 +58,14 @@ def test_lambda_tag_definitions_can_be_listed_and_filtered() -> None:
     response = route(
         {
             **event("GET", f"{WORKSPACE}/tag-definitions", authenticated=True),
-            "queryStringParameters": {"resourceType": "deployset"},
+            "queryStringParameters": {"resourceType": "release-set"},
         },
         container,
     )
     assert response["statusCode"] == 200
     filtered = json.loads(response["body"])
     assert filtered
-    assert all("deployset" in definition["selector"]["resourceTypes"] for definition in filtered)
+    assert all("release-set" in definition["selector"]["resourceTypes"] for definition in filtered)
 
 
 def test_lambda_deployment_notes_round_trip() -> None:
@@ -98,7 +98,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
             f"{WORKSPACE}/deployments",
             {
                 "environmentId": "prod",
-                "deploySetId": "prod-default",
+                "releaseSetId": "prod-default",
                 "requestedBy": "ops",
                 "notes": "Lambda deployment note coverage.",
                 "force": True,
@@ -109,13 +109,13 @@ def test_lambda_deployment_notes_round_trip() -> None:
     )
     assert response["statusCode"] == 200
 
-    execution_id = json.loads(response["body"])["deploymentExecutionId"]
+    execution_id = json.loads(response["body"])["deploymentId"]
     assert re.fullmatch(r"[0-9a-f]{8}", execution_id)
-    detail_response = route(event("GET", f"{WORKSPACE}/deployment-executions/{execution_id}"), container)
+    detail_response = route(event("GET", f"{WORKSPACE}/deployments/{execution_id}"), container)
     assert detail_response["statusCode"] == 200
     assert json.loads(detail_response["body"])["notes"] == "Lambda deployment note coverage."
 
-    cancel_response = route(event("POST", f"{WORKSPACE}/deployment-executions/{execution_id}/cancel", authenticated=True), container)
+    cancel_response = route(event("POST", f"{WORKSPACE}/deployments/{execution_id}/cancel", authenticated=True), container)
     assert cancel_response["statusCode"] == 200
     assert json.loads(cancel_response["body"])["status"] == "cancelled"
 
@@ -132,9 +132,9 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
     response = route(
         event(
             "PUT",
-            f"{WORKSPACE}/component-sets/edge-platform",
+            f"{WORKSPACE}/release-sets/edge-platform",
             {
-                "componentSetId": "ignored",
+                "releaseSetId": "ignored",
                 "components": [{"componentId": "edge-api"}],
                 "createdAt": "2026-06-19T10:00:00Z",
                 "createdBy": "test",
@@ -165,10 +165,10 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
     response = route(
         event(
             "POST",
-            f"{WORKSPACE}/deploysets",
+            f"{WORKSPACE}/release-sets",
             {
-                "deploySetId": "edge-ds",
-                "componentSetId": "edge-platform",
+                "releaseSetId": "edge-ds",
+                "releaseSetId": "edge-platform",
                 "items": [{"componentId": "edge-api", "version": "1.0.0"}],
                 "createdBy": "test",
             },
@@ -187,7 +187,7 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
             f"{WORKSPACE}/deployments",
             {
                 "environmentId": "edge",
-                "deploySetId": "edge-ds",
+                "releaseSetId": "edge-ds",
                 "requestedBy": "ops",
                 "force": True,
             },
@@ -196,9 +196,9 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
         container,
     )
     assert response["statusCode"] == 200
-    execution_id = json.loads(response["body"])["deploymentExecutionId"]
+    execution_id = json.loads(response["body"])["deploymentId"]
 
-    response = route(event("GET", f"{WORKSPACE}/deployment-executions/{execution_id}"), container)
+    response = route(event("GET", f"{WORKSPACE}/deployments/{execution_id}"), container)
     assert response["statusCode"] == 200
     assert any(item["runnerMatchWarning"] for item in json.loads(response["body"])["items"])
 
@@ -206,7 +206,7 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
 def test_lambda_pending_deployment_executions_route_is_not_shadowed() -> None:
     container = authenticated_container()
 
-    response = route(event("GET", f"{WORKSPACE}/deployment-executions/pending"), container)
+    response = route(event("GET", f"{WORKSPACE}/deployments/pending"), container)
     assert response["statusCode"] == 200
     assert isinstance(json.loads(response["body"]), list)
 

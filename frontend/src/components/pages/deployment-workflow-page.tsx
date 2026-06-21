@@ -12,8 +12,8 @@ import { Select } from "@/components/ui/select";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import {
   createDeployment,
-  listComponentSets,
-  listDeploymentExecutions,
+  listReleaseSets,
+  listDeployments,
   listDeploysets,
   listReleases,
   planDeployment,
@@ -28,21 +28,19 @@ import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 export function DeploymentWorkflowPage({
   onCreated,
   onCancel,
-  onCreateDeploySet,
+  onCreateReleaseSet,
   initialEnvironmentId = "",
   lockEnvironment = false,
-  initialComponentSetId = "",
-  initialDeploySetId = "",
+  initialReleaseSetId = "",
   lockTarget = false,
   showHeader = true,
 }: {
   onCreated?: () => void;
   onCancel?: () => void;
-  onCreateDeploySet?: () => void;
+  onCreateReleaseSet?: () => void;
   initialEnvironmentId?: string;
   lockEnvironment?: boolean;
-  initialComponentSetId?: string;
-  initialDeploySetId?: string;
+  initialReleaseSetId?: string;
   lockTarget?: boolean;
   showHeader?: boolean;
 } = {}) {
@@ -51,46 +49,33 @@ export function DeploymentWorkflowPage({
   const toast = useToast();
   const { openModal, closeModal } = useModal();
   const { environmentId: defaultEnvironmentId, environments, environmentsLoading } = useAppContext();
-  const [componentSetId, setComponentSetId] = useState(initialComponentSetId);
-  const [deploySetId, setDeploySetId] = useState(initialDeploySetId);
+  const [releaseSetId, setReleaseSetId] = useState(initialReleaseSetId);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(initialEnvironmentId || defaultEnvironmentId);
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const [force, setForce] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
-  const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
-  const deploysetsQuery = useQuery({ queryKey: queryKeys.deploysets, queryFn: listDeploysets });
+  const releaseSetsQuery = useQuery({ queryKey: queryKeys.releaseSets, queryFn: listReleaseSets });
   const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
   const executionsQuery = useQuery({
     queryKey: queryKeys.executions(selectedEnvironmentId),
-    queryFn: () => listDeploymentExecutions(selectedEnvironmentId),
+    queryFn: () => listDeployments(selectedEnvironmentId),
     enabled: Boolean(selectedEnvironmentId),
   });
   const requestedBy = "amit.kumar";
-  const activeComponentSetId = componentSetId || initialComponentSetId || componentSetsQuery.data?.[0]?.componentSetId || "";
+  const releaseSetOptions = releaseSetsQuery.data ?? [];
+  const activeReleaseSetId = releaseSetId || initialReleaseSetId || releaseSetOptions[0]?.releaseSetId || "";
   const filteredDeploysets = useMemo(() => {
-    const deploysets = deploysetsQuery.data ?? [];
-    if (!activeComponentSetId) {
-      return deploysets;
+    if (!activeReleaseSetId) {
+      return releaseSetOptions;
     }
-    return deploysets.filter((deployset) => deployset.componentSetId === activeComponentSetId);
-  }, [activeComponentSetId, deploysetsQuery.data]);
-  const activeDeploySetId = deploySetId || initialDeploySetId || filteredDeploysets[0]?.deploySetId || "";
-  const deploysetOptions = useMemo(() => {
-    if (!activeDeploySetId || filteredDeploysets.some((deployset) => deployset.deploySetId === activeDeploySetId)) {
-      return filteredDeploysets;
-    }
-    const current = (deploysetsQuery.data ?? []).find((deployset) => deployset.deploySetId === activeDeploySetId);
-    return current ? [current, ...filteredDeploysets] : filteredDeploysets;
-  }, [activeDeploySetId, deploysetsQuery.data, filteredDeploysets]);
+    return releaseSetOptions.filter((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId);
+  }, [activeReleaseSetId, releaseSetOptions]);
   const selectedDeployset = useMemo(
-    () => filteredDeploysets.find((deployset) => deployset.deploySetId === activeDeploySetId) ?? null,
-    [activeDeploySetId, filteredDeploysets],
+    () => filteredDeploysets.find((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId) ?? null,
+    [activeReleaseSetId, filteredDeploysets],
   );
-  const deploysetComponentSetIds = useMemo(() => {
-    return new Map((deploysetsQuery.data ?? []).map((deployset) => [deployset.deploySetId, deployset.componentSetId]));
-  }, [deploysetsQuery.data]);
   const activeExecution = useMemo(() => {
     if (!selectedEnvironmentId || !selectedDeployset) {
       return null;
@@ -104,14 +89,14 @@ export function DeploymentWorkflowPage({
         if (!["pending", "claimed", "in-progress"].includes(execution.status)) {
           return false;
         }
-        return deploysetComponentSetIds.get(execution.deploySetId) === selectedDeployset.componentSetId;
+        return execution.releaseSetId === selectedDeployset.releaseSetId;
       }) ?? null
     );
-  }, [deploysetComponentSetIds, executionsQuery.data, selectedDeployset, selectedEnvironmentId]);
+  }, [executionsQuery.data, selectedDeployset, selectedEnvironmentId]);
   const planQuery = useQuery({
-    queryKey: queryKeys.deploymentPlan(selectedEnvironmentId, activeDeploySetId, force),
-    queryFn: () => planDeployment({ environmentId: selectedEnvironmentId, deploySetId: activeDeploySetId, force }),
-    enabled: Boolean(selectedEnvironmentId && activeDeploySetId),
+    queryKey: queryKeys.deploymentPlan(selectedEnvironmentId, activeReleaseSetId, force),
+    queryFn: () => planDeployment({ environmentId: selectedEnvironmentId, releaseSetId: activeReleaseSetId, force }),
+    enabled: Boolean(selectedEnvironmentId && activeReleaseSetId),
     retry: 1,
   });
 
@@ -123,24 +108,23 @@ export function DeploymentWorkflowPage({
 
   useEffect(() => {
     if (lockTarget) {
-      setComponentSetId(initialComponentSetId);
-      setDeploySetId(initialDeploySetId);
+      setReleaseSetId(initialReleaseSetId);
     }
-  }, [initialComponentSetId, initialDeploySetId, lockTarget]);
+  }, [initialReleaseSetId, initialReleaseSetId, lockTarget]);
 
   useEffect(() => {
-    if (lockTarget || !deploysetsQuery.data) {
+    if (lockTarget || !releaseSetsQuery.data) {
       return;
     }
 
-    if (!deploySetId) {
+    if (!releaseSetId) {
       return;
     }
 
-    if (!filteredDeploysets.some((deployset) => deployset.deploySetId === deploySetId)) {
-      setDeploySetId("");
+    if (!filteredDeploysets.some((releaseSet) => releaseSet.releaseSetId === releaseSetId)) {
+      setReleaseSetId("");
     }
-  }, [deploySetId, deploysetsQuery.data, filteredDeploysets, lockTarget]);
+  }, [releaseSetId, releaseSetsQuery.data, filteredDeploysets, lockTarget]);
   const createMutation = useMutation({
     mutationFn: createDeployment,
     onSuccess: async (execution) => {
@@ -148,7 +132,7 @@ export function DeploymentWorkflowPage({
       toast({
         variant: "success",
         title: "Deployment created",
-        description: `Execution ${execution.deploymentExecutionId} is now pending.`,
+        description: `Execution ${execution.deploymentId} is now pending.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.executions() }),
@@ -156,7 +140,7 @@ export function DeploymentWorkflowPage({
         queryClient.invalidateQueries({ queryKey: queryKeys.pendingExecutions }),
       ]);
       onCreated?.();
-      await navigate({ to: "/deployments/$deploymentExecutionId", params: { deploymentExecutionId: execution.deploymentExecutionId } });
+      await navigate({ to: "/deployments/$deploymentId", params: { deploymentId: execution.deploymentId } });
     },
     onError: (error) => {
       toast({
@@ -197,17 +181,14 @@ export function DeploymentWorkflowPage({
   const tagsError = validateTagDrafts(tags);
   const parsedTags = tagsToRecord(tags);
   const deployDisabled =
-    !activeDeploySetId ||
+    !activeReleaseSetId ||
     planQuery.isFetching ||
     createMutation.isPending ||
     Boolean(tagsError) ||
     executionsQuery.isFetching ||
     Boolean(activeExecution);
-  const componentSetOptions = componentSetsQuery.data ?? [];
-  const showLockedComponentSetOption =
-    Boolean(activeComponentSetId) && !componentSetOptions.some((componentSet) => componentSet.componentSetId === activeComponentSetId);
-  const showLockedDeploySetOption =
-    Boolean(activeDeploySetId) && !deploysetOptions.some((deployset) => deployset.deploySetId === activeDeploySetId);
+  const showLockedReleaseSetOption =
+    Boolean(activeReleaseSetId) && !releaseSetOptions.some((releaseSet) => releaseSet.releaseSetId === activeReleaseSetId);
   const showLockedEnvironmentOption =
     Boolean(selectedEnvironmentId) && !environments.some((environment) => environment.environmentId === selectedEnvironmentId);
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
@@ -231,7 +212,7 @@ export function DeploymentWorkflowPage({
                   onConfirm={() =>
                     createMutation.mutateAsync({
                       environmentId: selectedEnvironmentId,
-                      deploySetId: activeDeploySetId,
+                      releaseSetId: activeReleaseSetId,
                       requestedBy,
                       notes: notes.trim() || null,
                       force,
@@ -291,61 +272,39 @@ export function DeploymentWorkflowPage({
   );
   const content = (
     <>
-      {showHeader ? <PageHeader title="Plan Deployment" subtitle="Plan and create a deployment execution using the current API." /> : null}
+      {showHeader ? <PageHeader title="Plan Deployment" subtitle="Plan and create a deployment using the current API." /> : null}
       <Card>
         <CardHeader>
           <CardTitle>Target</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 p-4 pt-0">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-semibold">
               <span className="flex items-center gap-2">
-                <ENTITY_ICONS.componentSet className="h-4 w-4 text-slate-500" />
-                Component Set
+                <ENTITY_ICONS.releaseSet className="h-4 w-4 text-slate-500" />
+                ReleaseSet
                 <RequiredMark />
               </span>
               <Select
                 variant="light"
-                value={activeComponentSetId}
+                value={activeReleaseSetId}
                 onChange={(event) => {
-                  setComponentSetId(event.target.value);
-                  setDeploySetId("");
+                  setReleaseSetId(event.target.value);
+                  setReleaseSetId("");
                 }}
-                disabled={lockTarget || componentSetsQuery.isLoading || !componentSetsQuery.data?.length}
+                disabled={lockTarget || releaseSetsQuery.isLoading || !releaseSetsQuery.data?.length}
               >
-                {showLockedComponentSetOption ? (
-                  <option value={activeComponentSetId}>{activeComponentSetId}</option>
+                {showLockedReleaseSetOption ? (
+                  <option value={activeReleaseSetId}>{activeReleaseSetId}</option>
                 ) : null}
-                {!componentSetOptions.length && !showLockedComponentSetOption ? (
+                {!releaseSetOptions.length && !showLockedReleaseSetOption ? (
                   <option value="" disabled>
-                    {componentSetsQuery.isLoading ? "Loading component sets..." : "No component sets available"}
+                    {releaseSetsQuery.isLoading ? "Loading release sets..." : "No release sets available"}
                   </option>
                 ) : null}
-                {componentSetOptions.map((componentSet) => (
-                  <option key={componentSet.componentSetId} value={componentSet.componentSetId}>
-                    {componentSet.componentSetId}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="grid gap-1 text-sm font-semibold">
-              <span className="flex items-center gap-2">
-                <ENTITY_ICONS.deployset className="h-4 w-4 text-slate-500" />
-                DeploySet
-                <RequiredMark />
-              </span>
-              <Select variant="light" value={activeDeploySetId} onChange={(event) => setDeploySetId(event.target.value)} disabled={lockTarget}>
-                {showLockedDeploySetOption ? (
-                  <option value={activeDeploySetId}>{activeDeploySetId}</option>
-                ) : null}
-                {!deploysetOptions.length && !showLockedDeploySetOption ? (
-                  <option value="" disabled>
-                    {deploysetsQuery.isLoading ? "Loading deploysets..." : "No deploysets for this component set"}
-                  </option>
-                ) : null}
-                {deploysetOptions.map((deployset) => (
-                  <option key={deployset.deploySetId} value={deployset.deploySetId}>
-                    {deployset.deploySetId}
+                {releaseSetOptions.map((releaseSet) => (
+                  <option key={releaseSet.releaseSetId} value={releaseSet.releaseSetId}>
+                    {releaseSet.releaseSetId}
                   </option>
                 ))}
               </Select>
@@ -376,11 +335,11 @@ export function DeploymentWorkflowPage({
               </Select>
             </label>
           </div>
-          {onCreateDeploySet && !lockTarget ? (
+          {onCreateReleaseSet && !lockTarget ? (
             <div className="flex justify-start">
-              <button type="button" className="flex items-center gap-1 text-left text-xs font-bold text-blue-600" onClick={onCreateDeploySet}>
+              <button type="button" className="flex items-center gap-1 text-left text-xs font-bold text-blue-600" onClick={onCreateReleaseSet}>
                 <Plus className="h-3.5 w-3.5" />
-                Create new DeploySet
+                Create new ReleaseSet
               </button>
             </div>
           ) : null}
@@ -391,7 +350,7 @@ export function DeploymentWorkflowPage({
         <CardHeader>
           <div>
             <CardTitle>Plan preview</CardTitle>
-            <p className="mt-1 text-xs font-medium text-slate-500">The components and versions to be deployed as part of this DeploySet.</p>
+            <p className="mt-1 text-xs font-medium text-slate-500">The components and versions to be deployed as part of this ReleaseSet.</p>
           </div>
         </CardHeader>
         <CardContent>
@@ -402,7 +361,7 @@ export function DeploymentWorkflowPage({
           ) : planPreview ? (
             <PlanItems items={planPreview.items} currentVersions={currentVersions} releaseCreatedAtByKey={releaseCreatedAtByKey} />
           ) : (
-            <EmptyPanel label="Select a DeploySet and environment to preview the deployment." />
+            <EmptyPanel label="Select a ReleaseSet and environment to preview the deployment." />
           )}
         </CardContent>
       </Card>
@@ -411,9 +370,9 @@ export function DeploymentWorkflowPage({
         <TagsCard
           tags={tags}
           error={tagsError}
-          resourceType="deployment-execution"
+          resourceType="deployment"
           onReplace={setTags}
-          description="Attach metadata to the deployment execution for audit, filtering, and reporting."
+          description="Attach metadata to the deployment for audit, filtering, and reporting."
           onAdd={() => setTags((current) => [...current, createTagDraft()])}
           onChange={updateTag}
           onRemove={(id) => setTags((current) => current.filter((tag) => tag.id !== id))}
@@ -436,10 +395,10 @@ export function DeploymentWorkflowPage({
       <div className="grid gap-1">
         {activeExecution ? (
           <p className="text-xs font-semibold text-red-700">
-            Deployment {activeExecution.deploymentExecutionId} is already {activeExecution.status} for this environment and component set.
+            Deployment {activeExecution.deploymentId} is already {activeExecution.status} for this environment and release set.
           </p>
         ) : null}
-        <p className="text-xs font-medium text-slate-500">Review the plan before creating a pending deployment execution.</p>
+        <p className="text-xs font-medium text-slate-500">Review the plan before creating a pending deployment.</p>
       </div>
       <div className="flex items-center gap-2">
         {onCancel ? (
@@ -514,3 +473,4 @@ function DeploymentConfirmFooter({
     </div>
   );
 }
+

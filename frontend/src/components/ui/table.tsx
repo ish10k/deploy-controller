@@ -25,3 +25,4 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={cn("h-9 whitespace-nowrap px-3 align-middle text-slate-800", className)} {...props} />;
 }
+

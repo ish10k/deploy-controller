@@ -28,3 +28,4 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime("2026-06-18T12:05:00.000Z", { mode: "short", now })).toBe("in 5m");
   });
 });
+

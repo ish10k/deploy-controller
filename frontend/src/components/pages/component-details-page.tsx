@@ -234,3 +234,4 @@ function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-# DeploySet Controller
+# ReleaseSet Controller
 
 This repository now uses a simple monorepo layout:
 

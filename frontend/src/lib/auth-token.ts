@@ -60,3 +60,4 @@ export function clearTokens() {
   window.localStorage.removeItem(ID_TOKEN_KEY);
   window.localStorage.removeItem(EXPIRES_AT_KEY);
 }
+

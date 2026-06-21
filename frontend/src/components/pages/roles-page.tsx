@@ -13,20 +13,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/toast";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
+import { useAppContext } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { canChangeRoles, canViewRoles } from "@/lib/user-permissions";
 import { getRole, listRoles, putRole, queryKeys, type ApiRole } from "@/lib/api-client";
 
-const AVAILABLE_PERMISSIONS = [
+type Permission = NonNullable<ApiRole["permissions"]>[number];
+
+const AVAILABLE_PERMISSIONS: Permission[] = [
   "components:read",
   "components:write",
-  "component_sets:read",
-  "component_sets:write",
+  "release-sets:read",
+  "release-sets:write",
   "releases:read",
   "releases:create",
-  "deploysets:read",
-  "deploysets:create",
+  "release-sets:read",
+  "release-sets:create",
   "environments:read",
   "environments:write",
   "deployments:read",
@@ -42,6 +45,7 @@ const AVAILABLE_PERMISSIONS = [
   "roles:read",
   "roles:write",
   "events:read",
+  "tag_definitions:read",
   "webhooks:read",
   "webhooks:write",
   "webhook_deliveries:read",
@@ -49,9 +53,9 @@ const AVAILABLE_PERMISSIONS = [
 ] as const;
 
 const PERMISSION_GROUPS = [
-  { label: "Registry", prefix: ["components:", "component_sets:", "releases:", "publishers:"] },
-  { label: "Deployments", prefix: ["deploysets:", "deployments:", "executions:", "deployment_runners:"] },
-  { label: "Governance", prefix: ["principals:", "roles:", "events:"] },
+  { label: "Registry", prefix: ["components:", "release-sets:", "releases:", "publishers:"] },
+  { label: "Deployments", prefix: ["release-sets:", "deployments:", "executions:", "deployment_runners:"] },
+  { label: "Governance", prefix: ["principals:", "roles:", "events:", "tag_definitions:"] },
   { label: "Webhooks", prefix: ["webhooks:", "webhook_deliveries:"] },
 ];
 
@@ -226,7 +230,7 @@ export function RoleDetailsPage({ roleId }: { roleId: string }) {
 
 function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; canChange: boolean; pending: boolean; onSubmit: (role: ApiRole) => void }) {
   const [description, setDescription] = useState(role.description ?? "");
-  const [permissions, setPermissions] = useState<string[]>(role.permissions);
+  const [permissions, setPermissions] = useState<Permission[]>(role.permissions);
 
   useEffect(() => {
     setDescription(role.description ?? "");
@@ -242,10 +246,6 @@ function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; can
         subtitle={role.system ? "System role definition." : "Custom role definition."}
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void query.refetch()}>
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </Button>
             <Link to="/roles">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />
@@ -290,9 +290,9 @@ function RoleEditor({ role, canChange, pending, onSubmit }: { role: ApiRole; can
   );
 }
 
-function PermissionPicker({ permissions, disabled, onChange }: { permissions: string[]; disabled: boolean; onChange: (permissions: string[]) => void }) {
+function PermissionPicker({ permissions, disabled, onChange }: { permissions: Permission[]; disabled: boolean; onChange: (permissions: Permission[]) => void }) {
   const selected = new Set(permissions);
-  const toggle = (permission: string) => {
+  const toggle = (permission: Permission) => {
     if (selected.has(permission)) {
       onChange(permissions.filter((item) => item !== permission));
     } else {
@@ -305,11 +305,11 @@ function PermissionPicker({ permissions, disabled, onChange }: { permissions: st
       {PERMISSION_GROUPS.map((group) => {
         const groupPermissions = AVAILABLE_PERMISSIONS.filter((permission) => group.prefix.some((prefix) => permission.startsWith(prefix)));
         return (
-          <section key={group.label} className="rounded-lg border border-slate-200 bg-white p-3">
+          <section key={group.label} className="">
             <h3 className="mb-3 text-sm font-bold text-slate-950">{group.label}</h3>
-            <div className="grid gap-2">
+            <div className="grid gap-1">
               {groupPermissions.map((permission) => (
-                <label key={permission} className={cn("flex items-center gap-3 rounded-md px-2 py-1.5 text-sm text-slate-700", !disabled && "hover:bg-slate-50")}>
+                <label key={permission} className={cn("flex items-center gap-3 rounded-md py-1.5 text-sm text-slate-700", !disabled && "hover:bg-slate-50")}>
                   <input checked={selected.has(permission)} disabled={disabled} type="checkbox" onChange={() => toggle(permission)} />
                   <span className="font-mono text-xs">{permission}</span>
                 </label>
@@ -323,9 +323,10 @@ function PermissionPicker({ permissions, disabled, onChange }: { permissions: st
 }
 
 function RoleDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pending: boolean; onClose: () => void; onSubmit: (role: ApiRole) => void }) {
+  const { workspaceId } = useAppContext();
   const [roleId, setRoleId] = useState("");
   const [description, setDescription] = useState("");
-  const [permissions, setPermissions] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const trimmedRoleId = roleId.trim();
 
   useEffect(() => {
@@ -347,7 +348,7 @@ function RoleDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pendi
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
             disabled={pending || !trimmedRoleId}
-            onClick={() => onSubmit({ roleId: trimmedRoleId, description: description || null, permissions, system: false, permissionsEditable: true })}
+            onClick={() => onSubmit({ workspaceId, roleId: trimmedRoleId, description: description || null, permissions, system: false, permissionsEditable: true })}
           >
             {pending ? "Creating..." : "Create role"}
           </Button>
@@ -368,7 +369,14 @@ function RoleDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pendi
             </label>
           </CardContent>
         </Card>
-        <PermissionPicker permissions={permissions} disabled={false} onChange={setPermissions} />
+        <Card>
+          <CardHeader>
+            <CardTitle>Permissions</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3">
+            <PermissionPicker permissions={permissions} disabled={false} onChange={setPermissions} />
+          </CardContent>
+        </Card>
       </div>
     </SideDrawer>
   );
@@ -384,3 +392,5 @@ function RolesAccessPanel() {
     </>
   );
 }
+
+

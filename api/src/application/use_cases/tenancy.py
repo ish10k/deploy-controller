@@ -254,3 +254,4 @@ class WorkspaceUseCases:
         ]
         if not admins:
             raise ConflictError("Cannot remove or disable the last active workspace-admin for this workspace.")
+

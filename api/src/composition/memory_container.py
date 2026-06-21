@@ -1,9 +1,8 @@
 from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase, RunnerEligibilityUseCases
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.registry import (
-    ComponentSetUseCases,
+    ReleaseSetUseCases,
     ComponentUseCases,
-    DeploySetUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
@@ -19,10 +18,9 @@ from src.composition.local_seed import seed_local_data
 from src.infrastructure.ids import EventIdGenerator, UuidIdGenerator, WebhookDeliveryIdGenerator
 from src.infrastructure.memory.repositories import (
     MemoryComponentRepository,
-    MemoryComponentSetRepository,
-    MemoryDeploymentExecutionRepository,
+    MemoryReleaseSetRepository,
+    MemoryDeploymentRepository,
     MemoryDeploymentRunnerRepository,
-    MemoryDeploySetRepository,
     MemoryEnvironmentRepository,
     MemoryEnvironmentStateRepository,
     MemoryEventLogRepository,
@@ -49,10 +47,9 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     if seeded:
         seed_local_data(store)
     components = MemoryComponentRepository(store)
-    component_sets = MemoryComponentSetRepository(store)
+    release_sets = MemoryReleaseSetRepository(store)
     releases = MemoryReleaseRepository(store)
     publishers = MemoryPublisherRepository(store)
-    deploysets = MemoryDeploySetRepository(store)
     environments = MemoryEnvironmentRepository(store)
     runners = MemoryDeploymentRunnerRepository(store)
     organization_repo = MemoryOrganizationRepository(store)
@@ -64,7 +61,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     role_repo = MemoryRoleRepository(store)
     bootstrap = MemoryBootstrapStateRepository(store)
     states = MemoryEnvironmentStateRepository(store)
-    executions = MemoryDeploymentExecutionRepository(store)
+    executions = MemoryDeploymentRepository(store)
     event_log = MemoryEventLogRepository(store)
     webhook_repo = MemoryWebhookRepository(store)
     webhook_deliveries = MemoryWebhookDeliveryRepository(store)
@@ -101,12 +98,12 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     )
     runner_eligibility = RunnerEligibilityUseCases(
         runners=runners,
-        deploysets=deploysets,
+        release_sets=release_sets,
         components=components,
         environments=environments,
     )
     planner = PlanDeploymentUseCase(
-        deploysets=deploysets,
+        release_sets=release_sets,
         releases=releases,
         environments=environments,
         executions=executions,
@@ -114,22 +111,14 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     )
     return Container(
         components=ComponentUseCases(components, events=events),
-        component_sets=ComponentSetUseCases(component_sets, events=events),
+        release_sets=ReleaseSetUseCases(release_sets=release_sets, components=components, releases=releases, executions=executions, clock=clock, events=events),
         releases=ReleaseUseCases(releases, events=events),
         publishers=PublisherUseCases(
             publishers=publishers,
             releases=releases,
-            component_sets=component_sets,
+            release_sets=release_sets,
             clock=clock,
             principals=identity,
-            events=events,
-        ),
-        deploysets=DeploySetUseCases(
-            deploysets=deploysets,
-            component_sets=component_sets,
-            releases=releases,
-            executions=executions,
-            clock=clock,
             events=events,
         ),
         environments=EnvironmentUseCases(environments, events=events),
@@ -147,7 +136,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         deployment_runners=DeploymentRunnerUseCases(
             runners=runners,
             executions=executions,
-            deploysets=deploysets,
+            release_sets=release_sets,
             components=components,
             environments=environments,
             states=states,
@@ -162,3 +151,6 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         events=events,
         webhooks=webhooks,
     )
+
+
+

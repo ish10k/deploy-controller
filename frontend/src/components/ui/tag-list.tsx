@@ -27,3 +27,4 @@ export function TagList({ tags, limit, emptyLabel = "-" }: TagListProps) {
 function Tag({ label }: { label: string }) {
   return <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">{label}</span>;
 }
+

@@ -3,8 +3,11 @@ import type { ReactNode } from "react";
 
 import { workspaceIdFromPath, workspaceRoutePath } from "@/lib/workspace-routes";
 
-type WorkspaceLinkProps = LinkProps & {
+type WorkspaceLinkProps = {
+  to: string;
+  params?: Record<string, unknown>;
   children?: ReactNode;
+  [key: string]: unknown;
 };
 
 export function WorkspaceLink({ to, params, children, ...props }: WorkspaceLinkProps) {
@@ -19,9 +22,6 @@ export function WorkspaceLink({ to, params, children, ...props }: WorkspaceLinkP
       ? { ...(typeof params === "object" && params ? params : {}), workspaceId }
       : params;
 
-  return (
-    <Link {...({ ...props, to: nextTo, params: nextParams } as LinkProps)}>
-      {children}
-    </Link>
-  );
+  return <Link {...({ ...props, to: nextTo, params: nextParams } as LinkProps)}>{children}</Link>;
 }
+

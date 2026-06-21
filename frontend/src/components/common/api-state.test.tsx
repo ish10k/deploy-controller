@@ -8,7 +8,7 @@ afterEach(() => cleanup());
 
 describe("ApiErrorPanel", () => {
   it("prompts the user to configure a working API", () => {
-    render(<ApiErrorPanel error={new Error("Unable to reach the DeploySet API.")} />);
+    render(<ApiErrorPanel error={new Error("Unable to reach the ReleaseSet API.")} />);
 
     expect(screen.getByText("API connection needed")).toBeInTheDocument();
     expect(screen.getByText(/VITE_API_TARGET/)).toBeInTheDocument();
@@ -23,3 +23,4 @@ describe("ApiErrorPanel", () => {
     expect(within(rendered.container).queryByText(/VITE_API_TARGET/)).not.toBeInTheDocument();
   });
 });
+

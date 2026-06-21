@@ -204,3 +204,4 @@ class EventLogUseCases:
     def _require_read(self, context: AuthContext) -> None:
         if Permission.EVENTS_READ not in context.permissions:
             raise ForbiddenError("Current principal cannot read events.")
+

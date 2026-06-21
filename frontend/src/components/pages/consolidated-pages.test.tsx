@@ -15,10 +15,6 @@ vi.mock("@/components/pages/components-page", () => ({
   ComponentsPage: ({ createSignal }: { createSignal: number }) => <div>Components panel {createSignal}</div>,
 }));
 
-vi.mock("@/components/pages/component-sets-page", () => ({
-  ComponentSetsPage: ({ createSignal }: { createSignal: number }) => <div>Component sets panel {createSignal}</div>,
-}));
-
 vi.mock("@/components/pages/releases-page", () => ({
   ReleasesPage: ({ createSignal }: { createSignal: number }) => <div>Releases panel {createSignal}</div>,
 }));
@@ -32,7 +28,7 @@ vi.mock("@/components/pages/roles-page", () => ({
 }));
 
 vi.mock("@/components/pages/deploysets-page", () => ({
-  DeploysetsPage: ({ createSignal }: { createSignal: number }) => <div>DeploySets panel {createSignal}</div>,
+  DeploysetsPage: ({ createSignal }: { createSignal: number }) => <div>ReleaseSets panel {createSignal}</div>,
 }));
 
 vi.mock("@/components/pages/deployment-workflow-page", () => ({
@@ -58,7 +54,7 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return {
     ...actual,
-    listDeploymentExecutions: vi.fn(async () => []),
+    listDeployments: vi.fn(async () => []),
     fetchDashboardData: vi.fn(async () => ({ executions: [] })),
   };
 });
@@ -94,14 +90,15 @@ describe("consolidated pages", () => {
     expect(screen.getByText("Roles panel 1")).toBeInTheDocument();
   });
 
-  it("switches deployments views and opens deployset creation from the header", async () => {
+  it("switches deployments views and opens releaseSet creation from the header", async () => {
     renderWithQueryClient(<DeploymentsPage />);
 
     await waitFor(() => expect(screen.getByText("No executions match the current filters.")).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText("Select deployment workspace view"), { target: { value: "deploysets" } });
-    expect(screen.getByText("DeploySets panel 0")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Select deployment workspace view"), { target: { value: "release-sets" } });
+    expect(screen.getByText("ReleaseSets panel 0")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create DeploySet" }));
-    expect(screen.getByText("DeploySets panel 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create ReleaseSet" }));
+    expect(screen.getByText("ReleaseSets panel 1")).toBeInTheDocument();
   });
 });
+

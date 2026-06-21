@@ -53,7 +53,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [workspaceId, setWorkspaceIdState] = useState(readSelectedWorkspaceId);
   const workspaces = useMemo<WorkspaceSummary[]>(() => {
     if (auth.user?.workspaces?.length) {
-      return auth.user.workspaces;
+      return auth.user.workspaces.map((workspace) => ({ ...workspace, roles: workspace.roles ?? [] }));
     }
     return [];
   }, [auth.user]);
@@ -130,3 +130,4 @@ export function useAppContext() {
   }
   return value;
 }
+

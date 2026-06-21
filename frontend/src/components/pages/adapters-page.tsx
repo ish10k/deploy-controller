@@ -28,7 +28,7 @@ import {
   listDeploymentRunnerItems,
   queryKeys,
   rotateDeploymentRunnerToken,
-  type ApiDeploymentExecutionItem,
+  type ApiDeploymentItem,
   type ApiDeploymentRunner,
   type ApiDeploymentRunnerCreateRequest,
   type ApiRotateTokenResult,
@@ -183,7 +183,6 @@ function DeploymentRunnerDrawer({
       active,
       scope: {
         environmentIds: [],
-        componentSetIds: [],
         componentIds: [],
         componentTypes,
         componentTags: {},
@@ -362,7 +361,7 @@ function DeploymentRunnerDetailsView({
   onInvalidate,
 }: {
   runner: ApiDeploymentRunner;
-  deploymentItems: ApiDeploymentExecutionItem[];
+  deploymentItems: ApiDeploymentItem[];
   onInvalidate: () => Promise<void>;
 }) {
   const toast = useToast();
@@ -378,6 +377,14 @@ function DeploymentRunnerDetailsView({
       await onInvalidate();
     },
   });
+  const scope = {
+    environmentIds: runner.scope?.environmentIds ?? [],
+    componentIds: runner.scope?.componentIds ?? [],
+    componentTypes: runner.scope?.componentTypes ?? [],
+    componentTags: runner.scope?.componentTags ?? {},
+    environmentTags: runner.scope?.environmentTags ?? {},
+    maxConcurrentClaims: runner.scope?.maxConcurrentClaims ?? 1,
+  };
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
@@ -432,14 +439,14 @@ function DeploymentRunnerDetailsView({
                   </TableHeader>
                   <TableBody>
                     {deploymentItems.map((item) => (
-                      <TableRow key={`${item.deploymentExecutionId}:${item.componentId}`}>
+                      <TableRow key={`${item.deploymentId}:${item.componentId}`}>
                         <TableCell>
                           <EntityLink
                             kind="deployment"
-                            to="/deployments/$deploymentExecutionId"
-                            params={{ deploymentExecutionId: item.deploymentExecutionId }}
+                            to="/deployments/$deploymentId"
+                            params={{ deploymentId: item.deploymentId }}
                           >
-                            {item.deploymentExecutionId}
+                            {item.deploymentId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
@@ -511,13 +518,12 @@ function DeploymentRunnerDetailsView({
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
               <ScrollFade className="h-full" contentClassName="grid gap-4 px-4 pb-4 text-sm">
-                <ScopeList title="Environments" values={runner.scope.environmentIds ?? []} />
-                <ScopeList title="Component Sets" values={runner.scope.componentSetIds ?? []} />
-                <ScopeList title="Components" values={runner.scope.componentIds ?? []} />
-                <ScopeList title="Component Types" values={runner.scope.componentTypes ?? []} />
-                <ScopeTagList title="Component Tags" tags={runner.scope.componentTags ?? {}} />
-                <ScopeTagList title="Environment Tags" tags={runner.scope.environmentTags ?? {}} />
-                <ScopeStat title="Max concurrent claims" value={runner.scope.maxConcurrentClaims} />
+                <ScopeList title="Environments" values={scope.environmentIds} />
+                <ScopeList title="Components" values={scope.componentIds} />
+                <ScopeList title="Component Types" values={scope.componentTypes} />
+                <ScopeTagList title="Component Tags" tags={scope.componentTags} />
+                <ScopeTagList title="Environment Tags" tags={scope.environmentTags} />
+                <ScopeStat title="Max concurrent claims" value={scope.maxConcurrentClaims} />
               </ScrollFade>
             </CardContent>
           </Card>
@@ -528,16 +534,23 @@ function DeploymentRunnerDetailsView({
 }
 
 function scopeSummary(runner: ApiDeploymentRunner) {
-  const environmentCount = runner.scope.environmentIds?.length ?? 0;
-  const componentSetCount = runner.scope.componentSetIds?.length ?? 0;
-  const componentCount = runner.scope.componentIds?.length ?? 0;
-  const componentTypeCount = runner.scope.componentTypes?.length ?? 0;
-  const componentTagCount = Object.keys(runner.scope.componentTags ?? {}).length;
-  const environmentTagCount = Object.keys(runner.scope.environmentTags ?? {}).length;
-  if (!environmentCount && !componentSetCount && !componentCount && !componentTypeCount && !componentTagCount && !environmentTagCount) {
+  const scope = {
+    environmentIds: runner.scope?.environmentIds ?? [],
+    componentIds: runner.scope?.componentIds ?? [],
+    componentTypes: runner.scope?.componentTypes ?? [],
+    componentTags: runner.scope?.componentTags ?? {},
+    environmentTags: runner.scope?.environmentTags ?? {},
+    maxConcurrentClaims: runner.scope?.maxConcurrentClaims ?? 1,
+  };
+  const environmentCount = scope.environmentIds.length;
+  const componentCount = scope.componentIds.length;
+  const componentTypeCount = scope.componentTypes.length;
+  const componentTagCount = Object.keys(scope.componentTags).length;
+  const environmentTagCount = Object.keys(scope.environmentTags).length;
+  if (!environmentCount && !componentCount && !componentTypeCount && !componentTagCount && !environmentTagCount) {
     return "All deployment work";
   }
-  return `${environmentCount || "All"} env / ${componentSetCount || "All"} sets / ${componentCount || "All"} components / ${componentTypeCount || "All"} types`;
+  return `${environmentCount || "All"} env / ${componentCount || "All"} components / ${componentTypeCount || "All"} types`;
 }
 
 function ScopeList({ title, values }: { title: string; values: string[] }) {
@@ -618,3 +631,4 @@ function MetaRow({ icon: Icon, label, value }: { icon: typeof Server; label: str
     </div>
   );
 }
+

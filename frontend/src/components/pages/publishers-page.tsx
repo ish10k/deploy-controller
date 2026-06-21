@@ -24,7 +24,6 @@ import { useAuth } from "@/lib/auth-context";
 import {
   createPublisher,
   getPublisher,
-  listComponentSets,
   listComponents,
   listReleases,
   listPublishers,
@@ -32,7 +31,6 @@ import {
   queryKeys,
   rotatePublisherToken,
   type ApiComponent,
-  type ApiComponentSet,
   type ApiRelease,
   type ApiPublisher,
   type ApiPublisherCreateRequest,
@@ -52,7 +50,6 @@ export function PublishersPage() {
   const [open, setOpen] = useState(false);
   const query = useQuery({ queryKey: queryKeys.publishers, queryFn: listPublishers });
   const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
-  const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
   const refreshing = useMinimumVisible(query.isFetching && !query.isLoading);
   const mutation = useMutation({
     mutationFn: createPublisher,
@@ -74,7 +71,7 @@ export function PublishersPage() {
   const filteredPublishers = useMemo(
     () =>
       publishers.filter((publisher) =>
-        [publisher.publisherId, publisher.displayName, publisher.principalId, publisher.tokenPrefix ?? "", ...Object.entries(publisher.tags).flat()]
+        [publisher.publisherId, publisher.displayName, publisher.principalId, publisher.tokenPrefix ?? "", ...Object.entries(publisher.tags ?? {}).flat()]
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearch),
@@ -174,7 +171,6 @@ export function PublishersPage() {
 
       <PublisherDrawer
         components={componentsQuery.data ?? []}
-        componentSets={componentSetsQuery.data ?? []}
         open={open}
         onClose={() => {
           setOpen(false);
@@ -192,13 +188,12 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
   const query = useQuery({
     queryKey: queryKeys.publisher(publisherId),
     queryFn: async () => {
-      const [publisher, components, componentSets, releases] = await Promise.all([
+      const [publisher, components, releases] = await Promise.all([
         getPublisher(publisherId),
         listComponents(),
-        listComponentSets(),
         listReleases(),
       ]);
-      return { publisher, components, componentSets, releases };
+      return { publisher, components, releases };
     },
     retry: 1,
   });
@@ -210,7 +205,6 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
     <PublisherDetailsView
       publisher={query.data.publisher}
       components={query.data.components}
-      componentSets={query.data.componentSets}
       releases={query.data.releases}
       onRefresh={() => query.refetch()}
       onInvalidate={async () => {
@@ -226,14 +220,12 @@ export function PublisherDetailsPage({ publisherId }: { publisherId: string }) {
 function PublisherDetailsView({
   publisher,
   components,
-  componentSets,
   releases,
   onInvalidate,
   onRefresh,
 }: {
   publisher: ApiPublisher;
   components: ApiComponent[];
-  componentSets: ApiComponentSet[];
   releases: ApiRelease[];
   onInvalidate: () => Promise<void>;
   onRefresh: () => Promise<unknown>;
@@ -241,10 +233,7 @@ function PublisherDetailsView({
   const auth = useAuth();
   const canManage = canManagePublishers(auth.user);
   const toast = useToast();
-  const scopedReleases = useMemo(
-    () => releases.filter((release) => publisherAllowsComponent(publisher, release.componentId, componentSets)),
-    [componentSets, publisher, releases],
-  );
+  const scopedReleases = useMemo(() => releases.filter((release) => publisherAllowsComponent(publisher, release.componentId)), [publisher, releases]);
   const rotateMutation = useMutation<ApiRotateTokenResult, Error, string>({
     mutationFn: rotatePublisherToken,
     onSuccess: async (result) => {
@@ -385,15 +374,13 @@ function PublisherDetailsView({
               <CardTitle>Scope</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm">
-              <ScopeList title="Components" values={publisher.scope.componentIds} kind="component" emptyLabel="All components" />
-              <ScopeList title="Component Sets" values={publisher.scope.componentSetIds} kind="componentSet" emptyLabel="All component sets" />
+              <ScopeList title="Components" values={publisher.scope?.componentIds ?? []} kind="component" emptyLabel="All components" />
             </CardContent>
           </Card>
 
           <PublisherSettings
             publisher={publisher}
             components={components}
-            componentSets={componentSets}
             canManage={canManage}
             pending={updateMutation.isPending}
             onSubmit={(next) => updateMutation.mutate(next)}
@@ -406,14 +393,12 @@ function PublisherDetailsView({
 
 function PublisherDrawer({
   components,
-  componentSets,
   open,
   onClose,
   onSubmit,
   pending,
 }: {
   components: ApiComponent[];
-  componentSets: ApiComponentSet[];
   open: boolean;
   onClose: () => void;
   onSubmit: (publisher: ApiPublisherCreateRequest) => void;
@@ -423,7 +408,6 @@ function PublisherDrawer({
   const [displayName, setDisplayName] = useState("");
   const [active, setActive] = useState(true);
   const [componentIds, setComponentIds] = useState<string[]>([]);
-  const [componentSetIds, setComponentSetIds] = useState<string[]>([]);
   const [tags, setTags] = useState<TagDraft[]>([createTagDraft()]);
   const tagsError = validateTagDrafts(tags);
   const trimmedPublisherId = publisherId.trim();
@@ -444,7 +428,7 @@ function PublisherDrawer({
       publisherId: trimmedPublisherId,
       displayName: trimmedDisplayName,
       active,
-      scope: { componentIds, componentSetIds },
+      scope: { componentIds },
       tags: tagsToRecord(tags),
     });
   };
@@ -490,21 +474,14 @@ function PublisherDrawer({
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">Publishing scope</h3>
-          <p className="mt-1 text-sm text-slate-500">Choose allowed components and component sets. Leave both groups empty to allow all components.</p>
-          <div className="mt-4 grid gap-5 md:grid-cols-2">
+          <p className="mt-1 text-sm text-slate-500">Choose allowed components. Leave the list empty to allow all components.</p>
+          <div className="mt-4 grid gap-5">
             <CheckboxGroup
               title="Components"
               emptyLabel="No components registered."
               values={components.map((component) => component.componentId)}
               selected={componentIds}
               onToggle={(value) => toggleValue(value, componentIds, setComponentIds)}
-            />
-            <CheckboxGroup
-              title="Component Sets"
-              emptyLabel="No component sets registered."
-              values={componentSets.map((componentSet) => componentSet.componentSetId)}
-              selected={componentSetIds}
-              onToggle={(value) => toggleValue(value, componentSetIds, setComponentSetIds)}
             />
           </div>
         </section>
@@ -536,40 +513,35 @@ function PublisherDrawer({
 function PublisherSettings({
   publisher,
   components,
-  componentSets,
   canManage,
   pending,
   onSubmit,
 }: {
   publisher: ApiPublisher;
   components: ApiComponent[];
-  componentSets: ApiComponentSet[];
   canManage: boolean;
   pending: boolean;
   onSubmit: (publisher: ApiPublisher) => void;
 }) {
   const [displayName, setDisplayName] = useState(publisher.displayName);
   const [active, setActive] = useState(publisher.active);
-  const [componentIds, setComponentIds] = useState<string[]>(publisher.scope.componentIds);
-  const [componentSetIds, setComponentSetIds] = useState<string[]>(publisher.scope.componentSetIds);
-  const [tags, setTags] = useState<TagDraft[]>(recordToDrafts(publisher.tags));
+  const [componentIds, setComponentIds] = useState<string[]>(publisher.scope?.componentIds ?? []);
+  const [tags, setTags] = useState<TagDraft[]>(recordToDrafts(publisher.tags ?? {}));
   const tagsError = validateTagDrafts(tags);
 
   useEffect(() => {
     setDisplayName(publisher.displayName);
     setActive(publisher.active);
-    setComponentIds(publisher.scope.componentIds);
-    setComponentSetIds(publisher.scope.componentSetIds);
-    setTags(recordToDrafts(publisher.tags));
+    setComponentIds(publisher.scope?.componentIds ?? []);
+    setTags(recordToDrafts(publisher.tags ?? {}));
   }, [publisher]);
 
   const parsedTags = tagsToRecord(tags);
   const changed =
     displayName !== publisher.displayName ||
     active !== publisher.active ||
-    componentIds.join("\n") !== publisher.scope.componentIds.join("\n") ||
-    componentSetIds.join("\n") !== publisher.scope.componentSetIds.join("\n") ||
-    JSON.stringify(parsedTags) !== JSON.stringify(publisher.tags);
+    componentIds.join("\n") !== (publisher.scope?.componentIds ?? []).join("\n") ||
+    JSON.stringify(parsedTags) !== JSON.stringify(publisher.tags ?? {});
 
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => {
     setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
@@ -585,7 +557,7 @@ function PublisherSettings({
       ...publisher,
       displayName: displayName.trim(),
       active,
-      scope: { componentIds, componentSetIds },
+      scope: { componentIds },
       tags: parsedTags,
     });
   };
@@ -615,14 +587,6 @@ function PublisherSettings({
             selected={componentIds}
             disabled={!canManage}
             onToggle={(value) => toggleValue(value, componentIds, setComponentIds)}
-          />
-          <CheckboxGroup
-            title="Component Sets"
-            emptyLabel="No component sets registered."
-            values={componentSets.map((componentSet) => componentSet.componentSetId)}
-            selected={componentSetIds}
-            disabled={!canManage}
-            onToggle={(value) => toggleValue(value, componentSetIds, setComponentSetIds)}
           />
         </div>
         <TagsCard
@@ -687,7 +651,7 @@ function CheckboxGroup({
   );
 }
 
-function ScopeList({ title, values, kind, emptyLabel }: { title: string; values: string[]; kind: "component" | "componentSet"; emptyLabel: string }) {
+function ScopeList({ title, values, kind, emptyLabel }: { title: string; values: string[]; kind: "component" | "releaseSet"; emptyLabel: string }) {
   return (
     <div>
       <div className="mb-2 font-semibold text-slate-700">{title}</div>
@@ -699,7 +663,7 @@ function ScopeList({ title, values, kind, emptyLabel }: { title: string; values:
                 {value}
               </EntityLink>
             ) : (
-              <EntityLink key={value} kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: value }}>
+              <EntityLink key={value} kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: value }}>
                 {value}
               </EntityLink>
             ),
@@ -742,30 +706,25 @@ function MetaRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string
 }
 
 function scopeSummary(publisher: ApiPublisher) {
-  const componentCount = publisher.scope.componentIds.length;
-  const componentSetCount = publisher.scope.componentSetIds.length;
-  if (!componentCount && !componentSetCount) {
+  const componentCount = publisher.scope?.componentIds?.length ?? 0;
+  if (!componentCount) {
     return "All components";
   }
-  return `${componentCount || "All"} components / ${componentSetCount || "All"} component sets`;
+  return `${componentCount} components`;
 }
 
-function publisherAllowsComponent(publisher: ApiPublisher, componentId: string, componentSets: ApiComponentSet[]) {
-  if (!publisher.scope.componentIds.length && !publisher.scope.componentSetIds.length) {
+function publisherAllowsComponent(publisher: ApiPublisher, componentId: string) {
+  if (!publisher.scope?.componentIds?.length) {
     return true;
   }
   if (publisher.scope.componentIds.includes(componentId)) {
     return true;
   }
-  const scopedComponentIds = new Set(
-    componentSets
-      .filter((componentSet) => publisher.scope.componentSetIds.includes(componentSet.componentSetId))
-      .flatMap((componentSet) => componentSet.components.map((component) => component.componentId)),
-  );
-  return scopedComponentIds.has(componentId);
+  return false;
 }
 
 function recordToDrafts(record: Record<string, string>) {
   const drafts = Object.entries(record).map(([key, value]) => createTagDraft(key, value));
   return drafts.length ? [...drafts, createTagDraft()] : [createTagDraft()];
 }
+

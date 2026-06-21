@@ -12,44 +12,42 @@ import { EntityLink } from "@/components/ui/entity-link";
 import { ScrollFade } from "@/components/ui/scroll-fade";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TagList } from "@/components/ui/tag-list";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import {
-  listComponentSets,
-  listDeploymentExecutions,
-  listDeploysets,
+  listReleaseSets,
+  listDeployments,
   listEnvironmentState,
-  type ApiDeploySet,
+  type ApiReleaseSet,
 } from "@/lib/api-client";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 
-export function DeploySetDetailsPage({ deploySetId }: { deploySetId: string }) {
+export function ReleaseSetDetailsPage({ releaseSetId }: { releaseSetId: string }) {
   const query = useQuery({
-    queryKey: ["deploysets", "detail", deploySetId],
+    queryKey: ["release-sets", "detail", releaseSetId],
     queryFn: async () => {
-      const [deploysets, componentSets, environmentState, executions] = await Promise.all([
-        listDeploysets(),
-        listComponentSets(),
+      const [releaseSets, environmentState, executions] = await Promise.all([
+        listReleaseSets(),
         listEnvironmentState(),
-        listDeploymentExecutions(),
+        listDeployments(),
       ]);
 
-      const deployset = deploysets.find((entry) => entry.deploySetId === deploySetId);
-      const componentSet = deployset ? componentSets.find((entry) => entry.componentSetId === deployset.componentSetId) : undefined;
-      const activeEnvironments = environmentState.filter((state) => state.deploySetId === deploySetId);
-      const relatedExecutions = executions.filter((execution) => execution.deploySetId === deploySetId);
+      const releaseSet = releaseSets.find((entry) => entry.releaseSetId === releaseSetId);
+      const activeEnvironments = environmentState.filter((state) => state.releaseSetId === releaseSetId);
+      const relatedExecutions = executions.filter((execution) => execution.releaseSetId === releaseSetId);
 
-      return { deployset, componentSet, activeEnvironments, relatedExecutions };
+      return { releaseSet, activeEnvironments, relatedExecutions };
     },
     retry: 1,
   });
-  if (query.isLoading) return <LoadingPanel label="Loading DeploySet details..." />;
+  if (query.isLoading) return <LoadingPanel label="Loading ReleaseSet details..." />;
   if (query.error) return <ApiErrorPanel error={query.error} onRetry={() => query.refetch()} />;
-  if (!query.data?.deployset) return <EmptyPanel label={`DeploySet ${deploySetId} was not found.`} />;
+  if (!query.data?.releaseSet) return <EmptyPanel label={`ReleaseSet ${releaseSetId} was not found.`} />;
 
   return (
-    <DeploySetDetailsView
-      deployset={query.data.deployset}
-      componentCount={query.data.componentSet?.components.length ?? query.data.deployset.items.length}
+    <ReleaseSetDetailsView
+      releaseSet={query.data.releaseSet}
+      componentCount={query.data.releaseSet.items.length}
       activeEnvironments={query.data.activeEnvironments}
       relatedExecutions={query.data.relatedExecutions}
       onRefresh={() => query.refetch()}
@@ -57,28 +55,28 @@ export function DeploySetDetailsPage({ deploySetId }: { deploySetId: string }) {
   );
 }
 
-function DeploySetDetailsView({
-  deployset,
+function ReleaseSetDetailsView({
+  releaseSet,
   componentCount,
   activeEnvironments,
   relatedExecutions,
   onRefresh,
 }: {
-  deployset: ApiDeploySet;
+  releaseSet: ApiReleaseSet;
   componentCount: number;
   activeEnvironments: Awaited<ReturnType<typeof listEnvironmentState>>;
-  relatedExecutions: Awaited<ReturnType<typeof listDeploymentExecutions>>;
+  relatedExecutions: Awaited<ReturnType<typeof listDeployments>>;
   onRefresh: () => Promise<unknown>;
 }) {
   const queryClient = useQueryClient();
   const [deployOpen, setDeployOpen] = useState(false);
-  const explicitCount = deployset.items.filter((item) => item.source === "explicit").length;
-  const inferredCount = deployset.items.filter((item) => item.source === "inferred").length;
+  const explicitCount = releaseSet.items.filter((item) => item.source === "explicit").length;
+  const inferredCount = releaseSet.items.filter((item) => item.source === "inferred").length;
 
   return (
     <div className="flex h-[calc(100vh-108px)] min-h-0 flex-col overflow-hidden">
       <PageHeader
-        title={`DeploySet: ${deployset.deploySetId}`}
+        title={`ReleaseSet: ${releaseSet.releaseSetId}`}
         subtitle="Desired component-version state, lineage, and current runtime usage."
         action={
           <div className="flex flex-wrap gap-2">
@@ -93,10 +91,10 @@ function DeploySetDetailsView({
               <Rocket className="h-4 w-4" />
               Deploy
             </Button>
-            <Link to="/deploysets">
+            <Link to="/release-sets">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4" />
-                Back to DeploySets
+                Back to ReleaseSets
               </Button>
             </Link>
           </div>
@@ -104,10 +102,10 @@ function DeploySetDetailsView({
       />
 
       <div className="grid shrink-0 grid-cols-4 gap-4">
-        <DeploySetFactCard icon={Layers3} label="Component Set" value={deployset.componentSetId} sublabel={`${componentCount} components included`} />
-        <DeploySetFactCard icon={Boxes} label="Items" value={deployset.items.length.toString()} sublabel={`${explicitCount} explicit, ${inferredCount} inherited`} />
-        <DeploySetFactCard icon={Server} label="Active Environments" value={activeEnvironments.length.toString()} sublabel="Currently pointing here" />
-        <DeploySetFactCard icon={CalendarClock} label="Created" value={formatDateTime(deployset.createdAt)} sublabel={`By ${deployset.createdBy}`} />
+        <ReleaseSetFactCard icon={Layers3} label="ReleaseSet" value={releaseSet.releaseSetId} sublabel={`${componentCount} components included`} />
+        <ReleaseSetFactCard icon={Boxes} label="Items" value={releaseSet.items.length.toString()} sublabel={`${explicitCount} explicit, ${inferredCount} inherited`} />
+        <ReleaseSetFactCard icon={Server} label="Active Environments" value={activeEnvironments.length.toString()} sublabel="Currently pointing here" />
+        <ReleaseSetFactCard icon={CalendarClock} label="Created" value={formatDateTime(releaseSet.createdAt)} sublabel={`By ${releaseSet.createdBy}`} />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4">
@@ -121,7 +119,7 @@ function DeploySetDetailsView({
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
             <ScrollFade className="h-full" contentClassName="px-4 pb-4">
-              <DeploySetItemsTable deployset={deployset} />
+              <ReleaseSetItemsTable releaseSet={releaseSet} />
             </ScrollFade>
           </CardContent>
         </Card>
@@ -129,26 +127,26 @@ function DeploySetDetailsView({
         <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>DeploySet metadata</CardTitle>
+              <CardTitle>ReleaseSet metadata</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
-              <MetaRow icon={PackageCheck} label="DeploySet" value={deployset.deploySetId} />
+              <MetaRow icon={PackageCheck} label="ReleaseSet" value={releaseSet.releaseSetId} />
               <MetaRow
                 icon={Layers3}
-                label="Component Set"
+                label="ReleaseSet"
                 value={
-                  <EntityLink kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }}>
-                    {deployset.componentSetId}
+                  <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: releaseSet.releaseSetId }}>
+                    {releaseSet.releaseSetId}
                   </EntityLink>
                 }
               />
               <MetaRow
                 icon={GitBranch}
-                label="Base DeploySet"
+                label="Base ReleaseSet"
                 value={
-                  deployset.baseDeploySetId ? (
-                    <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: deployset.baseDeploySetId }}>
-                      {deployset.baseDeploySetId}
+                  releaseSet.baseReleaseSetId ? (
+                    <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: releaseSet.baseReleaseSetId }}>
+                      {releaseSet.baseReleaseSetId}
                     </EntityLink>
                   ) : (
                     "None"
@@ -159,24 +157,24 @@ function DeploySetDetailsView({
                 icon={Server}
                 label="Base Environment"
                 value={
-                  deployset.baseEnvironmentId ? (
-                    <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: deployset.baseEnvironmentId }}>
-                      {deployset.baseEnvironmentId}
+                  releaseSet.baseEnvironmentId ? (
+                    <EntityLink kind="environment" to="/environments/$environmentId" params={{ environmentId: releaseSet.baseEnvironmentId }}>
+                      {releaseSet.baseEnvironmentId}
                     </EntityLink>
                   ) : (
                     "None"
                   )
                 }
               />
-              <MetaRow icon={UserRound} label="Created by" value={deployset.createdBy} />
-              <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(deployset.createdAt)} />
-              <MetaRow icon={FileText} label="Notes" value={deployset.notes ?? "None"} multiline />
+              <MetaRow icon={UserRound} label="Created by" value={releaseSet.createdBy} />
+              <MetaRow icon={CalendarClock} label="Created" value={formatDateTime(releaseSet.createdAt)} />
+              <MetaRow icon={FileText} label="Notes" value={releaseSet.notes ?? "None"} multiline />
               <div className="grid grid-cols-[140px_1fr] gap-3">
                 <span className="flex items-start gap-2 font-semibold text-slate-700">
                   <Tag className="mt-0.5 h-4 w-4 text-slate-500" />
                   Tags
                 </span>
-                <TagList tags={deployset.tags} />
+                <TagList tags={releaseSet.tags} />
               </div>
             </CardContent>
           </Card>
@@ -190,13 +188,13 @@ function DeploySetDetailsView({
                 {relatedExecutions.length ? (
                   <div className="space-y-2">
                     {relatedExecutions.slice(0, 8).map((execution) => (
-                      <div key={execution.deploymentExecutionId}>
+                      <div key={execution.deploymentId}>
                         <div
                           className="block rounded-lg bg-white px-3 py-2 transition-colors hover:border-blue-200 hover:bg-blue-50/40"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <EntityLink kind="deployment" to="/deployments/$deploymentExecutionId" params={{ deploymentExecutionId: execution.deploymentExecutionId }}>
-                              {execution.deploymentExecutionId}
+                            <EntityLink kind="deployment" to="/deployments/$deploymentId" params={{ deploymentId: execution.deploymentId }}>
+                              {execution.deploymentId}
                             </EntityLink>
                             <StatusBadge status={execution.status} />
                           </div>
@@ -209,7 +207,7 @@ function DeploySetDetailsView({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">No deployments reference this DeploySet yet.</p>
+                  <p className="text-sm text-slate-500">No deployments reference this ReleaseSet yet.</p>
                 )}
               </ScrollFade>
             </CardContent>
@@ -219,15 +217,14 @@ function DeploySetDetailsView({
 
       <SideDrawer
         open={deployOpen}
-        title="Deploy DeploySet"
-        description="Create a deployment execution from this DeploySet."
+        title="Deploy ReleaseSet"
+        description="Create a deployment from this ReleaseSet."
         maxWidth="max-w-[860px]"
         onClose={() => setDeployOpen(false)}
       >
         <DeploymentWorkflowPage
           showHeader={false}
-          initialComponentSetId={deployset.componentSetId}
-          initialDeploySetId={deployset.deploySetId}
+          initialReleaseSetId={releaseSet.releaseSetId}
           lockTarget
           onCancel={() => setDeployOpen(false)}
           onCreated={() => setDeployOpen(false)}
@@ -237,7 +234,7 @@ function DeploySetDetailsView({
   );
 }
 
-function DeploySetItemsTable({ deployset }: { deployset: ApiDeploySet }) {
+function ReleaseSetItemsTable({ releaseSet }: { releaseSet: ApiReleaseSet }) {
   return (
     <Table>
       <TableHeader>
@@ -248,7 +245,7 @@ function DeploySetItemsTable({ deployset }: { deployset: ApiDeploySet }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {deployset.items.map((item) => (
+        {releaseSet.items.map((item) => (
           <TableRow key={item.componentId}>
             <TableCell>
               <EntityLink kind="component" to="/components/$componentId" params={{ componentId: item.componentId }}>
@@ -274,7 +271,7 @@ function DeploySetItemsTable({ deployset }: { deployset: ApiDeploySet }) {
   );
 }
 
-function DeploySetFactCard({
+function ReleaseSetFactCard({
   icon: Icon,
   label,
   value,
@@ -313,29 +310,3 @@ function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof
   );
 }
 
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function TagList({ tags }: { tags?: Record<string, string> }) {
-  const entries = Object.entries(tags ?? {});
-
-  if (!entries.length) {
-    return <span className="text-slate-500">No tags</span>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {entries.map(([key, value]) => (
-        <span key={key} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
-          {key}:{value}
-        </span>
-      ))}
-    </div>
-  );
-}

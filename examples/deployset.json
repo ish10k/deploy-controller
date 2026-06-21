@@ -1,6 +1,6 @@
 {
-  "deploySetId": "2026.06.16.1",
-  "componentSetId": "ress-platform",
+  "releaseSetId": "2026.06.16.1",
+  "releaseSetId": "ress-platform",
   "baseEnvironmentId": "prod",
   "items": [
     { "componentId": "APIv2", "version": "2.14.0" }

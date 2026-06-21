@@ -2,9 +2,8 @@ from dataclasses import dataclass
 
 from src.application.use_cases.deployments import DeploymentRunnerUseCases, CreateDeploymentUseCase, PlanDeploymentUseCase
 from src.application.use_cases.registry import (
-    ComponentSetUseCases,
+    ReleaseSetUseCases,
     ComponentUseCases,
-    DeploySetUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
     ReleaseUseCases,
@@ -21,10 +20,9 @@ from src.application.use_cases.webhooks import WebhookUseCases
 @dataclass(frozen=True)
 class Container:
     components: ComponentUseCases
-    component_sets: ComponentSetUseCases
+    release_sets: ReleaseSetUseCases
     releases: ReleaseUseCases
     publishers: PublisherUseCases
-    deploysets: DeploySetUseCases
     environments: EnvironmentUseCases
     tag_definitions: TagDefinitionUseCases
     read_only: ReadOnlyUseCases
@@ -37,3 +35,4 @@ class Container:
     workspaces: WorkspaceUseCases
     events: EventLogUseCases
     webhooks: WebhookUseCases
+

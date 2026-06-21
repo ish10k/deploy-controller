@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/toast";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
+import { useAppContext } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
 import {
   createWebhook,
@@ -38,9 +39,9 @@ import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { canManageWebhooks, canRetryWebhookDeliveries, canViewWebhookDeliveries, canViewWebhooks } from "@/lib/user-permissions";
 
 const EVENT_GROUPS = [
-  { label: "Components", events: ["component.created", "component.updated", "component_set.created", "component_set.updated"] },
+  { label: "Components", events: ["component.created", "component.updated", "release_set.created", "release_set.updated"] },
   { label: "Releases", events: ["release.created", "release.published", "publisher.created", "publisher.updated", "publisher.token_rotated"] },
-  { label: "Deployments", events: ["deployset.created", "deployment.created", "deployment.claimed", "deployment.status_changed", "deployment_item.status_changed"] },
+  { label: "Deployments", events: ["release-set.created", "deployment.created", "deployment.claimed", "deployment.status_changed", "deployment_item.status_changed"] },
   { label: "Runtime", events: ["environment.created", "environment.updated", "environment_state.updated", "deployment_runner.created", "deployment_runner.updated", "deployment_runner.heartbeat", "deployment_runner.token_rotated"] },
   { label: "Governance", events: ["principal.created", "principal.updated", "principal.roles_changed", "principal.login", "role.created", "role.updated", "webhook.created", "webhook.updated", "eventlog.created"] },
 ] as const;
@@ -75,7 +76,13 @@ export function WebhooksPage() {
   const deliveries = deliveriesQuery.data ?? [];
   const normalized = search.trim().toLowerCase();
   const filtered = webhooks.filter((webhook) =>
-    [webhook.webhookId, webhook.displayName, webhook.url, ...webhook.subscriptions.flatMap((subscription) => subscription.eventTypes), ...Object.entries(webhook.tags).flat()]
+    [
+      webhook.webhookId,
+      webhook.displayName,
+      webhook.url,
+      ...((webhook.subscriptions ?? []).flatMap((subscription) => subscription.eventTypes ?? [])),
+      ...Object.entries(webhook.tags ?? {}).flat(),
+    ]
       .join(" ")
       .toLowerCase()
       .includes(normalized),
@@ -133,10 +140,10 @@ export function WebhooksPage() {
                       <TableCell>
                         <Badge variant={webhook.active ? "green" : "slate"}>{webhook.active ? "Active" : "Inactive"}</Badge>
                       </TableCell>
-                      <TableCell>{webhook.subscriptions.length}</TableCell>
+                      <TableCell>{(webhook.subscriptions ?? []).length}</TableCell>
                       <TableCell>{deliveryHealth(related)}</TableCell>
                       <TableCell>
-                        <TagList tags={webhook.tags} limit={3} />
+                        <TagList tags={webhook.tags ?? {}} limit={3} />
                       </TableCell>
                     </TableRow>
                   );
@@ -221,8 +228,13 @@ function WebhookDetailsView({ webhook, deliveries }: { webhook: ApiWebhook; deli
       />
       <div className="grid shrink-0 grid-cols-4 gap-4">
         <FactCard icon={Webhook} label="Status" value={webhook.active ? "Active" : "Inactive"} sublabel="Subscriber state" />
-        <FactCard icon={Send} label="Subscriptions" value={String(webhook.subscriptions.length)} sublabel="Rules for one URL" />
-        <FactCard icon={RefreshCw} label="Retry Policy" value={`${webhook.retryPolicy.maxAttempts} attempts`} sublabel={`${webhook.retryPolicy.backoffSeconds}s backoff`} />
+        <FactCard icon={Send} label="Subscriptions" value={String((webhook.subscriptions ?? []).length)} sublabel="Rules for one URL" />
+        <FactCard
+          icon={RefreshCw}
+          label="Retry Policy"
+          value={`${webhook.retryPolicy?.maxAttempts ?? 3} attempts`}
+          sublabel={`${webhook.retryPolicy?.backoffSeconds ?? 60}s backoff`}
+        />
         <FactCard icon={CalendarClock} label="Deliveries" value={String(deliveries.length)} sublabel={deliveryHealth(deliveries)} />
       </div>
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_440px] gap-4">
@@ -325,6 +337,7 @@ export function WebhookDeliveryDetailsPage({ deliveryId }: { deliveryId: string 
 }
 
 function WebhookDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pending: boolean; onClose: () => void; onSubmit: (webhook: ApiWebhook) => void }) {
+  const { workspaceId } = useAppContext();
   const [webhookId, setWebhookId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [url, setUrl] = useState("");
@@ -341,6 +354,7 @@ function WebhookDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pe
   const submit = () => {
     if (!trimmedWebhookId || !trimmedDisplayName || !trimmedUrl || tagsError) return;
     onSubmit({
+      workspaceId,
       webhookId: trimmedWebhookId,
       displayName: trimmedDisplayName,
       url: trimmedUrl,
@@ -397,10 +411,10 @@ function WebhookEditor({ webhook, canManage, pending, onSubmit }: { webhook: Api
   const [url, setUrl] = useState(webhook.url);
   const [secretRef, setSecretRef] = useState(webhook.secretRef ?? "");
   const [active, setActive] = useState(webhook.active);
-  const [maxAttempts, setMaxAttempts] = useState(webhook.retryPolicy.maxAttempts);
-  const [backoffSeconds, setBackoffSeconds] = useState(webhook.retryPolicy.backoffSeconds);
-  const [subscriptions, setSubscriptions] = useState<ApiWebhookSubscription[]>(webhook.subscriptions.length ? webhook.subscriptions : [blankSubscription()]);
-  const [tags, setTags] = useState<TagDraft[]>(recordToDrafts(webhook.tags));
+  const [maxAttempts, setMaxAttempts] = useState(webhook.retryPolicy?.maxAttempts ?? 3);
+  const [backoffSeconds, setBackoffSeconds] = useState(webhook.retryPolicy?.backoffSeconds ?? 60);
+  const [subscriptions, setSubscriptions] = useState<ApiWebhookSubscription[]>(webhook.subscriptions?.length ? webhook.subscriptions : [blankSubscription()]);
+  const [tags, setTags] = useState<TagDraft[]>(recordToDrafts(webhook.tags ?? {}));
   const tagsError = validateTagDrafts(tags);
 
   useEffect(() => {
@@ -408,10 +422,10 @@ function WebhookEditor({ webhook, canManage, pending, onSubmit }: { webhook: Api
     setUrl(webhook.url);
     setSecretRef(webhook.secretRef ?? "");
     setActive(webhook.active);
-    setMaxAttempts(webhook.retryPolicy.maxAttempts);
-    setBackoffSeconds(webhook.retryPolicy.backoffSeconds);
-    setSubscriptions(webhook.subscriptions.length ? webhook.subscriptions : [blankSubscription()]);
-    setTags(recordToDrafts(webhook.tags));
+    setMaxAttempts(webhook.retryPolicy?.maxAttempts ?? 3);
+    setBackoffSeconds(webhook.retryPolicy?.backoffSeconds ?? 60);
+    setSubscriptions(webhook.subscriptions?.length ? webhook.subscriptions : [blankSubscription()]);
+    setTags(recordToDrafts(webhook.tags ?? {}));
   }, [webhook]);
 
   const parsedTags = tagsToRecord(tags);
@@ -420,10 +434,10 @@ function WebhookEditor({ webhook, canManage, pending, onSubmit }: { webhook: Api
     url: webhook.url,
     secretRef: webhook.secretRef ?? "",
     active: webhook.active,
-    maxAttempts: webhook.retryPolicy.maxAttempts,
-    backoffSeconds: webhook.retryPolicy.backoffSeconds,
-    subscriptions: webhook.subscriptions.length ? webhook.subscriptions : [blankSubscription()],
-    tags: webhook.tags,
+    maxAttempts: webhook.retryPolicy?.maxAttempts ?? 3,
+    backoffSeconds: webhook.retryPolicy?.backoffSeconds ?? 60,
+    subscriptions: webhook.subscriptions?.length ? webhook.subscriptions : [blankSubscription()],
+    tags: webhook.tags ?? {},
   });
   const updateTag = (id: string, patch: Partial<Omit<TagDraft, "id">>) => setTags((current) => current.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)));
   const submit = () => onSubmit({ ...webhook, displayName: displayName.trim(), url: url.trim(), secretRef: secretRef.trim() || null, active, retryPolicy: { maxAttempts, backoffSeconds }, subscriptions, tags: parsedTags });
@@ -467,7 +481,8 @@ function SubscriptionsEditor({ subscriptions, disabled, onChange }: { subscripti
 }
 
 function SubscriptionEditor({ subscription, disabled, onChange, onRemove }: { subscription: ApiWebhookSubscription; disabled: boolean; onChange: (subscription: ApiWebhookSubscription) => void; onRemove?: () => void }) {
-  const updateFilters = (patch: Partial<ApiWebhookFilter>) => onChange({ ...subscription, filters: { ...subscription.filters, ...patch } });
+  const filters = subscription.filters ?? { resourceTypes: [], resourceIds: [], categories: [], origins: [], severities: [] };
+  const updateFilters = (patch: Partial<ApiWebhookFilter>) => onChange({ ...subscription, filters: { ...filters, ...patch } });
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -482,7 +497,12 @@ function SubscriptionEditor({ subscription, disabled, onChange, onRemove }: { su
               <div className="flex flex-wrap gap-1.5">
                 {group.events.map((eventType) => (
                   <label key={eventType} className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">
-                    <input disabled={disabled} type="checkbox" checked={subscription.eventTypes.includes(eventType)} onChange={() => onChange({ ...subscription, eventTypes: toggle(subscription.eventTypes, eventType) })} />
+                    <input
+                      disabled={disabled}
+                      type="checkbox"
+                      checked={(subscription.eventTypes ?? []).includes(eventType)}
+                      onChange={() => onChange({ ...subscription, eventTypes: toggle(subscription.eventTypes ?? [], eventType) })}
+                    />
                     {eventType}
                   </label>
                 ))}
@@ -490,9 +510,9 @@ function SubscriptionEditor({ subscription, disabled, onChange, onRemove }: { su
             </div>
           ))}
         </div>
-        <FilterInput label="Resource types" value={subscription.filters.resourceTypes} disabled={disabled} onChange={(value) => updateFilters({ resourceTypes: value })} />
-        <FilterInput label="Resource ids" value={subscription.filters.resourceIds} disabled={disabled} onChange={(value) => updateFilters({ resourceIds: value })} />
-        <FilterInput label="Categories" value={subscription.filters.categories} disabled={disabled} onChange={(value) => updateFilters({ categories: value })} />
+        <FilterInput label="Resource types" value={filters.resourceTypes ?? []} disabled={disabled} onChange={(value) => updateFilters({ resourceTypes: value })} />
+        <FilterInput label="Resource ids" value={filters.resourceIds ?? []} disabled={disabled} onChange={(value) => updateFilters({ resourceIds: value })} />
+        <FilterInput label="Categories" value={filters.categories ?? []} disabled={disabled} onChange={(value) => updateFilters({ categories: value })} />
       </div>
     </section>
   );
@@ -561,3 +581,4 @@ function deliveryHealth(deliveries: ApiWebhookDelivery[]) {
   if (failed) return `${failed} failed / ${deliveries.length} total`;
   return `${deliveries.length} delivered`;
 }
+

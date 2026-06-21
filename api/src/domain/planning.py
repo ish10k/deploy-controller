@@ -1,11 +1,11 @@
 from src.domain.enums import DriftReason, ItemStatus, ReportedAction, RequestedAction, RequestedReason
-from src.domain.models import DeploymentExecutionItem
+from src.domain.models import DeploymentItem
 
 
 def requested_action_for_item(
     *,
     requested_version: str,
-    latest_item: DeploymentExecutionItem | None,
+    latest_item: DeploymentItem | None,
     force: bool = False,
 ) -> tuple[RequestedAction, ItemStatus, RequestedReason]:
     if force:
@@ -26,7 +26,7 @@ def requested_action_for_item(
 def possible_drift_reason(
     *,
     requested_version: str,
-    latest_item: DeploymentExecutionItem | None,
+    latest_item: DeploymentItem | None,
     force: bool,
     reported_action: ReportedAction | None,
     status: ItemStatus,
@@ -41,5 +41,6 @@ def possible_drift_reason(
     ):
         return DriftReason.SAME_VERSION_REDEPLOYED
     return None
+
 
 

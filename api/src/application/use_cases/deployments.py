@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, UTC
 from src.application.ports import (
     Clock,
     ComponentRepository,
-    DeploymentExecutionRepository,
+    DeploymentRepository,
     DeploymentRunnerRepository,
-    DeploySetRepository,
+    ReleaseSetRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
     IdGenerator,
@@ -27,8 +27,8 @@ from src.domain.enums import (
 )
 from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from src.domain.models import (
-    DeploymentExecution,
-    DeploymentExecutionItem,
+    Deployment,
+    DeploymentItem,
     DeploymentRunner,
     DeploymentRunnerCreateRequest,
     DeploymentRunnerCreateResult,
@@ -48,12 +48,12 @@ class RunnerEligibilityUseCases:
         self,
         *,
         runners: DeploymentRunnerRepository,
-        deploysets: DeploySetRepository,
+        release_sets: ReleaseSetRepository,
         components: ComponentRepository,
         environments: EnvironmentRepository,
     ) -> None:
         self.runners = runners
-        self.deploysets = deploysets
+        self.release_sets = release_sets
         self.components = components
         self.environments = environments
 
@@ -61,34 +61,34 @@ class RunnerEligibilityUseCases:
         return plan.model_copy(
             update={
                 "items": [
-                    item.model_copy(update={"runner_match_warning": self._should_warn_for_item(plan.environment_id, plan.deployset_id, item, workspace_id)})
+                    item.model_copy(update={"runner_match_warning": self._should_warn_for_item(plan.environment_id, plan.release_set_id, item, workspace_id)})
                     for item in plan.items
                 ]
             }
         )
 
-    def decorate_execution(self, execution: DeploymentExecution, workspace_id: str = "default") -> DeploymentExecution:
+    def decorate_execution(self, execution: Deployment, workspace_id: str = "default") -> Deployment:
         if execution.status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED}:
             return execution.model_copy(update={"items": [item.model_copy(update={"runner_match_warning": False}) for item in execution.items]})
         return execution.model_copy(
             update={
                 "items": [
                     item.model_copy(
-                        update={"runner_match_warning": self._should_warn_for_item(execution.environment_id, execution.deployset_id, item, workspace_id)}
+                        update={"runner_match_warning": self._should_warn_for_item(execution.environment_id, execution.release_set_id, item, workspace_id)}
                     )
                     for item in execution.items
                 ]
             }
         )
 
-    def _should_warn_for_item(self, environment_id: str, deployset_id: str, item: DeploymentExecutionItem, workspace_id: str) -> bool:
+    def _should_warn_for_item(self, environment_id: str, release_set_id: str, item: DeploymentItem, workspace_id: str) -> bool:
         if item.requested_action != RequestedAction.DEPLOY or item.status != ItemStatus.PENDING:
             return False
-        return not self._has_matching_runner(environment_id, deployset_id, item, workspace_id)
+        return not self._has_matching_runner(environment_id, release_set_id, item, workspace_id)
 
-    def _has_matching_runner(self, environment_id: str, deployset_id: str, item: DeploymentExecutionItem, workspace_id: str) -> bool:
+    def _has_matching_runner(self, environment_id: str, release_set_id: str, item: DeploymentItem, workspace_id: str) -> bool:
         for runner in self.runners.list(workspace_id):
-            if self._runner_matches_item(runner, environment_id, deployset_id, item, workspace_id):
+            if self._runner_matches_item(runner, environment_id, release_set_id, item, workspace_id):
                 return True
         return False
 
@@ -96,8 +96,8 @@ class RunnerEligibilityUseCases:
         self,
         runner: DeploymentRunner,
         environment_id: str,
-        deployset_id: str,
-        item: DeploymentExecutionItem,
+        release_set_id: str,
+        item: DeploymentItem,
         workspace_id: str,
     ) -> bool:
         if not runner.active:
@@ -105,9 +105,9 @@ class RunnerEligibilityUseCases:
         scope = runner.scope
         if scope.environment_ids and environment_id not in scope.environment_ids:
             return False
-        if scope.component_set_ids:
-            deployset = self.deploysets.get(deployset_id, workspace_id)
-            if not deployset or deployset.component_set_id not in scope.component_set_ids:
+        if scope.component_ids:
+            release_set = self.release_sets.get(release_set_id, workspace_id)
+            if not release_set or release_set.release_set_id not in scope.component_ids:
                 return False
         if scope.component_ids and item.component_id not in scope.component_ids:
             return False
@@ -134,13 +134,13 @@ class PlanDeploymentUseCase:
     def __init__(
         self,
         *,
-        deploysets: DeploySetRepository,
+        release_sets: ReleaseSetRepository,
         releases: ReleaseRepository,
         environments: EnvironmentRepository,
-        executions: DeploymentExecutionRepository,
+        executions: DeploymentRepository,
         runner_eligibility: RunnerEligibilityUseCases,
     ) -> None:
-        self.deploysets = deploysets
+        self.release_sets = release_sets
         self.releases = releases
         self.environments = environments
         self.executions = executions
@@ -150,13 +150,13 @@ class PlanDeploymentUseCase:
         self,
         *,
         environment_id: str,
-        deployset_id: str,
+        release_set_id: str,
         workspace_id: str = "default",
         force: bool = False,
     ) -> DeploymentPlan:
-        deployset = self.deploysets.get(deployset_id, workspace_id)
-        if deployset is None:
-            raise NotFoundError(f"DeploySet not found: {deployset_id}")
+        release_set = self.release_sets.get(release_set_id, workspace_id)
+        if release_set is None:
+            raise NotFoundError(f"ReleaseSet not found: {release_set_id}")
 
         environment = self.environments.get(environment_id, workspace_id)
         if environment is None:
@@ -167,20 +167,20 @@ class PlanDeploymentUseCase:
         latest = self.executions.latest_for_environment(environment_id, workspace_id)
         latest_by_component = {item.component_id: item for item in latest.items} if latest is not None else {}
 
-        planned_items: list[DeploymentExecutionItem] = []
-        for deployset_item in deployset.items:
-            release = self.releases.get(deployset_item.component_id, deployset_item.version, workspace_id)
+        planned_items: list[DeploymentItem] = []
+        for release_set_item in release_set.items:
+            release = self.releases.get(release_set_item.component_id, release_set_item.version, workspace_id)
             if release is None:
-                raise NotFoundError(f"Release not found: {deployset_item.component_id}/{deployset_item.version}")
+                raise NotFoundError(f"Release not found: {release_set_item.component_id}/{release_set_item.version}")
 
             requested_action, status, reason = requested_action_for_item(
-                requested_version=deployset_item.version,
-                latest_item=latest_by_component.get(deployset_item.component_id),
+                requested_version=release_set_item.version,
+                latest_item=latest_by_component.get(release_set_item.component_id),
                 force=force,
             )
             planned_items.append(
-                DeploymentExecutionItem(
-                    component_id=deployset_item.component_id,
+                DeploymentItem(
+                    component_id=release_set_item.component_id,
                     version=release.version,
                     artifact=release.artifact,
                     requested_action=requested_action,
@@ -190,7 +190,7 @@ class PlanDeploymentUseCase:
                 )
             )
 
-        plan = DeploymentPlan(workspace_id=workspace_id, environment_id=environment_id, deployset_id=deployset_id, items=planned_items)
+        plan = DeploymentPlan(workspace_id=workspace_id, environment_id=environment_id, release_set_id=release_set_id, items=planned_items)
         return self.runner_eligibility.decorate_plan(plan, workspace_id)
 
 
@@ -199,7 +199,7 @@ class CreateDeploymentUseCase:
         self,
         *,
         planner: PlanDeploymentUseCase,
-        executions: DeploymentExecutionRepository,
+        executions: DeploymentRepository,
         states: EnvironmentStateRepository,
         clock: Clock,
         id_generator: IdGenerator,
@@ -216,42 +216,42 @@ class CreateDeploymentUseCase:
         self,
         *,
         environment_id: str,
-        deployset_id: str,
+        release_set_id: str,
         context: AuthContext,
         workspace_id: str = "default",
         notes: str | None = None,
         force: bool = False,
         tags: dict[str, str] | None = None,
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         require_permission(context, Permission.DEPLOYMENTS_CREATE)
-        deployset = self.planner.deploysets.get(deployset_id, workspace_id)
-        if deployset is None:
-            raise NotFoundError(f"DeploySet not found: {deployset_id}")
+        release_set = self.planner.release_sets.get(release_set_id, workspace_id)
+        if release_set is None:
+            raise NotFoundError(f"ReleaseSet not found: {release_set_id}")
         environment = self.planner.environments.get(environment_id, workspace_id)
         if environment is None:
             raise NotFoundError(f"Environment not found: {environment_id}")
         if not environment.active:
             raise ValidationError(f"Environment is inactive: {environment_id}")
-        self._require_no_active_execution(environment_id, deployset.component_set_id, workspace_id)
-        plan = self.planner.execute(environment_id=environment_id, deployset_id=deployset_id, workspace_id=workspace_id, force=force)
+        self._require_no_active_execution(environment_id, release_set.release_set_id, workspace_id)
+        plan = self.planner.execute(environment_id=environment_id, release_set_id=release_set_id, workspace_id=workspace_id, force=force)
         now = self.clock.now()
-        deployment_execution_id = self.id_generator.new_id()
+        deployment_id = self.id_generator.new_id()
         items = [
             item.model_copy(
                 update={
                     "workspace_id": workspace_id,
-                    "deployment_execution_id": deployment_execution_id,
+                    "deployment_id": deployment_id,
                     "environment_id": environment_id,
-                    "component_set_id": deployset.component_set_id,
+                    "release_set_id": release_set.release_set_id,
                 }
             )
             for item in plan.items
         ]
-        execution = DeploymentExecution(
+        execution = Deployment(
             workspace_id=workspace_id,
-            deployment_execution_id=deployment_execution_id,
+            deployment_id=deployment_id,
             environment_id=environment_id,
-            deployset_id=deployset_id,
+            release_set_id=release_set_id,
             status=ExecutionStatus.SUCCEEDED if items and all(item.status == ItemStatus.SKIPPED for item in items) else ExecutionStatus.PENDING,
             requested_by=context.principal_id,
             notes=notes,
@@ -266,9 +266,9 @@ class CreateDeploymentUseCase:
             EnvironmentState(
                 workspace_id=workspace_id,
                 environment_id=environment_id,
-                deployset_id=deployset_id,
+                release_set_id=release_set_id,
                 status=EnvironmentStatus(execution.status),
-                last_deployment_execution_id=execution.deployment_execution_id,
+                last_deployment_id=execution.deployment_id,
                 updated_at=now,
             )
         )
@@ -277,23 +277,23 @@ class CreateDeploymentUseCase:
                 actor_principal_id=context.principal_id,
                 action="deployment.created",
                 category="deployment",
-                summary=f"Created deployment execution {execution.deployment_execution_id}",
-                resource_type="deploymentExecution",
-                resource_id=execution.deployment_execution_id,
+                summary=f"Created deployment execution {execution.deployment_id}",
+                resource_type="deployment",
+                resource_id=execution.deployment_id,
                 after=execution,
                 related_resources=[
                     EventResourceRef(resource_type="environment", resource_id=environment_id),
-                    EventResourceRef(resource_type="deployset", resource_id=deployset_id),
+                    EventResourceRef(resource_type="release-set", resource_id=release_set_id),
                 ],
-                metadata={"environmentId": environment_id, "deploysetId": deployset_id, "force": force},
+                metadata={"environmentId": environment_id, "release-setId": release_set_id, "force": force},
             )
         return execution
 
-    def cancel(self, deployment_execution_id: str, context: AuthContext, workspace_id: str = "default") -> DeploymentExecution:
+    def cancel(self, deployment_id: str, context: AuthContext, workspace_id: str = "default") -> Deployment:
         require_permission(context, Permission.DEPLOYMENTS_CANCEL)
-        execution = self._get(deployment_execution_id, workspace_id)
+        execution = self._get(deployment_id, workspace_id)
         if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
-            raise ValidationError(f"Execution cannot be cancelled: {deployment_execution_id}")
+            raise ValidationError(f"Execution cannot be cancelled: {deployment_id}")
         now = self.clock.now()
         updated = execution.model_copy(
             update={
@@ -308,39 +308,39 @@ class CreateDeploymentUseCase:
                 actor_principal_id=context.principal_id,
                 action="deployment.status_changed",
                 category="deployment",
-                summary=f"Cancelled deployment execution {deployment_execution_id}",
-                resource_type="deploymentExecution",
-                resource_id=deployment_execution_id,
+                summary=f"Cancelled deployment execution {deployment_id}",
+                resource_type="deployment",
+                resource_id=deployment_id,
                 before=execution,
                 after=updated,
                 metadata={"status": str(ExecutionStatus.CANCELLED)},
             )
         return updated
 
-    def _get(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution:
-        execution = self.executions.get(deployment_execution_id, workspace_id)
+    def _get(self, deployment_id: str, workspace_id: str = "default") -> Deployment:
+        execution = self.executions.get(deployment_id, workspace_id)
         if execution is None:
-            raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
+            raise NotFoundError(f"Deployment not found: {deployment_id}")
         return execution
 
-    def _require_no_active_execution(self, environment_id: str, component_set_id: str, workspace_id: str) -> None:
+    def _require_no_active_execution(self, environment_id: str, release_set_id: str, workspace_id: str) -> None:
         for execution in self.executions.list_by_environment(environment_id, workspace_id):
             if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
                 continue
-            deployset = self.planner.deploysets.get(execution.deployset_id, workspace_id)
-            if deployset and deployset.component_set_id == component_set_id:
+            release_set = self.planner.release_sets.get(execution.release_set_id, workspace_id)
+            if release_set and release_set.release_set_id == release_set_id:
                 raise ConflictError(
-                    f"Deployment already in progress for environment and component set: {environment_id}/{component_set_id}"
+                    f"Deployment already in progress for environment and ReleaseSet: {environment_id}/{release_set_id}"
                 )
 
-    def _update_state(self, execution: DeploymentExecution) -> None:
+    def _update_state(self, execution: Deployment) -> None:
         self.states.put(
             EnvironmentState(
                 workspace_id=execution.workspace_id,
                 environment_id=execution.environment_id,
-                deployset_id=execution.deployset_id,
+                release_set_id=execution.release_set_id,
                 status=execution.status,
-                last_deployment_execution_id=execution.deployment_execution_id,
+                last_deployment_id=execution.deployment_id,
                 updated_at=self.clock.now(),
             )
         )
@@ -358,8 +358,8 @@ class DeploymentRunnerUseCases:
         self,
         *,
         runners: DeploymentRunnerRepository,
-        executions: DeploymentExecutionRepository,
-        deploysets: DeploySetRepository,
+        executions: DeploymentRepository,
+        release_sets: ReleaseSetRepository,
         components: ComponentRepository,
         environments: EnvironmentRepository,
         states: EnvironmentStateRepository,
@@ -369,7 +369,7 @@ class DeploymentRunnerUseCases:
     ) -> None:
         self.runners = runners
         self.executions = executions
-        self.deploysets = deploysets
+        self.release_sets = release_sets
         self.components = components
         self.environments = environments
         self.states = states
@@ -378,7 +378,7 @@ class DeploymentRunnerUseCases:
         self.events = events
         self.runner_eligibility = RunnerEligibilityUseCases(
             runners=runners,
-            deploysets=deploysets,
+            release_sets=release_sets,
             components=components,
             environments=environments,
         )
@@ -494,9 +494,9 @@ class DeploymentRunnerUseCases:
         self.runners.put(updated)
         return updated
 
-    def list_pending(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentExecutionItem]:
+    def list_pending(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentItem]:
         runner = self._active_runner(runner_id, workspace_id)
-        items: list[DeploymentExecutionItem] = []
+        items: list[DeploymentItem] = []
         remaining_capacity = self._remaining_capacity(runner)
         if remaining_capacity <= 0:
             return []
@@ -508,9 +508,9 @@ class DeploymentRunnerUseCases:
                         return items
         return items
 
-    def list_items(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentExecutionItem]:
+    def list_items(self, runner_id: str, workspace_id: str = "default") -> list[DeploymentItem]:
         runner = self._active_runner(runner_id, workspace_id)
-        items: list[DeploymentExecutionItem] = []
+        items: list[DeploymentItem] = []
         for execution in self.executions.list_by_environment(None, workspace_id):
             for item in execution.items:
                 if self._runner_allows_item(runner, execution, item):
@@ -520,28 +520,28 @@ class DeploymentRunnerUseCases:
     def claim_item(
         self,
         runner_id: str,
-        deployment_execution_id: str,
+        deployment_id: str,
         component_id: str,
         context: AuthContext,
         claim_timeout_seconds: int | None = None,
         workspace_id: str = "default",
-    ) -> DeploymentExecutionItem:
+    ) -> DeploymentItem:
         self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_CLAIM)
         runner = self._active_runner(runner_id, workspace_id)
-        execution = self._get(deployment_execution_id, workspace_id)
+        execution = self._get(deployment_id, workspace_id)
         if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
-            raise ValidationError(f"Execution is not pending: {deployment_execution_id}")
+            raise ValidationError(f"Execution is not pending: {deployment_id}")
 
         now = self.clock.now()
         claim_expires_at = _add_seconds(now, claim_timeout_seconds or 900)
-        updated_items: list[DeploymentExecutionItem] = []
-        claimed_item: DeploymentExecutionItem | None = None
+        updated_items: list[DeploymentItem] = []
+        claimed_item: DeploymentItem | None = None
         for item in execution.items:
             if item.component_id != component_id:
                 updated_items.append(item)
                 continue
             if item.status != ItemStatus.PENDING or item.claimed_by is not None:
-                raise ConflictError(f"Execution item already claimed or not pending: {deployment_execution_id}/{component_id}")
+                raise ConflictError(f"Execution item already claimed or not pending: {deployment_id}/{component_id}")
             if not self._runner_can_claim_item(runner, execution, item):
                 raise ConflictError(f"Runner is not eligible to claim execution item: {runner_id}/{component_id}")
             claimed_item = item.model_copy(
@@ -555,7 +555,7 @@ class DeploymentRunnerUseCases:
             )
             updated_items.append(claimed_item)
         if claimed_item is None:
-            raise NotFoundError(f"Execution item not found: {deployment_execution_id}/{component_id}")
+            raise NotFoundError(f"Execution item not found: {deployment_id}/{component_id}")
 
         updated = self._with_derived_status(execution.model_copy(update={"items": updated_items}))
         self.executions.put(updated)
@@ -565,9 +565,9 @@ class DeploymentRunnerUseCases:
                 actor_principal_id=context.principal_id,
                 action="deployment_item.claimed",
                 category="deployment",
-                summary=f"{runner_id} claimed {component_id} for deployment {deployment_execution_id}",
-                resource_type="deploymentExecution",
-                resource_id=deployment_execution_id,
+                summary=f"{runner_id} claimed {component_id} for deployment {deployment_id}",
+                resource_type="deployment",
+                resource_id=deployment_id,
                 before=execution,
                 after=updated,
                 metadata={"runnerId": runner_id, "componentId": component_id},
@@ -578,7 +578,7 @@ class DeploymentRunnerUseCases:
         self,
         *,
         runner_id: str,
-        deployment_execution_id: str,
+        deployment_id: str,
         component_id: str,
         status: str,
         reported_action: str,
@@ -586,7 +586,7 @@ class DeploymentRunnerUseCases:
         reported_by: str | None = None,
         failure_reason: str | None = None,
         workspace_id: str = "default",
-    ) -> DeploymentExecution:
+    ) -> Deployment:
         self._require_runner_permission(context, runner_id, Permission.EXECUTIONS_REPORT_STATUS)
         if status not in {ItemStatus.RUNNING, ItemStatus.SUCCEEDED, ItemStatus.FAILED, ItemStatus.SKIPPED}:
             raise ValidationError(f"Unsupported item status: {status}")
@@ -595,7 +595,7 @@ class DeploymentRunnerUseCases:
         status = ItemStatus(status)
         reported_action = ReportedAction(reported_action)
 
-        execution = self._get(deployment_execution_id, workspace_id)
+        execution = self._get(deployment_id, workspace_id)
         runner = self._active_runner(runner_id, workspace_id)
         self._require_execution_active(execution)
         previous_latest = self._previous_latest_item(execution, component_id)
@@ -628,7 +628,7 @@ class DeploymentRunnerUseCases:
                 )
             )
         if not found:
-            raise NotFoundError(f"Execution item not found: {deployment_execution_id}/{component_id}")
+            raise NotFoundError(f"Execution item not found: {deployment_id}/{component_id}")
         updated = self._with_derived_status(execution.model_copy(update={"items": updated_items}))
         self.executions.put(updated)
         self._update_state(updated)
@@ -637,9 +637,9 @@ class DeploymentRunnerUseCases:
                 actor_principal_id=context.principal_id,
                 action="deployment_item.status_reported",
                 category="deployment",
-                summary=f"{component_id} {status} for deployment {deployment_execution_id}",
-                resource_type="deploymentExecution",
-                resource_id=deployment_execution_id,
+                summary=f"{component_id} {status} for deployment {deployment_id}",
+                resource_type="deployment",
+                resource_id=deployment_id,
                 before=execution,
                 after=updated,
                 metadata={
@@ -662,24 +662,24 @@ class DeploymentRunnerUseCases:
         if context.principal_type == PrincipalType.SERVICE and context.claims.get("runnerId") != runner_id:
             raise ForbiddenError(f"DeploymentRunner token cannot operate on another runner: {runner_id}")
 
-    def _runner_allows_execution(self, runner: DeploymentRunner, execution: DeploymentExecution) -> bool:
+    def _runner_allows_execution(self, runner: DeploymentRunner, execution: Deployment) -> bool:
         scope = runner.scope
         if scope.environment_ids and execution.environment_id not in scope.environment_ids:
             return False
-        if scope.component_set_ids:
-            deployset = self.deploysets.get(execution.deployset_id, runner.workspace_id)
-            if not deployset or deployset.component_set_id not in scope.component_set_ids:
+        if scope.component_ids:
+            release_set = self.release_sets.get(execution.release_set_id, runner.workspace_id)
+            if not release_set or release_set.release_set_id not in scope.component_ids:
                 return False
         return True
 
-    def _runner_can_claim_item(self, runner: DeploymentRunner, execution: DeploymentExecution, item: DeploymentExecutionItem) -> bool:
+    def _runner_can_claim_item(self, runner: DeploymentRunner, execution: Deployment, item: DeploymentItem) -> bool:
         if item.status != ItemStatus.PENDING or item.claimed_by is not None or item.requested_action != RequestedAction.DEPLOY:
             return False
         if not self._runner_has_capacity(runner):
             return False
         return self._runner_allows_item(runner, execution, item)
 
-    def _runner_allows_item(self, runner: DeploymentRunner, execution: DeploymentExecution, item: DeploymentExecutionItem) -> bool:
+    def _runner_allows_item(self, runner: DeploymentRunner, execution: Deployment, item: DeploymentItem) -> bool:
         if not self._runner_allows_execution(runner, execution):
             return False
         scope = runner.scope
@@ -706,7 +706,7 @@ class DeploymentRunnerUseCases:
                     return False
         return component_selector_matches
 
-    def _claim_eligibility(self, runner: DeploymentRunner, execution: DeploymentExecution, item: DeploymentExecutionItem) -> dict[str, object]:
+    def _claim_eligibility(self, runner: DeploymentRunner, execution: Deployment, item: DeploymentItem) -> dict[str, object]:
         component = self.components.get(item.component_id, execution.workspace_id)
         environment = self.environments.get(execution.environment_id, execution.workspace_id)
         return {
@@ -715,7 +715,7 @@ class DeploymentRunnerUseCases:
             "environmentTags": environment.tags if environment else {},
             "runnerSelector": {
                 "environmentIds": runner.scope.environment_ids,
-                "componentSetIds": runner.scope.component_set_ids,
+                "componentIds": runner.scope.component_ids,
                 "componentIds": runner.scope.component_ids,
                 "componentTypes": runner.scope.component_types,
                 "componentTags": runner.scope.component_tags,
@@ -739,33 +739,33 @@ class DeploymentRunnerUseCases:
         self,
         runner: DeploymentRunner,
         runner_id: str,
-        execution: DeploymentExecution,
-        item: DeploymentExecutionItem,
+        execution: Deployment,
+        item: DeploymentItem,
     ) -> None:
         if item.claimed_by != runner_id:
             raise ValidationError(f"Execution item is not claimed by runner: {runner_id}/{item.component_id}")
 
-    def _get(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution:
-        execution = self.executions.get(deployment_execution_id, workspace_id)
+    def _get(self, deployment_id: str, workspace_id: str = "default") -> Deployment:
+        execution = self.executions.get(deployment_id, workspace_id)
         if execution is None:
-            raise NotFoundError(f"DeploymentExecution not found: {deployment_execution_id}")
+            raise NotFoundError(f"Deployment not found: {deployment_id}")
         return execution
 
-    def _require_no_active_execution(self, environment_id: str, component_set_id: str) -> None:
+    def _require_no_active_execution(self, environment_id: str, release_set_id: str) -> None:
         for execution in self.executions.list_by_environment(environment_id):
             if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
                 continue
-            deployset = self.planner.deploysets.get(execution.deployset_id)
-            if deployset and deployset.component_set_id == component_set_id:
+            release_set = self.planner.release_sets.get(execution.release_set_id)
+            if release_set and release_set.release_set_id == release_set_id:
                 raise ConflictError(
-                    f"Deployment already in progress for environment and component set: {environment_id}/{component_set_id}"
+                    f"Deployment already in progress for environment and release set: {environment_id}/{release_set_id}"
                 )
 
-    def _require_execution_active(self, execution: DeploymentExecution) -> None:
+    def _require_execution_active(self, execution: Deployment) -> None:
         if execution.status not in {ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}:
-            raise ValidationError(f"Execution is not active: {execution.deployment_execution_id}")
+            raise ValidationError(f"Execution is not active: {execution.deployment_id}")
 
-    def _with_derived_status(self, execution: DeploymentExecution) -> DeploymentExecution:
+    def _with_derived_status(self, execution: Deployment) -> Deployment:
         if execution.status == ExecutionStatus.CANCELLED:
             return execution
         statuses = [item.status for item in execution.items]
@@ -779,25 +779,26 @@ class DeploymentRunnerUseCases:
 
     def _previous_latest_item(
         self,
-        execution: DeploymentExecution,
+        execution: Deployment,
         component_id: str,
-    ) -> DeploymentExecutionItem | None:
+    ) -> DeploymentItem | None:
         for candidate in self.executions.list_by_environment(execution.environment_id, execution.workspace_id):
-            if candidate.deployment_execution_id == execution.deployment_execution_id:
+            if candidate.deployment_id == execution.deployment_id:
                 continue
             for item in candidate.items:
                 if item.component_id == component_id:
                     return item
         return None
 
-    def _update_state(self, execution: DeploymentExecution) -> None:
+    def _update_state(self, execution: Deployment) -> None:
         self.states.put(
             EnvironmentState(
                 workspace_id=execution.workspace_id,
                 environment_id=execution.environment_id,
-                deployset_id=execution.deployset_id,
+                release_set_id=execution.release_set_id,
                 status=execution.status,
-                last_deployment_execution_id=execution.deployment_execution_id,
+                last_deployment_id=execution.deployment_id,
                 updated_at=self.clock.now(),
             )
         )
+

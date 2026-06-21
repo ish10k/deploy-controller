@@ -5,10 +5,14 @@ import { ENTITY_ICONS, type EntityIconKind } from "@/lib/entity-icons";
 import { cn } from "@/lib/utils";
 import { workspaceIdFromPath, workspaceRoutePath } from "@/lib/workspace-routes";
 
-type EntityLinkProps = Omit<LinkProps, "children"> & {
+type EntityLinkProps = {
   kind: EntityIconKind;
   children: ReactNode;
   className?: string;
+  to: string;
+  params?: Record<string, unknown>;
+  search?: Record<string, unknown>;
+  [key: string]: unknown;
 };
 
 export function EntityLink({ kind, children, className, ...props }: EntityLinkProps) {
@@ -34,3 +38,4 @@ export function EntityLink({ kind, children, className, ...props }: EntityLinkPr
     </Link>
   );
 }
+

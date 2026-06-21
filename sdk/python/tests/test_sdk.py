@@ -121,9 +121,9 @@ class SdkTests(unittest.TestCase):
 def _execution(*, status: str = "claimed") -> dict[str, object]:
     return {
         "workspaceId": "ws-1",
-        "deploymentExecutionId": "exec-1",
+        "deploymentId": "exec-1",
         "environmentId": "dev",
-        "deploySetId": "ds-1",
+        "releaseSetId": "ds-1",
         "status": status,
         "requestedBy": "user:admin",
         "startedAt": "2026-06-19T10:00:00Z",
@@ -135,9 +135,9 @@ def _execution(*, status: str = "claimed") -> dict[str, object]:
 def _component(*, status: str = "pending", claimed_by: str | None = None) -> dict[str, object]:
     return {
         "workspaceId": "ws-1",
-        "deploymentExecutionId": "exec-1",
+        "deploymentId": "exec-1",
         "environmentId": "dev",
-        "componentSetId": "platform",
+        "releaseSetId": "platform",
         "componentId": "api",
         "version": "1.2.3",
         "artifact": {"key": "s3://bucket/api.tgz", "digest": "sha256:abc"},

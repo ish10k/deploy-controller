@@ -1,25 +1,26 @@
-class DeploySetControllerError(Exception):
+class ReleaseSetControllerError(Exception):
     status_code = 500
 
 
-class NotFoundError(DeploySetControllerError):
+class NotFoundError(ReleaseSetControllerError):
     status_code = 404
 
 
-class ConflictError(DeploySetControllerError):
+class ConflictError(ReleaseSetControllerError):
     status_code = 409
 
 
-class ValidationError(DeploySetControllerError):
+class ValidationError(ReleaseSetControllerError):
     status_code = 400
 
 
-class UnauthorizedError(DeploySetControllerError):
+class UnauthorizedError(ReleaseSetControllerError):
     status_code = 401
 
 
-class ForbiddenError(DeploySetControllerError):
+class ForbiddenError(ReleaseSetControllerError):
     status_code = 403
+
 
 
 

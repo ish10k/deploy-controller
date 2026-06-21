@@ -11,7 +11,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TagList } from "@/components/ui/tag-list";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
-import { getRelease, listDeploymentExecutions, type ApiRelease } from "@/lib/api-client";
+import { getRelease, listDeployments, type ApiRelease } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 
 export function ReleaseDetailsPage({ componentId, version }: { componentId: string; version: string }) {
@@ -31,8 +31,8 @@ function ReleaseDetailsView({ release, onRefresh }: { release: ApiRelease; onRef
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const deploymentsQuery = useQuery({
-    queryKey: ["deployment-executions", "for-release", release.componentId, release.version],
-    queryFn: () => listDeploymentExecutions(),
+    queryKey: ["deployments", "for-release", release.componentId, release.version],
+    queryFn: () => listDeployments(),
     retry: 1,
   });
 
@@ -111,7 +111,7 @@ function ReleaseDetailsView({ release, onRefresh }: { release: ApiRelease; onRef
                   <TableHeader>
                     <TableRow>
                       <TableHead>Deployment</TableHead>
-                      <TableHead>DeploySet</TableHead>
+                      <TableHead>ReleaseSet</TableHead>
                       <TableHead>Environment</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Started</TableHead>
@@ -119,15 +119,15 @@ function ReleaseDetailsView({ release, onRefresh }: { release: ApiRelease; onRef
                   </TableHeader>
                   <TableBody>
                     {relatedDeployments.map((execution) => (
-                      <TableRow key={execution.deploymentExecutionId}>
+                      <TableRow key={execution.deploymentId}>
                         <TableCell>
-                          <EntityLink kind="deployment" to="/deployments/$deploymentExecutionId" params={{ deploymentExecutionId: execution.deploymentExecutionId }}>
-                            {execution.deploymentExecutionId}
+                          <EntityLink kind="deployment" to="/deployments/$deploymentId" params={{ deploymentId: execution.deploymentId }}>
+                            {execution.deploymentId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
-                          <EntityLink kind="deployset" to="/deploysets/$deploySetId" params={{ deploySetId: execution.deploySetId }}>
-                            {execution.deploySetId}
+                          <EntityLink kind="releaseSet" to="/release-sets/$releaseSetId" params={{ releaseSetId: execution.releaseSetId }}>
+                            {execution.releaseSetId}
                           </EntityLink>
                         </TableCell>
                         <TableCell>
@@ -287,3 +287,4 @@ function CopyableMetaRow({
     </div>
   );
 }
+

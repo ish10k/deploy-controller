@@ -66,3 +66,4 @@ export function ScrollFade({ children, className, contentClassName, ...props }: 
     </div>
   );
 }
+

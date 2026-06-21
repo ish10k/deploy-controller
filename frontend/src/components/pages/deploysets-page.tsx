@@ -17,49 +17,46 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/toast";
 import {
   createDeployset,
-  listComponentSets,
-  listDeploysets,
+  listReleaseSets,
   listEnvironmentState,
   listEnvironments,
   listReleases,
   queryKeys,
-  type ApiDeploySet,
-  type ApiDeploySetCreateRequest,
+  type ApiReleaseSet,
+  type ApiReleaseSetCreateRequest,
   type ApiEnvironmentState,
   type ApiRelease,
 } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 
-type DeploySetItemDraft = {
+type ReleaseSetItemDraft = {
   id: string;
   componentId: string;
   version: string;
 };
 
-type DeploySetFormState = {
-  deploySetId: string;
-  componentSetId: string;
+type ReleaseSetFormState = {
+  releaseSetId: string;
   baseEnvironmentId: string;
-  baseDeploySetId: string;
+  baseReleaseSetId: string;
   notes: string;
   tags: TagDraft[];
-  items: DeploySetItemDraft[];
+  items: ReleaseSetItemDraft[];
 };
 
 const draftId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
-const draftItem = (componentId = "", version = ""): DeploySetItemDraft => ({
+const draftItem = (componentId = "", version = ""): ReleaseSetItemDraft => ({
   id: draftId(),
   componentId,
   version,
 });
 
-const defaultForm = (): DeploySetFormState => ({
-  deploySetId: "",
-  componentSetId: "",
+const defaultForm = (): ReleaseSetFormState => ({
+  releaseSetId: "",
   baseEnvironmentId: "",
-  baseDeploySetId: "",
+  baseReleaseSetId: "",
   notes: "",
   tags: [createTagDraft()],
   items: [],
@@ -87,26 +84,25 @@ export function DeploysetsPage({
   const [drawerMounted, setDrawerMounted] = useState(false);
   const [drawerEntered, setDrawerEntered] = useState(false);
   const [search, setSearch] = useState("");
-  const [componentSetFilter, setComponentSetFilter] = useState("all");
+  const [releaseSetFilter, setReleaseSetFilter] = useState("all");
 
-  const deploysetsQuery = useQuery({ queryKey: queryKeys.deploysets, queryFn: listDeploysets });
-  const componentSetsQuery = useQuery({ queryKey: queryKeys.componentSets, queryFn: listComponentSets });
+  const releaseSetsQuery = useQuery({ queryKey: queryKeys.releaseSets, queryFn: listReleaseSets });
   const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
   const environmentStateQuery = useQuery({ queryKey: queryKeys.environmentState, queryFn: listEnvironmentState });
   const releasesQuery = useQuery({ queryKey: queryKeys.releases(), queryFn: () => listReleases() });
-  const refreshing = useMinimumVisible(deploysetsQuery.isFetching && !deploysetsQuery.isLoading);
+  const refreshing = useMinimumVisible(releaseSetsQuery.isFetching && !releaseSetsQuery.isLoading);
 
   const createMutation = useMutation({
     mutationFn: createDeployset,
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.deploysets });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.releaseSets });
       closeDrawer();
       toast({
-        title: "DeploySet created",
-        description: `${result.deployset.deploySetId} is ready with ${result.deployset.items.length} component versions.`,
+        title: "ReleaseSet created",
+        description: `${result.release_set.releaseSetId} is ready with ${result.release_set.items.length} component versions.`,
         variant: "success",
       });
-      await navigate({ to: "/deploysets/$deploySetId", params: { deploySetId: result.deployset.deploySetId } });
+      await navigate({ to: "/release-sets/$releaseSetId", params: { releaseSetId: result.release_set.releaseSetId } });
     },
   });
 
@@ -118,8 +114,7 @@ export function DeploysetsPage({
   }, [createSignal, onCreateSignalHandled]);
   useEffect(() => {
     if (refreshSignal > 0) {
-      void deploysetsQuery.refetch();
-      void componentSetsQuery.refetch();
+      void releaseSetsQuery.refetch();
       void environmentsQuery.refetch();
       void environmentStateQuery.refetch();
       void releasesQuery.refetch();
@@ -181,12 +176,12 @@ export function DeploysetsPage({
     setDrawerOpen(false);
   };
 
-  const deploysets = deploysetsQuery.data ?? [];
+  const releaseSets = releaseSetsQuery.data ?? [];
   const filteredDeploysets = useMemo(() => {
     const normalizedSearch = (externalSearch ?? search).trim().toLowerCase();
 
-    return deploysets.filter((deployset) => {
-      if (componentSetFilter !== "all" && deployset.componentSetId !== componentSetFilter) {
+    return releaseSets.filter((releaseSet) => {
+      if (releaseSetFilter !== "all" && releaseSet.releaseSetId !== releaseSetFilter) {
         return false;
       }
 
@@ -194,26 +189,25 @@ export function DeploysetsPage({
         return true;
       }
 
-      return [deployset.deploySetId, deployset.componentSetId, deployset.createdBy, tagSummary(deployset.tags)]
+      return [releaseSet.releaseSetId, releaseSet.releaseSetId, releaseSet.createdBy, tagSummary(releaseSet.tags)]
         .join(" ")
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [componentSetFilter, deploysets, externalSearch, search]);
+  }, [releaseSetFilter, releaseSets, externalSearch, search]);
 
-  if (deploysetsQuery.isLoading) {
-    return <LoadingPanel label="Loading deploysets..." />;
+  if (releaseSetsQuery.isLoading) {
+    return <LoadingPanel label="Loading releaseSets..." />;
   }
 
-  if (deploysetsQuery.error) {
-    return <ApiErrorPanel error={deploysetsQuery.error} onRetry={() => deploysetsQuery.refetch()} />;
+  if (releaseSetsQuery.error) {
+    return <ApiErrorPanel error={releaseSetsQuery.error} onRetry={() => releaseSetsQuery.refetch()} />;
   }
 
   const drawer = drawerMounted ? (
-    <CreateDeploySetDrawer
+    <CreateReleaseSetDrawer
       open={drawerEntered}
-      componentSets={componentSetsQuery.data ?? []}
-      deploysets={deploysets}
+      releaseSets={releaseSetsQuery.data ?? []}
       environments={environmentsQuery.data ?? []}
       environmentState={environmentStateQuery.data ?? []}
       releases={releasesQuery.data ?? []}
@@ -233,12 +227,12 @@ export function DeploysetsPage({
       {!embedded ? (
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-[28px] font-bold tracking-normal text-slate-950">DeploySets</h1>
+            <h1 className="text-[28px] font-bold tracking-normal text-slate-950">ReleaseSets</h1>
             <p className="mt-1 text-sm font-medium text-slate-600">Immutable desired component-version sets ready for deployment.</p>
           </div>
           <Button className="px-4" onClick={openDrawer}>
             <Plus className="h-5 w-5" />
-            Create DeploySet
+            Create ReleaseSet
           </Button>
         </div>
       ) : null}
@@ -253,16 +247,16 @@ export function DeploysetsPage({
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </div>
-          <Select variant="light" value={componentSetFilter} onChange={(event) => setComponentSetFilter(event.target.value)} className="w-[220px]">
-            <option value="all">Component Set: All</option>
-            {(componentSetsQuery.data ?? []).map((componentSet) => (
-              <option key={componentSet.componentSetId} value={componentSet.componentSetId}>
-                {componentSet.componentSetId}
+          <Select variant="light" value={releaseSetFilter} onChange={(event) => setReleaseSetFilter(event.target.value)} className="w-[220px]">
+            <option value="all">ReleaseSet: All</option>
+            {(releaseSetsQuery.data ?? []).map((releaseSet) => (
+              <option key={releaseSet.releaseSetId} value={releaseSet.releaseSetId}>
+                {releaseSet.releaseSetId}
               </option>
             ))}
           </Select>
         </div>
-        <Button variant="outline" onClick={() => deploysetsQuery.refetch()}>
+        <Button variant="outline" onClick={() => releaseSetsQuery.refetch()}>
           Refresh
         </Button>
       </div> : null}
@@ -276,7 +270,7 @@ export function DeploysetsPage({
             </ScrollFade>
           ) : (
             <div className="flex flex-1 items-center justify-center p-4">
-              <EmptyPanel label="No DeploySets match the current filters." />
+              <EmptyPanel label="No ReleaseSets match the current filters." />
             </div>
           )}
         </div>
@@ -290,7 +284,7 @@ export function DeploysetsPage({
               </ScrollFade>
             ) : (
               <div className="flex flex-1 items-center justify-center p-4">
-                <EmptyPanel label="No DeploySets match the current filters." />
+                <EmptyPanel label="No ReleaseSets match the current filters." />
               </div>
             )}
           </CardContent>
@@ -302,39 +296,37 @@ export function DeploysetsPage({
   );
 }
 
-function DeploysetsTable({ rows }: { rows: ApiDeploySet[] }) {
+function DeploysetsTable({ rows }: { rows: ApiReleaseSet[] }) {
   return (
     <Table>
       <TableHeader className="sticky top-0 z-10 bg-white">
         <TableRow>
-          <TableHead>DeploySet</TableHead>
-          <TableHead>Component Set</TableHead>
+          <TableHead>ReleaseSet</TableHead>
+          <TableHead>Components</TableHead>
           <TableHead>Created By</TableHead>
           <TableHead>Created</TableHead>
           <TableHead>Tags</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((deployset) => (
-          <TableRow key={deployset.deploySetId} className="hover:bg-blue-50/40">
+        {rows.map((releaseSet) => (
+          <TableRow key={releaseSet.releaseSetId} className="hover:bg-blue-50/40">
             <TableCell>
               <EntityLink
-                kind="deployset"
-                to="/deploysets/$deploySetId"
-                params={{ deploySetId: deployset.deploySetId }}
+                kind="releaseSet"
+                to="/release-sets/$releaseSetId"
+                params={{ releaseSetId: releaseSet.releaseSetId }}
               >
-                {deployset.deploySetId}
+                {releaseSet.releaseSetId}
               </EntityLink>
             </TableCell>
             <TableCell>
-              <EntityLink kind="componentSet" to="/component-sets/$componentSetId" params={{ componentSetId: deployset.componentSetId }}>
-                {deployset.componentSetId}
-              </EntityLink>
+              {releaseSet.items.map((item) => item.componentId).join(", ")}
             </TableCell>
-            <TableCell>{deployset.createdBy}</TableCell>
-            <TableCell>{formatRelativeTime(deployset.createdAt, { mode: "short" })}</TableCell>
+            <TableCell>{releaseSet.createdBy}</TableCell>
+            <TableCell>{formatRelativeTime(releaseSet.createdAt, { mode: "short" })}</TableCell>
             <TableCell>
-              <TagList tags={deployset.tags} limit={3} />
+              <TagList tags={releaseSet.tags} limit={3} />
             </TableCell>
           </TableRow>
         ))}
@@ -343,10 +335,9 @@ function DeploysetsTable({ rows }: { rows: ApiDeploySet[] }) {
   );
 }
 
-function CreateDeploySetDrawer({
+function CreateReleaseSetDrawer({
   open,
-  componentSets,
-  deploysets,
+  releaseSets,
   environments,
   environmentState,
   releases,
@@ -356,23 +347,22 @@ function CreateDeploySetDrawer({
   onSubmit,
 }: {
   open: boolean;
-  componentSets: { componentSetId: string; components?: { componentId: string }[] }[];
-  deploysets: ApiDeploySet[];
+  releaseSets: ApiReleaseSet[];
   environments: { environmentId: string }[];
   environmentState: ApiEnvironmentState[];
   releases: ApiRelease[];
   pending: boolean;
   error: unknown;
   onClose: () => void;
-  onSubmit: (request: ApiDeploySetCreateRequest) => void;
+  onSubmit: (request: ApiReleaseSetCreateRequest) => void;
 }) {
-  const [form, setForm] = useState<DeploySetFormState>(() => defaultForm());
-  const selectedComponentSet = useMemo(
-    () => componentSets.find((componentSet) => componentSet.componentSetId === form.componentSetId),
-    [componentSets, form.componentSetId],
+  const [form, setForm] = useState<ReleaseSetFormState>(() => defaultForm());
+  const selectedReleaseSet = useMemo(
+    () => releaseSets.find((releaseSet) => releaseSet.releaseSetId === form.releaseSetId),
+    [releaseSets, form.releaseSetId],
   );
-  const componentIds = useMemo(() => selectedComponentSet?.components?.map((component) => component.componentId) ?? [], [selectedComponentSet]);
-  const deploysetById = useMemo(() => new Map(deploysets.map((deployset) => [deployset.deploySetId, deployset])), [deploysets]);
+  const componentIds = useMemo(() => selectedReleaseSet?.items?.map((item) => item.componentId) ?? [], [selectedReleaseSet]);
+  const releaseSetById = useMemo(() => new Map(releaseSets.map((releaseSet) => [releaseSet.releaseSetId, releaseSet])), [releaseSets]);
   const environmentStateById = useMemo(() => new Map(environmentState.map((state) => [state.environmentId, state])), [environmentState]);
   const releasesByComponent = useMemo(() => {
     const grouped = new Map<string, ApiRelease[]>();
@@ -390,25 +380,25 @@ function CreateDeploySetDrawer({
 
     return grouped;
   }, [releases]);
-  const resolvedBaseDeploySet = useMemo(() => {
-    if (form.baseDeploySetId) {
-      return deploysetById.get(form.baseDeploySetId);
+  const resolvedBaseReleaseSet = useMemo(() => {
+    if (form.baseReleaseSetId) {
+      return releaseSetById.get(form.baseReleaseSetId);
     }
 
     const state = form.baseEnvironmentId ? environmentStateById.get(form.baseEnvironmentId) : undefined;
-    return state?.deploySetId ? deploysetById.get(state.deploySetId) : undefined;
-  }, [deploysetById, environmentStateById, form.baseDeploySetId, form.baseEnvironmentId]);
-  const baseSourceLabel = form.baseDeploySetId || (form.baseEnvironmentId ? `${form.baseEnvironmentId} current state` : "");
+    return state?.releaseSetId ? releaseSetById.get(state.releaseSetId) : undefined;
+  }, [releaseSetById, environmentStateById, form.baseReleaseSetId, form.baseEnvironmentId]);
+  const baseSourceLabel = form.baseReleaseSetId || (form.baseEnvironmentId ? `${form.baseEnvironmentId} current state` : "");
 
   const errors = validateForm(form);
-  const canSubmit = Boolean(form.deploySetId.trim()) && Object.keys(errors).length === 0 && !pending;
+  const canSubmit = Boolean(form.releaseSetId.trim()) && Object.keys(errors).length === 0 && !pending;
   const parsedTags = tagsToRecord(form.tags);
 
   useEffect(() => {
-    if (!form.componentSetId && componentSets[0]?.componentSetId) {
-      setForm((current) => ({ ...current, componentSetId: componentSets[0].componentSetId }));
+    if (!form.releaseSetId && releaseSets[0]?.releaseSetId) {
+      setForm((current) => ({ ...current, releaseSetId: releaseSets[0].releaseSetId }));
     }
-  }, [componentSets, form.componentSetId]);
+  }, [releaseSets, form.releaseSetId]);
 
   useEffect(() => {
     setForm((current) => {
@@ -437,21 +427,21 @@ function CreateDeploySetDrawer({
   };
 
   const useBaseForItems = () => {
-    if (!resolvedBaseDeploySet) {
+    if (!resolvedBaseReleaseSet) {
       return;
     }
 
-    const baseItemByComponent = new Map(resolvedBaseDeploySet.items.map((item) => [item.componentId, item]));
+    const baseItemByComponent = new Map(resolvedBaseReleaseSet.items.map((item) => [item.componentId, item]));
 
     setForm((current) => ({
       ...current,
-      componentSetId: current.componentSetId || resolvedBaseDeploySet.componentSetId,
+      releaseSetId: current.releaseSetId || resolvedBaseReleaseSet.releaseSetId,
       items: current.items.length
         ? current.items.map((item) => ({
             ...item,
             version: baseItemByComponent.get(item.componentId)?.version ?? item.version,
           }))
-        : resolvedBaseDeploySet.items.map((item) => draftItem(item.componentId, item.version)),
+        : resolvedBaseReleaseSet.items.map((item) => draftItem(item.componentId, item.version)),
     }));
   };
 
@@ -472,10 +462,9 @@ function CreateDeploySetDrawer({
     }
 
     onSubmit({
-      deploySetId: form.deploySetId.trim(),
-      componentSetId: form.componentSetId,
+      releaseSetId: form.releaseSetId,
       baseEnvironmentId: form.baseEnvironmentId || null,
-      baseDeploySetId: form.baseDeploySetId || null,
+      baseReleaseSetId: form.baseReleaseSetId || null,
       notes: form.notes.trim() || null,
       items: form.items.map((item) => ({ componentId: item.componentId.trim(), version: item.version.trim() })),
       createdBy: "amit.kumar",
@@ -487,7 +476,7 @@ function CreateDeploySetDrawer({
     <div className="fixed inset-0 z-50">
       <button
         type="button"
-        aria-label="Close DeploySet creator"
+        aria-label="Close ReleaseSet creator"
         className={`absolute inset-0 z-0 bg-slate-950/30 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       />
@@ -495,31 +484,31 @@ function CreateDeploySetDrawer({
         className={`absolute right-0 top-0 z-10 flex h-full w-full max-w-[860px] transform flex-col border-l border-slate-200 bg-slate-50 shadow-2xl transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
-        aria-label="Create DeploySet"
+        aria-label="Create ReleaseSet"
       >
         <div className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-950">Create DeploySet</h2>
+            <h2 className="text-lg font-bold text-slate-950">Create ReleaseSet</h2>
             <p className="mt-1 text-sm text-slate-600">Compose an immutable desired state from pinned component versions.</p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close DeploySet creator">
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close ReleaseSet creator">
             <X className="h-4 w-4" />
           </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-5">
           <ScrollFade className="h-full rounded-lg" contentClassName="space-y-4 pr-1">
-            <SectionCard title="Identity" description="Name the DeploySet and attach it to the component set it satisfies.">
+            <SectionCard title="Identity" description="Name the ReleaseSet and attach it to the release set it satisfies.">
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <Field label="DeploySet ID" required>
-                  <Input value={form.deploySetId} onChange={(event) => setForm({ ...form, deploySetId: event.target.value })} placeholder="webstack-prod-v6" />
+                <Field label="ReleaseSet ID" required>
+                  <Input value={form.releaseSetId} onChange={(event) => setForm({ ...form, releaseSetId: event.target.value })} placeholder="webstack-prod-v6" />
                 </Field>
-                <Field label="Component Set" required error={errors.componentSetId}>
-                  <Select variant="light" value={form.componentSetId} onChange={(event) => setForm({ ...form, componentSetId: event.target.value })}>
-                    <option value="">Select component set</option>
-                    {componentSets.map((componentSet) => (
-                      <option key={componentSet.componentSetId} value={componentSet.componentSetId}>
-                        {componentSet.componentSetId}
+                <Field label="ReleaseSet" required error={errors.releaseSetId}>
+                  <Select variant="light" value={form.releaseSetId} onChange={(event) => setForm({ ...form, releaseSetId: event.target.value })}>
+                    <option value="">Select release set</option>
+                    {releaseSets.map((releaseSet) => (
+                      <option key={releaseSet.releaseSetId} value={releaseSet.releaseSetId}>
+                        {releaseSet.releaseSetId}
                       </option>
                     ))}
                   </Select>
@@ -530,9 +519,9 @@ function CreateDeploySetDrawer({
             <SectionCard
               title="Components"
               required
-              description="Choose one source to derive context from, then set the desired versions for this component set."
+              description="Choose one source to derive context from, then set the desired versions for this release set."
               action={
-                <Button type="button" variant="outline" disabled={!resolvedBaseDeploySet} onClick={useBaseForItems}>
+                <Button type="button" variant="outline" disabled={!resolvedBaseReleaseSet} onClick={useBaseForItems}>
                   Set versions from base
                 </Button>
               }
@@ -543,7 +532,7 @@ function CreateDeploySetDrawer({
                   <Select
                     variant="light"
                     value={form.baseEnvironmentId}
-                    onChange={(event) => setForm({ ...form, baseEnvironmentId: event.target.value, baseDeploySetId: "" })}
+                    onChange={(event) => setForm({ ...form, baseEnvironmentId: event.target.value, baseReleaseSetId: "" })}
                   >
                     <option value=""></option>
                     {environments.map((environment) => (
@@ -555,16 +544,16 @@ function CreateDeploySetDrawer({
                 </label>
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center text-xs font-bold uppercase tracking-wide text-slate-400">Or</div>
                 <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold text-slate-800">
-                  Base DeploySet
+                  Base ReleaseSet
                   <Select
                     variant="light"
-                    value={form.baseDeploySetId}
-                    onChange={(event) => setForm({ ...form, baseDeploySetId: event.target.value, baseEnvironmentId: "" })}
+                    value={form.baseReleaseSetId}
+                    onChange={(event) => setForm({ ...form, baseReleaseSetId: event.target.value, baseEnvironmentId: "" })}
                   >
                     <option value=""></option>
-                    {deploysets.map((deployset) => (
-                      <option key={deployset.deploySetId} value={deployset.deploySetId}>
-                        {deployset.deploySetId}
+                    {releaseSets.map((releaseSet) => (
+                      <option key={releaseSet.releaseSetId} value={releaseSet.releaseSetId}>
+                        {releaseSet.releaseSetId}
                       </option>
                     ))}
                   </Select>
@@ -608,14 +597,14 @@ function CreateDeploySetDrawer({
                   </TableBody>
                 </Table>
               </div>
-              {!form.items.length ? <p className="mt-3 text-xs font-medium text-slate-500">Select a component set to choose versions.</p> : null}
+              {!form.items.length ? <p className="mt-3 text-xs font-medium text-slate-500">Select a release set to choose versions.</p> : null}
               {errors.items ? <InlineFormError message={errors.items} /> : null}
             </SectionCard>
 
             <TagsCard
               tags={form.tags}
               error={errors.tags}
-              resourceType="deployset"
+              resourceType="release-set"
               onReplace={(tags) => setForm((current) => ({ ...current, tags }))}
               onAdd={() => setForm((current) => ({ ...current, tags: [...current.tags, createTagDraft()] }))}
               onChange={updateTag}
@@ -625,14 +614,14 @@ function CreateDeploySetDrawer({
             <NotesCard
               value={form.notes}
               onChange={(notes) => setForm((current) => ({ ...current, notes }))}
-              description="Capture why this DeploySet was created, approval context, or rollout intent."
-              placeholder="Why this DeploySet was created, approval context, rollout intent..."
+              description="Capture why this ReleaseSet was created, approval context, or rollout intent."
+              placeholder="Why this ReleaseSet was created, approval context, rollout intent..."
             />
 
             {error ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-normal text-red-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                {error instanceof Error ? error.message : "Unable to create DeploySet."}
+                {error instanceof Error ? error.message : "Unable to create ReleaseSet."}
               </div>
             ) : null}
           </ScrollFade>
@@ -640,7 +629,7 @@ function CreateDeploySetDrawer({
 
         <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-5 py-4">
           <p className="text-xs font-medium text-slate-500">
-            DeploySets are immutable after creation, so double-check component versions before saving.
+            ReleaseSets are immutable after creation, so double-check component versions before saving.
           </p>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -648,7 +637,7 @@ function CreateDeploySetDrawer({
             </Button>
             <Button type="button" disabled={!canSubmit} onClick={submit}>
               <CheckCheck className="h-4 w-4" />
-              Create DeploySet
+              Create ReleaseSet
             </Button>
           </div>
         </div>
@@ -767,11 +756,11 @@ function versionOptionsForComponent(componentId: string, currentVersion: string,
   return Array.from(new Set([currentVersion, ...versions].filter(Boolean)));
 }
 
-function validateForm(form: DeploySetFormState) {
-  const errors: Partial<Record<keyof DeploySetFormState, string>> = {};
+function validateForm(form: ReleaseSetFormState) {
+  const errors: Partial<Record<keyof ReleaseSetFormState, string>> = {};
 
-  if (!form.componentSetId) {
-    errors.componentSetId = "Choose a component set.";
+  if (!form.releaseSetId) {
+    errors.releaseSetId = "Choose a release set.";
   }
 
   const tagError = validateTagDrafts(form.tags);
@@ -787,3 +776,4 @@ function validateForm(form: DeploySetFormState) {
 
   return errors;
 }
+

@@ -65,13 +65,13 @@ resource "aws_dynamodb_table" "components" {
   }
 }
 
-resource "aws_dynamodb_table" "component_sets" {
-  name         = "${var.name_prefix}-component-sets"
+resource "aws_dynamodb_table" "release_sets" {
+  name         = "${var.name_prefix}-release-sets"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "componentSetId"
+  hash_key     = "releaseSetId"
 
   attribute {
-    name = "componentSetId"
+    name = "releaseSetId"
     type = "S"
   }
 }
@@ -104,13 +104,13 @@ resource "aws_dynamodb_table" "publishers" {
   }
 }
 
-resource "aws_dynamodb_table" "deploysets" {
-  name         = "${var.name_prefix}-deploysets"
+resource "aws_dynamodb_table" "release-sets" {
+  name         = "${var.name_prefix}-release-sets"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "deploySetId"
+  hash_key     = "releaseSetId"
 
   attribute {
-    name = "deploySetId"
+    name = "releaseSetId"
     type = "S"
   }
 }
@@ -182,7 +182,7 @@ resource "aws_dynamodb_table" "environment_state" {
 }
 
 resource "aws_dynamodb_table" "deployment_executions" {
-  name         = "${var.name_prefix}-deployment-executions"
+  name         = "${var.name_prefix}-deployments"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "environmentId"
   range_key    = "executionSortKey"
@@ -198,13 +198,13 @@ resource "aws_dynamodb_table" "deployment_executions" {
   }
 
   attribute {
-    name = "deploymentExecutionId"
+    name = "deploymentId"
     type = "S"
   }
 
   global_secondary_index {
-    name            = "deploymentExecutionId-index"
-    hash_key        = "deploymentExecutionId"
+    name            = "deploymentId-index"
+    hash_key        = "deploymentId"
     projection_type = "ALL"
   }
 }

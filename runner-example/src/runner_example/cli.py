@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 
 from settle_sdk import DeploymentRunnerClient, SettleApiError, SettleClient
-from settle_sdk.models import DeploymentExecutionItem
+from settle_sdk.models import DeploymentItem
 
 
 @dataclass(frozen=True)
@@ -74,12 +74,12 @@ def process_job(
     log: logging.Logger,
     runner: DeploymentRunnerClient,
     config: RunnerConfig,
-    job: DeploymentExecutionItem,
+    job: DeploymentItem,
 ) -> None:
     log.info(
         "runner %s processing execution=%s component=%s version=%s",
         config.runner_id,
-        job.deployment_execution_id,
+        job.deployment_id,
         job.component_id,
         job.version,
     )
@@ -91,14 +91,14 @@ def process_job(
         log.info(
             "runner %s completed execution=%s component=%s",
             config.runner_id,
-            job.deployment_execution_id,
+            job.deployment_id,
             job.component_id,
         )
     except SettleApiError as exc:
         log.exception(
             "runner %s failed while reporting execution=%s component=%s",
             config.runner_id,
-            job.deployment_execution_id,
+            job.deployment_id,
             job.component_id,
         )
         try:
@@ -107,7 +107,7 @@ def process_job(
             log.warning(
                 "runner %s could not report failure for execution=%s component=%s: %s",
                 config.runner_id,
-                job.deployment_execution_id,
+                job.deployment_id,
                 job.component_id,
                 report_exc,
             )

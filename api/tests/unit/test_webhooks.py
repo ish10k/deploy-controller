@@ -95,12 +95,12 @@ def test_webhook_matching_honors_resource_filters() -> None:
         actorPrincipalId="user:test-admin",
         actorType="user",
         origin=EventOrigin.USER,
-        action="deployset.created",
+        action="release-set.created",
         category="registry",
-        summary="Created deployset",
-        resourceType="deployset",
+        summary="Created release_set",
+        resourceType="release-set",
         resourceId="ds-1",
     )
 
-    assert webhooks._matches(event, ["deployset.created"], {"resourceTypes": ["deployset"]})  # noqa: SLF001
-    assert not webhooks._matches(event, ["deployset.created"], {"resourceTypes": ["release"]})  # noqa: SLF001
+    assert webhooks._matches(event, ["release-set.created"], {"resourceTypes": ["release-set"]})  # noqa: SLF001
+    assert not webhooks._matches(event, ["release-set.created"], {"resourceTypes": ["release"]})  # noqa: SLF001

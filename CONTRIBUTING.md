@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve DeploySet Controller.
+Thanks for helping improve OneRelease.
 
 Run the local checks before opening a change:
 

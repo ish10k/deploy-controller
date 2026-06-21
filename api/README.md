@@ -1,14 +1,14 @@
-# DeploySet Controller
+# ReleaseSet Controller
 
-DeploySet Controller is a generic DeploySet control plane for managing desired component versions and deployment execution history.
+ReleaseSet Controller is a generic ReleaseSet control plane for managing desired component versions and deployment execution history.
 
-The core acts as the brain: it stores components, ComponentSets, immutable releases, immutable DeploySets, generic environments, publishers, deployment runners, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external publisher / deployment runner processes.
+The core acts as the brain: it stores components, ReleaseSets, immutable releases, immutable ReleaseSets, generic environments, publishers, deployment runners, deployment executions, and environment state. Provider-specific target resolution, artifact interpretation, infrastructure inspection, and real deployment work belong in external publisher / deployment runner processes.
 
 ## Core Invariant
 
-A stored DeploySet is always complete and immutable. A create request may be partial, but missing required ComponentSet versions must be inferred from a base DeploySet or from the latest successful deployment state for an environment before the DeploySet is stored.
+A stored ReleaseSet is always complete and immutable. A create request may be partial, but missing required ReleaseSet versions must be inferred from a base ReleaseSet or from the latest successful deployment state for an environment before the ReleaseSet is stored.
 
-At deployment request time, no version inference happens. The brain creates execution items from the complete DeploySet and selects either:
+At deployment request time, no version inference happens. The brain creates execution items from the complete ReleaseSet and selects either:
 
 - `deploy` when no latest item exists, the latest item did not succeed, the version changed, or `force=true`
 - `skip` when the latest successful execution item already matches the requested version and `force=false`
@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
 ```
 
-The in-memory backend starts with a richer local seed: `local`, `dev`, `staging`, `prod`, and `shared-data` environments; `local-platform` and `data-services` ComponentSets; multiple deploy sets (`local-default`, `local-hotfix`, `dev-default`, `staging-default`, `prod-default`, `prod-hotfix`, `data-default`); six components; and a realistic mix of successful, failed, and pending deployment history.
+The in-memory backend starts with a richer local seed: `local`, `dev`, `staging`, `prod`, and `shared-data` environments; `local-platform` and `data-services` ReleaseSets; multiple deploy sets (`local-default`, `local-hotfix`, `dev-default`, `staging-default`, `prod-default`, `prod-hotfix`, `data-default`); six components; and a realistic mix of successful, failed, and pending deployment history.
 
 ## Local OIDC
 

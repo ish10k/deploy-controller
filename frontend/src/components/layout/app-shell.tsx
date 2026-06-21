@@ -23,7 +23,7 @@ import { listEvents, queryKeys, type ApiEventLogEntry } from "@/lib/api-client";
 import { ENTITY_ICONS } from "@/lib/entity-icons";
 import { useAppContext } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
-import { canViewEvents, canViewRoles, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
+import { canViewEvents, canViewRoles, canViewTags, canViewUsers, canViewWebhooks } from "@/lib/user-permissions";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { workspaceAppPath, workspaceIdFromPath, workspaceRelativePath } from "@/lib/workspace-routes";
@@ -36,14 +36,14 @@ type NavItem = {
   hidden?: boolean;
 };
 
-function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean): Array<{ label: string; items: NavItem[] }> {
+function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean, showTags: boolean): Array<{ label: string; items: NavItem[] }> {
   return [
     {
       label: "Operations",
       items: [
-        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments", aliases: ["/deploysets", "/executions"] },
+        { label: "Deployments", icon: ENTITY_ICONS.deployment, to: "/deployments", aliases: ["/release-sets", "/executions"] },
         { label: "Environments", icon: ENTITY_ICONS.environment, to: "/environments" },
-        { label: "Registry", icon: LibraryBig, to: "/registry", aliases: ["/components", "/component-sets", "/releases"] },
+        { label: "Registry", icon: LibraryBig, to: "/registry", aliases: ["/components", "/release-sets", "/releases"] },
       ],
     },
     {
@@ -58,6 +58,7 @@ function navGroups(showUsers: boolean, showRoles: boolean, showWebhooks: boolean
       label: "Governance",
       items: [
         { label: "Users", icon: ENTITY_ICONS.user, to: "/users", aliases: ["/roles"], hidden: !showUsers && !showRoles },
+        { label: "Tags", icon: ENTITY_ICONS.tag, to: "/tags", hidden: !showTags },
         { label: "Audit", icon: HatGlasses, to: "/audit" },
       ],
     },
@@ -140,8 +141,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "U";
-  const primaryRole = auth.user?.roles[0] ?? "user";
-  const groups = navGroups(canViewUsers(auth.user), canViewRoles(auth.user), canViewWebhooks(auth.user));
+  const primaryRole = auth.user?.roles?.[0] ?? "user";
+  const groups = navGroups(canViewUsers(auth.user), canViewRoles(auth.user), canViewWebhooks(auth.user), canViewTags(auth.user));
   const activePath = routeWorkspaceId ? workspaceRelativePath(pathname) : pathname;
 
   return (
@@ -152,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ENTITY_ICONS.deployment className="h-5 w-5" />
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-xl font-bold tracking-normal">Deploy Controller</span>
+            <span className="text-xl font-bold tracking-normal">OneRelease</span>
           </div>
         </div>
 
@@ -161,7 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <input
             aria-label="Search"
             className="min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-100 outline-none placeholder:text-slate-400"
-            placeholder="Search DeploySets, components, environments..."
+            placeholder="Search ReleaseSets, components, environments..."
           />
           <kbd className="rounded border border-white/20 bg-slate-900/50 px-2 py-0.5 text-xs text-slate-300">Ctrl K</kbd>
         </div> */}
@@ -228,7 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             Collapse
           </button>
-          <div>© 2024 DeploySet Project (Open Source)</div>
+          <div>© 2024 ReleaseSet Project (Open Source)</div>
         </div>
       </aside>
 
@@ -475,9 +476,8 @@ function notificationTarget(event: ApiEventLogEntry) {
   const releaseParts = event.resourceType === "release" ? event.resourceId.split(/[:@]/) : [];
   const targets: Record<string, string> = {
     component: `/components/${encodeURIComponent(event.resourceId)}`,
-    componentSet: `/component-sets/${encodeURIComponent(event.resourceId)}`,
-    deployset: `/deploysets/${encodeURIComponent(event.resourceId)}`,
-    deploymentExecution: `/deployments/${encodeURIComponent(event.resourceId)}`,
+    releaseSet: `/release-sets/${encodeURIComponent(event.resourceId)}`,
+    deployment: `/deployments/${encodeURIComponent(event.resourceId)}`,
     environment: `/environments/${encodeURIComponent(event.resourceId)}`,
     deploymentRunner: `/deployment-runners/${encodeURIComponent(event.resourceId)}`,
     principal: `/users/${encodeURIComponent(event.resourceId)}`,
@@ -506,7 +506,7 @@ function readNotificationTimestamp(storageKey: string) {
 }
 
 const NOTIFICATION_ACTIONS = new Set([
-  "deployset.created",
+  "release-set.created",
   "deployment.created",
   "deployment.claimed",
   "deployment.status_changed",
@@ -532,3 +532,5 @@ function isNotificationEvent(event: ApiEventLogEntry) {
   }
   return NOTIFICATION_ACTIONS.has(event.action);
 }
+
+

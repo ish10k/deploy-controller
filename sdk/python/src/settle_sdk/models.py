@@ -11,9 +11,9 @@ TagResourceType = Literal[
     "organization",
     "workspace",
     "component",
-    "component-set",
+    "release-set",
     "release",
-    "deployset",
+    "release-set",
     "deployment-execution",
     "environment",
     "deployment-runner",
@@ -146,11 +146,11 @@ class TagDefinition:
 
 
 @dataclass(frozen=True)
-class DeploymentExecutionItem:
+class DeploymentItem:
     workspace_id: str
-    deployment_execution_id: str
+    deployment_id: str
     environment_id: str
-    component_set_id: str
+    release_set_id: str
     component_id: str
     version: str
     artifact: Artifact
@@ -172,13 +172,13 @@ class DeploymentExecutionItem:
     error: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DeploymentExecutionItem:
+    def from_dict(cls, data: dict[str, Any]) -> DeploymentItem:
         return cls(
             component_id=str(data["componentId"]),
             workspace_id=str(data.get("workspaceId", "default")),
-            deployment_execution_id=str(data.get("deploymentExecutionId", "")),
+            deployment_id=str(data.get("deploymentId", "")),
             environment_id=str(data.get("environmentId", "")),
-            component_set_id=str(data.get("componentSetId", "")),
+            release_set_id=str(data.get("releaseSetId", "")),
             version=str(data["version"]),
             artifact=Artifact.from_dict(_dict(data["artifact"])),
             requested_action=_requested_action(data.get("requestedAction")),
@@ -201,14 +201,14 @@ class DeploymentExecutionItem:
 
 
 @dataclass(frozen=True)
-class DeploymentExecution:
-    deployment_execution_id: str
+class Deployment:
+    deployment_id: str
     environment_id: str
-    deployset_id: str
+    releaseSet_id: str
     status: ExecutionStatus
     requested_by: str
     started_at: str
-    items: list[DeploymentExecutionItem]
+    items: list[DeploymentItem]
     workspace_id: str = "default"
     completed_at: str | None = None
     claimed_by: str | None = None
@@ -217,12 +217,12 @@ class DeploymentExecution:
     tags: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DeploymentExecution:
+    def from_dict(cls, data: dict[str, Any]) -> Deployment:
         return cls(
             workspace_id=str(data.get("workspaceId", "default")),
-            deployment_execution_id=str(data["deploymentExecutionId"]),
+            deployment_id=str(data["deploymentId"]),
             environment_id=str(data["environmentId"]),
-            deployset_id=str(data["deploySetId"]),
+            release_set_id=str(data["releaseSetId"]),
             status=_execution_status(data.get("status")),
             requested_by=str(data["requestedBy"]),
             notes=_optional_str(data.get("notes")),
@@ -230,7 +230,7 @@ class DeploymentExecution:
             started_at=str(data["startedAt"]),
             completed_at=_optional_str(data.get("completedAt")),
             claimed_by=_optional_str(data.get("claimedBy")),
-            items=[DeploymentExecutionItem.from_dict(_dict(item)) for item in data.get("items", [])],
+            items=[DeploymentItem.from_dict(_dict(item)) for item in data.get("items", [])],
             tags=_string_map(data.get("tags")),
         )
 

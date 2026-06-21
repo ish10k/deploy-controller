@@ -4,15 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.routing import APIRoute
 
 from src.composition import Container
-from src.domain.errors import DeploySetControllerError
+from src.domain.errors import ReleaseSetControllerError
 from src.domain.models import (
     Component,
-    ComponentSet,
-    DeploySetCreateRequest,
-    DeploySet,
-    DeploySetCreateResult,
-    DeploymentExecution,
-    DeploymentExecutionItem,
+    ReleaseSet,
+    ReleaseSetCreateRequest,
+    ReleaseSetCreateResult,
+    Deployment,
+    DeploymentItem,
     DeploymentRunner,
     DeploymentRunnerCreateRequest,
     DeploymentRunnerCreateResult,
@@ -419,7 +418,7 @@ def _json(value: Any) -> Any:
 def _handle(fn: Any) -> Any:
     try:
         return _json(fn())
-    except DeploySetControllerError as exc:
+    except ReleaseSetControllerError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
@@ -508,28 +507,6 @@ def put_workspace_component(workspace_id: str, component_id: str, component: Com
     return _handle(lambda: container.components.put(updated, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/component-sets", tags=["Components"], response_model=list[ComponentSet], responses=NOT_FOUND_RESPONSES)
-def list_workspace_component_sets(workspace_id: str, container: ContainerDep) -> list[ComponentSet]:
-    return _handle(lambda: container.component_sets.list(workspace_id))
-
-
-@router.get("/workspaces/{workspace_id}/component-sets/{component_set_id}", tags=["Components"], response_model=ComponentSet, responses=NOT_FOUND_RESPONSES)
-def get_workspace_component_set(workspace_id: str, component_set_id: str, container: ContainerDep) -> ComponentSet:
-    return _handle(lambda: container.component_sets.get(component_set_id, workspace_id))
-
-
-@router.put("/workspaces/{workspace_id}/component-sets/{component_set_id}", tags=["Components"], response_model=ComponentSet, responses=WRITE_RESPONSES)
-def put_workspace_component_set(
-    workspace_id: str,
-    component_set_id: str,
-    component_set: ComponentSet,
-    context: AuthDep,
-    container: ContainerDep,
-) -> ComponentSet:
-    updated = component_set.model_copy(update={"workspace_id": workspace_id, "component_set_id": component_set_id})
-    return _handle(lambda: container.component_sets.put(updated, context, workspace_id))
-
-
 @router.get("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=list[Release], responses=NOT_FOUND_RESPONSES)
 def list_workspace_releases(
     workspace_id: str,
@@ -549,19 +526,19 @@ def create_workspace_release(workspace_id: str, release: Release, context: AuthD
     return _handle(lambda: container.releases.create(release, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deploysets", tags=["DeploySets"], response_model=list[DeploySet], responses=NOT_FOUND_RESPONSES)
-def list_workspace_deploysets(workspace_id: str, container: ContainerDep) -> list[DeploySet]:
-    return _handle(lambda: container.deploysets.list(workspace_id))
+@router.get("/workspaces/{workspace_id}/release-sets", tags=["ReleaseSets"], response_model=list[ReleaseSet], responses=NOT_FOUND_RESPONSES)
+def list_workspace_release_sets(workspace_id: str, container: ContainerDep) -> list[ReleaseSet]:
+    return _handle(lambda: container.release_sets.list(workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deploysets/{deployset_id}", tags=["DeploySets"], response_model=DeploySet, responses=NOT_FOUND_RESPONSES)
-def get_workspace_deployset(workspace_id: str, deployset_id: str, container: ContainerDep) -> DeploySet:
-    return _handle(lambda: container.deploysets.get(deployset_id, workspace_id))
+@router.get("/workspaces/{workspace_id}/release-sets/{release_set_id}", tags=["ReleaseSets"], response_model=ReleaseSet, responses=NOT_FOUND_RESPONSES)
+def get_workspace_release_set(workspace_id: str, release_set_id: str, container: ContainerDep) -> ReleaseSet:
+    return _handle(lambda: container.release_sets.get(release_set_id, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/deploysets", tags=["DeploySets"], response_model=DeploySetCreateResult, responses=WRITE_RESPONSES)
-def create_workspace_deployset(workspace_id: str, request: DeploySetCreateRequest, context: AuthDep, container: ContainerDep) -> DeploySetCreateResult:
-    return _handle(lambda: container.deploysets.create(request, context, workspace_id))
+@router.post("/workspaces/{workspace_id}/release-sets", tags=["ReleaseSets"], response_model=ReleaseSetCreateResult, responses=WRITE_RESPONSES)
+def create_workspace_release_set(workspace_id: str, request: ReleaseSetCreateRequest, context: AuthDep, container: ContainerDep) -> ReleaseSetCreateResult:
+    return _handle(lambda: container.release_sets.create(request, context, workspace_id))
 
 
 @router.get("/workspaces/{workspace_id}/environments", tags=["Environments"], response_model=list[Environment], responses=NOT_FOUND_RESPONSES)
@@ -600,53 +577,53 @@ def get_workspace_environment_state(workspace_id: str, environment_id: str, cont
     return _handle(lambda: container.read_only.get_environment_state(environment_id, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-executions", tags=["Deployments"], response_model=list[DeploymentExecution], responses=NOT_FOUND_RESPONSES)
+@router.get("/workspaces/{workspace_id}/deployments", tags=["Deployments"], response_model=list[Deployment], responses=NOT_FOUND_RESPONSES)
 def list_workspace_deployment_executions(
     workspace_id: str,
     container: ContainerDep,
     environmentId: Annotated[str | None, Query(description="Optional environment ID filter.")] = None,
-) -> list[DeploymentExecution]:
+) -> list[Deployment]:
     return _handle(lambda: container.read_only.list_deployment_executions(environmentId, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-executions/pending", tags=["Deployments"], response_model=list[DeploymentExecution], responses=NOT_FOUND_RESPONSES)
-def list_workspace_pending_deployment_executions(workspace_id: str, container: ContainerDep) -> list[DeploymentExecution]:
+@router.get("/workspaces/{workspace_id}/deployments/pending", tags=["Deployments"], response_model=list[Deployment], responses=NOT_FOUND_RESPONSES)
+def list_workspace_pending_deployment_executions(workspace_id: str, container: ContainerDep) -> list[Deployment]:
     return _handle(lambda: container.read_only.list_pending_deployment_executions(workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-executions/{deployment_execution_id}", tags=["Deployments"], response_model=DeploymentExecution, responses=NOT_FOUND_RESPONSES)
-def get_workspace_deployment_execution(workspace_id: str, deployment_execution_id: str, container: ContainerDep) -> DeploymentExecution:
-    return _handle(lambda: container.read_only.get_deployment_execution(deployment_execution_id, workspace_id))
+@router.get("/workspaces/{workspace_id}/deployments/{deployment_id}", tags=["Deployments"], response_model=Deployment, responses=NOT_FOUND_RESPONSES)
+def get_workspace_deployment_execution(workspace_id: str, deployment_id: str, container: ContainerDep) -> Deployment:
+    return _handle(lambda: container.read_only.get_deployment_execution(deployment_id, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/deployment-executions/{deployment_execution_id}/cancel", tags=["Deployments"], response_model=DeploymentExecution, responses=WRITE_RESPONSES)
+@router.post("/workspaces/{workspace_id}/deployments/{deployment_id}/cancel", tags=["Deployments"], response_model=Deployment, responses=WRITE_RESPONSES)
 def cancel_workspace_deployment_execution(
     workspace_id: str,
-    deployment_execution_id: str,
+    deployment_id: str,
     context: AuthDep,
     container: ContainerDep,
-) -> DeploymentExecution:
-    return _handle(lambda: container.create_deployment.cancel(deployment_execution_id, context, workspace_id))
+) -> Deployment:
+    return _handle(lambda: container.create_deployment.cancel(deployment_id, context, workspace_id))
 
 
 @router.post("/workspaces/{workspace_id}/deployments/plan", tags=["Deployments"], response_model=DeploymentPlan, responses=WRITE_RESPONSES)
 def plan_workspace_deployment(workspace_id: str, request: PlanDeploymentRequest, context: AuthDep, container: ContainerDep) -> DeploymentPlan:
-    return _handle(lambda: container.plan_deployment.execute(environment_id=request.environment_id, deployset_id=request.deployset_id, workspace_id=workspace_id, force=request.force))
+    return _handle(lambda: container.plan_deployment.execute(environment_id=request.environment_id, release_set_id=request.release_set_id, workspace_id=workspace_id, force=request.force))
 
 
 @router.post("/workspaces/{workspace_id}/deployments", tags=["Deployments"], response_model=CreateDeploymentResponse, responses=WRITE_RESPONSES)
 def create_workspace_deployment(workspace_id: str, request: CreateDeploymentRequest, context: AuthDep, container: ContainerDep) -> CreateDeploymentResponse:
     return _handle(
         lambda: {
-            "deploymentExecutionId": container.create_deployment.execute(
+            "deploymentId": container.create_deployment.execute(
                 environment_id=request.environment_id,
-                deployset_id=request.deployset_id,
+                release_set_id=request.release_set_id,
                 context=context,
                 workspace_id=workspace_id,
                 notes=request.notes,
                 force=request.force,
                 tags=request.tags,
-            ).deployment_execution_id,
+            ).deployment_id,
             "status": "pending",
         }
     )
@@ -683,44 +660,44 @@ def heartbeat_workspace_deployment_runner(workspace_id: str, runner_id: str, con
     return _handle(lambda: container.deployment_runners.heartbeat(runner_id, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/pending", tags=["Deployment Runners"], response_model=list[DeploymentExecutionItem], responses=NOT_FOUND_RESPONSES)
-def list_workspace_pending_runner_executions(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentExecutionItem]:
+@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/pending", tags=["Deployment Runners"], response_model=list[DeploymentItem], responses=NOT_FOUND_RESPONSES)
+def list_workspace_pending_runner_executions(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentItem]:
     return _handle(lambda: container.deployment_runners.list_pending(runner_id, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/items", tags=["Deployment Runners"], response_model=list[DeploymentExecutionItem], responses=NOT_FOUND_RESPONSES)
-def list_workspace_runner_deployment_items(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentExecutionItem]:
+@router.get("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/items", tags=["Deployment Runners"], response_model=list[DeploymentItem], responses=NOT_FOUND_RESPONSES)
+def list_workspace_runner_deployment_items(workspace_id: str, runner_id: str, container: ContainerDep) -> list[DeploymentItem]:
     return _handle(lambda: container.deployment_runners.list_items(runner_id, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/claim", tags=["Deployment Runners"], response_model=DeploymentExecutionItem, responses=WRITE_RESPONSES)
+@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_id}/items/{component_id}/claim", tags=["Deployment Runners"], response_model=DeploymentItem, responses=WRITE_RESPONSES)
 def claim_workspace_runner_execution_item(
     workspace_id: str,
     runner_id: str,
-    deployment_execution_id: str,
+    deployment_id: str,
     component_id: str,
     request: ClaimExecutionRequest,
     context: AuthDep,
     container: ContainerDep,
-) -> DeploymentExecutionItem:
+) -> DeploymentItem:
     claim_timeout_seconds = request.claim_timeout_seconds if request.claim_timeout_seconds is not None else request.lease_seconds
-    return _handle(lambda: container.deployment_runners.claim_item(runner_id, deployment_execution_id, component_id, context, claim_timeout_seconds, workspace_id))
+    return _handle(lambda: container.deployment_runners.claim_item(runner_id, deployment_id, component_id, context, claim_timeout_seconds, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_execution_id}/items/{component_id}/status", tags=["Deployment Runners"], response_model=DeploymentExecution, responses=WRITE_RESPONSES)
+@router.post("/workspaces/{workspace_id}/deployment-runners/{runner_id}/executions/{deployment_id}/items/{component_id}/status", tags=["Deployment Runners"], response_model=Deployment, responses=WRITE_RESPONSES)
 def report_workspace_runner_item_status(
     workspace_id: str,
     runner_id: str,
-    deployment_execution_id: str,
+    deployment_id: str,
     component_id: str,
     request: ReportExecutionItemStatusRequest,
     context: AuthDep,
     container: ContainerDep,
-) -> DeploymentExecution:
+) -> Deployment:
     return _handle(
         lambda: container.deployment_runners.report_item_status(
             runner_id=runner_id,
-            deployment_execution_id=deployment_execution_id,
+            deployment_id=deployment_id,
             component_id=component_id,
             status=request.status,
             reported_action=request.reported_action,
@@ -773,3 +750,4 @@ def publish_workspace_release_from_publisher(
     container: ContainerDep,
 ) -> Release:
     return _handle(lambda: container.publishers.publish_release(publisher_id, release, context, workspace_id))
+

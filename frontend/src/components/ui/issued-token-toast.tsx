@@ -31,3 +31,4 @@ export function IssuedTokenToast({ credential }: { credential: IssuedCredential 
     </div>
   );
 }
+

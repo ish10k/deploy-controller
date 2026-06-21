@@ -54,3 +54,4 @@ export function SwitchableCard<TValue extends string>({
     </Card>
   );
 }
+

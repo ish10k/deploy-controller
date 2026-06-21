@@ -5,10 +5,9 @@ from src.domain.enums import ExecutionStatus
 from src.domain.errors import ConflictError
 from src.domain.models import (
     Component,
-    ComponentSet,
-    DeploymentExecution,
+    ReleaseSet,
+    Deployment,
     DeploymentRunner,
-    DeploySet,
     Environment,
     EnvironmentState,
     EventLogEntry,
@@ -35,17 +34,16 @@ class MemoryRepositories:
     organization_memberships: dict[tuple[str, str], OrganizationMembership] = field(default_factory=dict)
     workspace_memberships: dict[tuple[str, str], WorkspaceMembership] = field(default_factory=dict)
     components: dict[tuple[str, str], Component] = field(default_factory=dict)
-    component_sets: dict[tuple[str, str], ComponentSet] = field(default_factory=dict)
+    release_sets: dict[tuple[str, str], ReleaseSet] = field(default_factory=dict)
     releases: dict[tuple[str, str, str], Release] = field(default_factory=dict)
     publishers: dict[tuple[str, str], Publisher] = field(default_factory=dict)
-    deploysets: dict[tuple[str, str], DeploySet] = field(default_factory=dict)
     environments: dict[tuple[str, str], Environment] = field(default_factory=dict)
     deployment_runners: dict[tuple[str, str], DeploymentRunner] = field(default_factory=dict)
     principals: dict[str, Principal] = field(default_factory=dict)
     roles: dict[tuple[str, str], Role] = field(default_factory=dict)
     bootstrap: BootstrapState = field(default_factory=BootstrapState)
     environment_states: dict[tuple[str, str], EnvironmentState] = field(default_factory=dict)
-    deployment_executions: dict[tuple[str, str], DeploymentExecution] = field(default_factory=dict)
+    deployment_executions: dict[tuple[str, str], Deployment] = field(default_factory=dict)
     event_log: dict[str, EventLogEntry] = field(default_factory=dict)
     webhooks: dict[tuple[str, str], Webhook] = field(default_factory=dict)
     webhook_deliveries: dict[tuple[str, str], WebhookDelivery] = field(default_factory=dict)
@@ -71,17 +69,17 @@ class MemoryRepositories:
     def put_workspace(self, workspace: Workspace) -> None:
         self.workspaces[workspace.workspace_id] = workspace
 
-    def get_tag_definition(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None:
-        return self.tag_definitions.get((workspace_id, tag_definition_id))
+    def get_tag_definition(self, key: str, workspace_id: str = "default") -> TagDefinition | None:
+        return self.tag_definitions.get((workspace_id, key))
 
     def list_tag_definitions(self, workspace_id: str = "default") -> list[TagDefinition]:
         return sorted(
             (item for item in self.tag_definitions.values() if item.workspace_id == workspace_id),
-            key=lambda item: item.tag_definition_id,
+            key=lambda item: item.key,
         )
 
     def put_tag_definition(self, tag_definition: TagDefinition) -> None:
-        self.tag_definitions[(tag_definition.workspace_id, tag_definition.tag_definition_id)] = tag_definition
+        self.tag_definitions[(tag_definition.workspace_id, tag_definition.key)] = tag_definition
 
     def get_organization_membership(self, organization_id: str, principal_id: str) -> OrganizationMembership | None:
         return self.organization_memberships.get((organization_id, principal_id))
@@ -128,14 +126,14 @@ class MemoryRepositories:
     def put_component(self, component: Component) -> None:
         self.components[(component.workspace_id, component.component_id)] = component
 
-    def get_component_set(self, component_set_id: str, workspace_id: str = "default") -> ComponentSet | None:
-        return self.component_sets.get((workspace_id, component_set_id))
+    def get_release_set(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
+        return self.release_sets.get((workspace_id, release_set_id))
 
-    def list_component_sets(self, workspace_id: str = "default") -> list[ComponentSet]:
-        return sorted((item for item in self.component_sets.values() if item.workspace_id == workspace_id), key=lambda item: item.component_set_id)
+    def list_release_sets(self, workspace_id: str = "default") -> list[ReleaseSet]:
+        return sorted((item for item in self.release_sets.values() if item.workspace_id == workspace_id), key=lambda item: item.release_set_id)
 
-    def put_component_set(self, component_set: ComponentSet) -> None:
-        self.component_sets[(component_set.workspace_id, component_set.component_set_id)] = component_set
+    def put_release_set(self, release_set: ReleaseSet) -> None:
+        self.release_sets[(release_set.workspace_id, release_set.release_set_id)] = release_set
 
     def get_release(self, component_id: str, version: str, workspace_id: str = "default") -> Release | None:
         return self.releases.get((workspace_id, component_id, version))
@@ -161,17 +159,17 @@ class MemoryRepositories:
     def put_publisher(self, publisher: Publisher) -> None:
         self.publishers[(publisher.workspace_id, publisher.publisher_id)] = publisher
 
-    def get_deployset(self, deployset_id: str, workspace_id: str = "default") -> DeploySet | None:
-        return self.deploysets.get((workspace_id, deployset_id))
+    def get_release_set(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
+        return self.release_sets.get((workspace_id, release_set_id))
 
-    def create_deployset(self, deployset: DeploySet) -> None:
-        key = (deployset.workspace_id, deployset.deployset_id)
-        if key in self.deploysets:
-            raise ConflictError(f"DeploySet already exists: {deployset.deployset_id}")
-        self.deploysets[key] = deployset
+    def create_release_set(self, release_set: ReleaseSet) -> None:
+        key = (release_set.workspace_id, release_set.release_set_id)
+        if key in self.release_sets:
+            raise ConflictError(f"ReleaseSet already exists: {release_set.release_set_id}")
+        self.release_sets[key] = release_set
 
-    def list_deploysets(self, workspace_id: str = "default") -> list[DeploySet]:
-        return sorted((item for item in self.deploysets.values() if item.workspace_id == workspace_id), key=lambda item: item.deployset_id)
+    def list_release_sets(self, workspace_id: str = "default") -> list[ReleaseSet]:
+        return sorted((item for item in self.release_sets.values() if item.workspace_id == workspace_id), key=lambda item: item.release_set_id)
 
     def get_environment(self, environment_id: str, workspace_id: str = "default") -> Environment | None:
         return self.environments.get((workspace_id, environment_id))
@@ -236,36 +234,36 @@ class MemoryRepositories:
     def put_environment_state(self, state: EnvironmentState) -> None:
         self.environment_states[(state.workspace_id, state.environment_id)] = state
 
-    def get_deployment_execution(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
-        return self.deployment_executions.get((workspace_id, deployment_execution_id))
+    def get_deployment_execution(self, deployment_id: str, workspace_id: str = "default") -> Deployment | None:
+        return self.deployment_executions.get((workspace_id, deployment_id))
 
-    def create_deployment_execution(self, execution: DeploymentExecution) -> None:
-        key = (execution.workspace_id, execution.deployment_execution_id)
+    def create_deployment_execution(self, execution: Deployment) -> None:
+        key = (execution.workspace_id, execution.deployment_id)
         if key in self.deployment_executions:
-            raise ConflictError(f"DeploymentExecution already exists: {execution.deployment_execution_id}")
+            raise ConflictError(f"Deployment already exists: {execution.deployment_id}")
         self.deployment_executions[key] = execution
 
-    def put_deployment_execution(self, execution: DeploymentExecution) -> None:
-        self.deployment_executions[(execution.workspace_id, execution.deployment_execution_id)] = execution
+    def put_deployment_execution(self, execution: Deployment) -> None:
+        self.deployment_executions[(execution.workspace_id, execution.deployment_id)] = execution
 
-    def list_deployment_executions(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
-        values: Iterable[DeploymentExecution] = (item for item in self.deployment_executions.values() if item.workspace_id == workspace_id)
+    def list_deployment_executions(self, environment_id: str | None = None, workspace_id: str = "default") -> list[Deployment]:
+        values: Iterable[Deployment] = (item for item in self.deployment_executions.values() if item.workspace_id == workspace_id)
         if environment_id is not None:
             values = (item for item in values if item.environment_id == environment_id)
-        return sorted(values, key=lambda item: (item.started_at, item.deployment_execution_id), reverse=True)
+        return sorted(values, key=lambda item: (item.started_at, item.deployment_id), reverse=True)
 
-    def latest_deployment_execution(self, environment_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
+    def latest_deployment_execution(self, environment_id: str, workspace_id: str = "default") -> Deployment | None:
         executions = self.list_deployment_executions(environment_id, workspace_id)
         return executions[0] if executions else None
 
-    def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[DeploymentExecution]:
+    def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[Deployment]:
         return sorted(
             (
                 item
                 for item in self.deployment_executions.values()
                 if item.workspace_id == workspace_id and item.status in {ExecutionStatus.PENDING, ExecutionStatus.CLAIMED, ExecutionStatus.RUNNING}
             ),
-            key=lambda item: (item.started_at, item.deployment_execution_id),
+            key=lambda item: (item.started_at, item.deployment_id),
         )
 
     def append_event(self, event: EventLogEntry) -> None:
@@ -386,8 +384,8 @@ class MemoryTagDefinitionRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, tag_definition_id: str, workspace_id: str = "default") -> TagDefinition | None:
-        return self.store.get_tag_definition(tag_definition_id, workspace_id)
+    def get(self, key: str, workspace_id: str = "default") -> TagDefinition | None:
+        return self.store.get_tag_definition(key, workspace_id)
 
     def list(self, workspace_id: str = "default") -> list[TagDefinition]:
         return self.store.list_tag_definitions(workspace_id)
@@ -438,18 +436,21 @@ class MemoryComponentRepository:
         self.store.put_component(component)
 
 
-class MemoryComponentSetRepository:
+class MemoryReleaseSetRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, component_set_id: str, workspace_id: str = "default") -> ComponentSet | None:
-        return self.store.get_component_set(component_set_id, workspace_id)
+    def get(self, release_set_id: str, workspace_id: str = "default") -> ReleaseSet | None:
+        return self.store.get_release_set(release_set_id, workspace_id)
 
-    def list(self, workspace_id: str = "default") -> list[ComponentSet]:
-        return self.store.list_component_sets(workspace_id)
+    def list(self, workspace_id: str = "default") -> list[ReleaseSet]:
+        return self.store.list_release_sets(workspace_id)
 
-    def put(self, component_set: ComponentSet) -> None:
-        self.store.put_component_set(component_set)
+    def put(self, release_set: ReleaseSet) -> None:
+        self.store.put_release_set(release_set)
+
+    def create(self, release_set: ReleaseSet) -> None:
+        self.store.put_release_set(release_set)
 
 
 class MemoryReleaseRepository:
@@ -478,20 +479,6 @@ class MemoryPublisherRepository:
 
     def put(self, publisher: Publisher) -> None:
         self.store.put_publisher(publisher)
-
-
-class MemoryDeploySetRepository:
-    def __init__(self, store: MemoryRepositories) -> None:
-        self.store = store
-
-    def get(self, deployset_id: str, workspace_id: str = "default") -> DeploySet | None:
-        return self.store.get_deployset(deployset_id, workspace_id)
-
-    def create(self, deployset: DeploySet) -> None:
-        self.store.create_deployset(deployset)
-
-    def list(self, workspace_id: str = "default") -> list[DeploySet]:
-        return self.store.list_deploysets(workspace_id)
 
 
 class MemoryEnvironmentRepository:
@@ -578,26 +565,26 @@ class MemoryEnvironmentStateRepository:
         self.store.put_environment_state(state)
 
 
-class MemoryDeploymentExecutionRepository:
+class MemoryDeploymentRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, deployment_execution_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
-        return self.store.get_deployment_execution(deployment_execution_id, workspace_id)
+    def get(self, deployment_id: str, workspace_id: str = "default") -> Deployment | None:
+        return self.store.get_deployment_execution(deployment_id, workspace_id)
 
-    def create(self, execution: DeploymentExecution) -> None:
+    def create(self, execution: Deployment) -> None:
         self.store.create_deployment_execution(execution)
 
-    def put(self, execution: DeploymentExecution) -> None:
+    def put(self, execution: Deployment) -> None:
         self.store.put_deployment_execution(execution)
 
-    def list_by_environment(self, environment_id: str | None = None, workspace_id: str = "default") -> list[DeploymentExecution]:
+    def list_by_environment(self, environment_id: str | None = None, workspace_id: str = "default") -> list[Deployment]:
         return self.store.list_deployment_executions(environment_id, workspace_id)
 
-    def latest_for_environment(self, environment_id: str, workspace_id: str = "default") -> DeploymentExecution | None:
+    def latest_for_environment(self, environment_id: str, workspace_id: str = "default") -> Deployment | None:
         return self.store.latest_deployment_execution(environment_id, workspace_id)
 
-    def list_pending(self, workspace_id: str = "default") -> list[DeploymentExecution]:
+    def list_pending(self, workspace_id: str = "default") -> list[Deployment]:
         return self.store.list_pending_deployment_executions(workspace_id)
 
 
@@ -681,3 +668,4 @@ class MemoryWebhookDeliveryRepository:
 
     def put(self, delivery: WebhookDelivery) -> None:
         self.store.put_webhook_delivery(delivery)
+

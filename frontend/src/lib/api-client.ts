@@ -1,13 +1,12 @@
 import type {
   ApiComponent,
-  ApiComponentSet,
+  ApiReleaseSet,
   ApiCreateDeploymentRequest,
   ApiCreateDeploymentResponse,
-  ApiDeploySet,
-  ApiDeploySetCreateRequest,
-  ApiDeploySetCreateResult,
-  ApiDeploymentExecution,
-  ApiDeploymentExecutionItem,
+  ApiReleaseSetCreateRequest,
+  ApiReleaseSetCreateResult,
+  ApiDeployment,
+  ApiDeploymentItem,
   ApiDeploymentRunner,
   ApiDeploymentRunnerCreateRequest,
   ApiDeploymentRunnerCreateResult,
@@ -111,23 +110,22 @@ export const queryKeys = {
   workspace: (workspaceId: string) => ["workspaces", workspaceId] as const,
   workspaceMemberships: (workspaceId: string) => ["workspaces", workspaceId, "memberships"] as const,
   components: ["workspace", "components"] as const,
-  componentSets: ["workspace", "component-sets"] as const,
+  releaseSets: ["workspace", "release-sets"] as const,
   releases: (componentId?: string) => ["workspace", "releases", componentId ?? "all"] as const,
   principals: ["principals"] as const,
   roles: ["workspace", "roles"] as const,
   role: (roleId: string) => ["workspace", "roles", roleId] as const,
   publishers: ["workspace", "publishers"] as const,
   publisher: (publisherId: string) => ["workspace", "publishers", publisherId] as const,
-  deploysets: ["workspace", "deploysets"] as const,
-  deployset: (deploySetId: string) => ["workspace", "deploysets", deploySetId] as const,
+  releaseSet: (releaseSetId: string) => ["workspace", "release-sets", releaseSetId] as const,
   environments: ["workspace", "environments"] as const,
   tagDefinitions: (resourceType?: TagResourceType) => ["workspace", "tag-definitions", resourceType ?? "all"] as const,
   environmentState: ["workspace", "environment-state"] as const,
   environmentCenter: ["workspace", "environment-center"] as const,
-  executions: (environmentId?: string) => ["workspace", "deployment-executions", environmentId ?? "all"] as const,
-  execution: (deploymentExecutionId: string) => ["workspace", "deployment-executions", deploymentExecutionId] as const,
-  deploymentPlan: (environmentId: string, deploySetId: string, force: boolean) =>
-    ["workspace", "deployment-plan", environmentId || "none", deploySetId || "none", force ? "force" : "normal"] as const,
+  executions: (environmentId?: string) => ["workspace", "deployments", environmentId ?? "all"] as const,
+  execution: (deploymentId: string) => ["workspace", "deployments", deploymentId] as const,
+  deploymentPlan: (environmentId: string, releaseSetId: string, force: boolean) =>
+    ["workspace", "deployment-plan", environmentId || "none", releaseSetId || "none", force ? "force" : "normal"] as const,
   dashboard: (environmentId: string) => ["workspace", "dashboard", environmentId] as const,
   deploymentRunners: ["workspace", "deployment-runners"] as const,
   pendingExecutions: ["workspace", "runner-pending-executions"] as const,
@@ -245,18 +243,18 @@ export async function putComponent(componentId: string, component: ApiComponent)
   });
 }
 
-export async function listComponentSets() {
-  return request<ApiComponentSet[]>(workspacePath("/component-sets"));
+export async function listReleaseSets() {
+  return request<ApiReleaseSet[]>(workspacePath("/release-sets"));
 }
 
-export async function getComponentSet(componentSetId: string) {
-  return request<ApiComponentSet>(workspacePath(`/component-sets/${encodeURIComponent(componentSetId)}`));
+export async function getReleaseSet(releaseSetId: string) {
+  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`));
 }
 
-export async function putComponentSet(componentSetId: string, componentSet: ApiComponentSet) {
-  return request<ApiComponentSet>(workspacePath(`/component-sets/${encodeURIComponent(componentSetId)}`), {
+export async function putReleaseSet(releaseSetId: string, releaseSet: ApiReleaseSet) {
+  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`), {
     method: "PUT",
-    body: componentSet,
+    body: releaseSet,
   });
 }
 
@@ -312,15 +310,15 @@ export async function publishReleaseFromPublisher(publisherId: string, release: 
 }
 
 export async function listDeploysets() {
-  return request<ApiDeploySet[]>(workspacePath("/deploysets"));
+  return request<ApiReleaseSet[]>(workspacePath("/release-sets"));
 }
 
-export async function getDeployset(deploySetId: string) {
-  return request<ApiDeploySet>(workspacePath(`/deploysets/${encodeURIComponent(deploySetId)}`));
+export async function getDeployset(releaseSetId: string) {
+  return request<ApiReleaseSet>(workspacePath(`/release-sets/${encodeURIComponent(releaseSetId)}`));
 }
 
-export async function createDeployset(payload: ApiDeploySetCreateRequest) {
-  return request<ApiDeploySetCreateResult>(workspacePath("/deploysets"), {
+export async function createDeployset(payload: ApiReleaseSetCreateRequest) {
+  return request<ApiReleaseSetCreateResult>(workspacePath("/release-sets"), {
     method: "POST",
     body: payload,
   });
@@ -348,17 +346,17 @@ export async function listEnvironmentState() {
   return request<ApiEnvironmentState[]>(workspacePath("/environment-state"));
 }
 
-export async function listDeploymentExecutions(environmentId?: string) {
+export async function listDeployments(environmentId?: string) {
   const query = environmentId ? `?environmentId=${encodeURIComponent(environmentId)}` : "";
-  return request<ApiDeploymentExecution[]>(workspacePath(`/deployment-executions${query}`));
+  return request<ApiDeployment[]>(workspacePath(`/deployments${query}`));
 }
 
-export async function getDeploymentExecution(deploymentExecutionId: string) {
-  return request<ApiDeploymentExecution>(workspacePath(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}`));
+export async function getDeployment(deploymentId: string) {
+  return request<ApiDeployment>(workspacePath(`/deployments/${encodeURIComponent(deploymentId)}`));
 }
 
-export async function cancelDeploymentExecution(deploymentExecutionId: string) {
-  return request<ApiDeploymentExecution>(workspacePath(`/deployment-executions/${encodeURIComponent(deploymentExecutionId)}/cancel`), {
+export async function cancelDeployment(deploymentId: string) {
+  return request<ApiDeployment>(workspacePath(`/deployments/${encodeURIComponent(deploymentId)}/cancel`), {
     method: "POST",
   });
 }
@@ -495,25 +493,25 @@ export async function rotateDeploymentRunnerToken(runnerId: string) {
 }
 
 export async function listDeploymentRunnerItems(runnerId: string) {
-  return request<ApiDeploymentExecutionItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/items`));
+  return request<ApiDeploymentItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/items`));
 }
 
 export async function listPendingRunnerExecutions(runnerId: string) {
-  return request<ApiDeploymentExecutionItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
+  return request<ApiDeploymentItem[]>(workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/pending`));
 }
 
 export async function listPendingExecutions() {
-  return request<ApiDeploymentExecution[]>(workspacePath("/deployment-executions/pending"));
+  return request<ApiDeployment[]>(workspacePath("/deployments/pending"));
 }
 
 export async function reportExecutionItemStatus(
   runnerId: string,
-  deploymentExecutionId: string,
+  deploymentId: string,
   componentId: string,
   payload: ApiReportExecutionItemStatusRequest,
 ) {
-  return request<ApiDeploymentExecution>(
-    workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentExecutionId)}/items/${encodeURIComponent(componentId)}/status`),
+  return request<ApiDeployment>(
+    workspacePath(`/deployment-runners/${encodeURIComponent(runnerId)}/executions/${encodeURIComponent(deploymentId)}/items/${encodeURIComponent(componentId)}/status`),
     {
       method: "POST",
       body: payload,
@@ -522,25 +520,23 @@ export async function reportExecutionItemStatus(
 }
 
 export async function fetchDashboardData(environmentId: string) {
-  const executions = await listDeploymentExecutions(environmentId);
+  const executions = await listDeployments(environmentId);
   return { executions };
 }
 
 export async function fetchEnvironmentCenterData() {
-  const [environments, environmentState, deploysets, componentSets, executions, pendingExecutions] = await Promise.all([
+  const [environments, environmentState, releaseSets, executions, pendingExecutions] = await Promise.all([
     listEnvironments(),
     listEnvironmentState(),
-    listDeploysets(),
-    listComponentSets(),
-    listDeploymentExecutions(),
+    listReleaseSets(),
+    listDeployments(),
     listPendingExecutions(),
   ]);
 
   return {
     environments,
     environmentState,
-    deploysets,
-    componentSets,
+    releaseSets,
     executions,
     pendingExecutions,
   };
@@ -548,13 +544,12 @@ export async function fetchEnvironmentCenterData() {
 
 export type {
   ApiComponent,
-  ApiComponentSet,
+  ApiReleaseSet,
   ApiCreateDeploymentResponse,
-  ApiDeploySet,
-  ApiDeploySetCreateRequest,
-  ApiDeploySetCreateResult,
-  ApiDeploymentExecution,
-  ApiDeploymentExecutionItem,
+  ApiReleaseSetCreateRequest,
+  ApiReleaseSetCreateResult,
+  ApiDeployment,
+  ApiDeploymentItem,
   ApiDeploymentRunner,
   ApiDeploymentRunnerCreateRequest,
   ApiDeploymentRunnerCreateResult,
@@ -582,3 +577,4 @@ export type {
   ApiWorkspace,
   ApiWorkspaceMembership,
 } from "@/lib/api-types";
+

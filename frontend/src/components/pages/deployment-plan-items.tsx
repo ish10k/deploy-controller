@@ -11,7 +11,7 @@ export function PlanItems({
   currentVersions,
   releaseCreatedAtByKey,
 }: {
-  items: components["schemas"]["DeploymentExecutionItem"][];
+  items: components["schemas"]["DeploymentItem"][];
   currentVersions: Map<string, string>;
   releaseCreatedAtByKey: Map<string, string>;
 }) {
@@ -122,3 +122,4 @@ function ArrowIndicator({
 
   return <MoveRight className={`h-4 w-4 shrink-0 ${className}`} />;
 }
+

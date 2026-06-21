@@ -284,3 +284,4 @@ def auth_context_for_oidc_principal(principal: Principal, claims: dict[str, obje
         permissions=permissions_for_roles(principal.roles, roles),
         claims=claims,
     )
+

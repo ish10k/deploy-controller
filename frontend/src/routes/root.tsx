@@ -1,6 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet, useNavigate } from "@tanstack/react-router";
 
-import { DeploymentExecutionDetailsPage } from "@/components/deployments/deployment-execution-details-page";
+import { DeploymentDetailsPage } from "@/components/deployments/deployment-execution-details-page";
 import { AuthCallbackPage, ForbiddenPage, LoginPage } from "@/components/auth/auth-pages";
 import { DeploymentsPage } from "@/components/deployments/deployments-page";
 import { EnvironmentsPage } from "@/components/environments/environments-page";
@@ -9,14 +9,14 @@ import { UnsupportedPage } from "@/components/common/api-state";
 import { DeploymentRunnerDetailsPage, DeploymentRunnersPage } from "@/components/pages/adapters-page";
 import { AuthPage } from "@/components/pages/auth-page";
 import { ComponentDetailsPage } from "@/components/pages/component-details-page";
-import { ComponentSetDetailsPage } from "@/components/pages/component-set-details-page";
-import { DeploySetDetailsPage } from "@/components/pages/deployset-details-page";
+import { ReleaseSetDetailsPage } from "@/components/pages/deployset-details-page";
 import { ExecutionsPage } from "@/components/pages/executions-page";
 import { EventLogPage } from "@/components/pages/event-log-page";
 import { ReleaseDetailsPage } from "@/components/pages/release-details-page";
 import { PublisherDetailsPage, PublishersPage } from "@/components/pages/publishers-page";
 import { RegistryPage } from "@/components/pages/registry-page";
 import { RoleDetailsPage } from "@/components/pages/roles-page";
+import { TagsPage } from "@/components/pages/tags-page";
 import { UserDetailsPage } from "@/components/pages/users-page";
 import { WebhookDeliveryDetailsPage, WebhookDetailsPage, WebhooksPage } from "@/components/pages/webhooks-page";
 import { WorkspaceSelectorPage } from "@/components/pages/workspace-selector-page";
@@ -44,12 +44,12 @@ const workspaceDeploymentsRoute = createRoute({
   component: DeploymentsPage,
 });
 
-const workspaceDeploymentExecutionDetailRoute = createRoute({
+const workspaceDeploymentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/deployments/$deploymentExecutionId",
+  path: "/workspaces/$workspaceId/deployments/$deploymentId",
   component: () => {
-    const { deploymentExecutionId } = workspaceDeploymentExecutionDetailRoute.useParams();
-    return <DeploymentExecutionDetailsPage deploymentExecutionId={deploymentExecutionId} />;
+    const { deploymentId } = workspaceDeploymentDetailRoute.useParams();
+    return <DeploymentDetailsPage deploymentId={deploymentId} />;
   },
 });
 
@@ -83,17 +83,17 @@ const authCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
 const forbiddenRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forbidden", component: ForbiddenPage });
 const workspaceSelectorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/select", component: WorkspaceSelectorPage });
-const workspaceComponentSetsRoute = createRoute({
+const workspaceReleaseSetsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/component-sets",
-  component: () => <RegistryPage initialView="component-sets" />,
+  path: "/workspaces/$workspaceId/release-sets",
+  component: () => <RegistryPage initialView="release-sets" />,
 });
-const workspaceComponentSetDetailRoute = createRoute({
+const workspaceReleaseSetDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/component-sets/$componentSetId",
+  path: "/workspaces/$workspaceId/release-sets/$releaseSetId",
   component: () => {
-    const { componentSetId } = workspaceComponentSetDetailRoute.useParams();
-    return <ComponentSetDetailsPage componentSetId={componentSetId} />;
+    const { releaseSetId } = workspaceReleaseSetDetailRoute.useParams();
+    return <ReleaseSetDetailsPage releaseSetId={releaseSetId} />;
   },
 });
 const workspaceReleasesRoute = createRoute({
@@ -118,19 +118,6 @@ const workspaceReleaseDetailRoute = createRoute({
     return <ReleaseDetailsPage componentId={componentId} version={version} />;
   },
 });
-const workspaceDeploysetsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/deploysets",
-  component: () => <DeploymentsPage initialView="deploysets" />,
-});
-const workspaceDeploysetDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/workspaces/$workspaceId/deploysets/$deploySetId",
-  component: () => {
-    const { deploySetId } = workspaceDeploysetDetailRoute.useParams();
-    return <DeploySetDetailsPage deploySetId={deploySetId} />;
-  },
-});
 const workspaceEnvironmentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/environments", component: EnvironmentsPage });
 const workspaceRolesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/roles", component: () => <AuthPage initialView="roles" /> });
 const workspaceRoleDetailRoute = createRoute({
@@ -141,6 +128,7 @@ const workspaceRoleDetailRoute = createRoute({
     return <RoleDetailsPage roleId={roleId} />;
   },
 });
+const workspaceTagsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/tags", component: TagsPage });
 const workspaceAuditRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/audit", component: EventLogPage });
 const workspaceWebhooksRoute = createRoute({ getParentRoute: () => rootRoute, path: "/workspaces/$workspaceId/webhooks", component: WebhooksPage });
 const workspaceWebhookDetailRoute = createRoute({
@@ -206,24 +194,23 @@ export const routeTree = rootRoute.addChildren([
   workspaceUsersRoute,
   workspaceRolesRoute,
   workspaceRoleDetailRoute,
+  workspaceTagsRoute,
   workspaceAuditRoute,
   workspaceWebhooksRoute,
   workspaceWebhookDetailRoute,
   workspaceWebhookDeliveryDetailRoute,
   workspaceUserDetailRoute,
   workspaceDeploymentsRoute,
-  workspaceDeploymentExecutionDetailRoute,
+  workspaceDeploymentDetailRoute,
   workspacePlanRoute,
   workspaceComponentsRoute,
   workspaceComponentDetailRoute,
-  workspaceComponentSetsRoute,
-  workspaceComponentSetDetailRoute,
+  workspaceReleaseSetsRoute,
+  workspaceReleaseSetDetailRoute,
   workspaceReleasesRoute,
   workspacePublishersRoute,
   workspacePublisherDetailRoute,
   workspaceReleaseDetailRoute,
-  workspaceDeploysetsRoute,
-  workspaceDeploysetDetailRoute,
   workspaceEnvironmentsRoute,
   workspaceEnvironmentDetailRoute,
   workspaceExecutionsRoute,
@@ -239,3 +226,5 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+
