@@ -104,7 +104,7 @@ export function RegistryPage({ initialView = "versions" }: { initialView?: Regis
                 >
                   <ENTITY_ICONS.release className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                   <span className="grid min-w-0 gap-0.5">
-                    <span className="text-sm font-semibold text-slate-700">Version set</span>
+                    <span className="text-sm font-semibold text-slate-700">Release</span>
                     <span className="text-xs font-medium leading-4 text-slate-500">Group components for versions and deploys.</span>
                   </span>
                 </button>
@@ -161,8 +161,6 @@ export function RegistryPage({ initialView = "versions" }: { initialView?: Regis
     </div>
   );
 }
-
-
 
 
 
