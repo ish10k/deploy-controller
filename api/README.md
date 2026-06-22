@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
 ```
 
-The in-memory backend starts with a richer local seed: `local`, `dev`, `staging`, `prod`, and `shared-data` environments; `customer-platform-baseline` and `shared-data-platform` Releases; multiple deploy sets (`integration-baseline`, `integration-hotfix`, `dev-baseline`, `staging-candidate`, `production-baseline`, `production-hotfix`, `shared-data-baseline`); six components; and a realistic mix of successful, failed, and pending deployment history.
+The in-memory backend starts with a richer local seed: `local`, `dev`, `staging`, `prod`, and `shared-data` environments; `2026.06.01` and `2026.06.03` Releases; multiple deploy sets (`2026.06.05`, `2026.06.06`, `2026.06.07`, `2026.06.08`, `2026.06.09`, `2026.06.10`); six components; and a realistic mix of successful, failed, and pending deployment history. Only the package runner and docker compose runner are seeded for deployment execution.
 
 ## Local OIDC
 
@@ -59,6 +59,5 @@ Use `src.interfaces.lambda_api.handler.handler` as the Lambda handler. This rout
 - `src/infrastructure/`: memory and DynamoDB persistence
 - `src/interfaces/`: FastAPI and API Gateway/Lambda entry points
 - `../infra/terraform/`: DynamoDB, Lambda, HTTP API, IAM, CloudWatch, and artifact bucket infrastructure
-
 
 

@@ -190,7 +190,7 @@ export function EnvironmentsPage({ routeEnvironmentId }: { routeEnvironmentId?: 
       <div className="relative mt-4">
         {refreshing ? <LoadingOverlay /> : null}
         {filteredRows.length ? (
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
             {filteredRows.map((row) => (
               <EnvironmentCard key={row.environment.environmentId} row={row} />
             ))}
@@ -489,34 +489,34 @@ function EnvironmentCard({ row }: { row: EnvironmentRow }) {
       params={{ environmentId: row.environment.environmentId }}
       className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
     >
-    <Card className="min-h-[258px] cursor-pointer transition-colors hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md">
-      <CardContent className="flex h-full flex-col p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-700">
-              <Server className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-2xl font-bold text-slate-950">{row.environment.environmentId}</span>
-                <EnvironmentStatusBadge status={row.status} />
+      <Card className="min-h-[258px] cursor-pointer transition-colors hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md">
+        <CardContent className="flex h-full flex-col p-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-700">
+                <Server className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-2xl font-bold text-slate-950">{row.environment.environmentId}</span>
+                  <EnvironmentStatusBadge status={row.status} />
+                </div>
               </div>
             </div>
+            <MoreHorizontal className="h-5 w-5 text-blue-700" />
           </div>
-          <MoreHorizontal className="h-5 w-5 text-blue-700" />
-        </div>
 
-        <div className="grid gap-0 text-sm">
-          <CardDetailRow label="Current Release" value={<CardValue value={row.currentRelease?.releaseId} />} />
-          <CardDetailRow label="Last Execution" value={<CardValue value={row.latestExecution?.deploymentId} />} />
-          <CardDetailRow label="Last Deployment" value={<span className="font-medium text-slate-800">{row.latestExecution ? formatRelativeTime(row.latestExecution.startedAt, { mode: "short" }) : "-"}</span>} />
-        </div>
+          <div className="grid gap-0 text-sm">
+            <CardDetailRow label="Current Release" value={<CardValue value={row.currentRelease?.releaseId} />} />
+            <CardDetailRow label="Last Execution" value={<CardValue value={row.latestExecution?.deploymentId} />} />
+            <CardDetailRow label="Last Deployment" value={<span className="font-medium text-slate-800">{row.latestExecution ? formatRelativeTime(row.latestExecution.startedAt, { mode: "short" }) : "-"}</span>} />
+          </div>
 
-        <div className="mt-auto pt-4">
-          <TagList tags={row.environment.tags} />
-        </div>
-      </CardContent>
-    </Card>
+          <div className="mt-auto pt-4">
+            <TagList tags={row.environment.tags} />
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 }
@@ -941,7 +941,3 @@ function percentage(value: number, total: number) {
   }
   return `${Math.round((value / total) * 1000) / 10}% of environments`;
 }
-
-
-
-

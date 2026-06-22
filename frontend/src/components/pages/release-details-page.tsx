@@ -101,11 +101,10 @@ function ReleaseDetailsView({
         }
       />
 
-      <div className="grid shrink-0 grid-cols-4 gap-4">
+      <div className="grid shrink-0 grid-cols-3 gap-4">
         <ReleaseFactCard icon={Layers3} label="Release" value={release.releaseId} sublabel={`${componentCount} components included`} />
         <ReleaseFactCard icon={Boxes} label="Items" value={release.items.length.toString()} sublabel={`${explicitCount} explicit, ${inferredCount} inherited`} />
         <ReleaseFactCard icon={Server} label="Active Environments" value={activeEnvironments.length.toString()} sublabel="Currently pointing here" />
-        <ReleaseFactCard icon={CalendarClock} label="Created" value={formatDateTime(release.createdAt)} sublabel={`By ${release.createdBy}`} />
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4">

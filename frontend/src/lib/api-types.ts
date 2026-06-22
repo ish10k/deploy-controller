@@ -959,7 +959,7 @@ export interface components {
             /**
              * Versionsetid
              * @description Release to plan.
-             * @example production-baseline
+             * @example 2026.06.09
              */
             releaseId: string;
             /**
@@ -1413,7 +1413,7 @@ export interface components {
             /**
              * Versionsetid
              * @description Release to plan.
-             * @example production-baseline
+             * @example 2026.06.09
              */
             releaseId: string;
             /**
@@ -5619,7 +5619,6 @@ export type ApiWebhookFilter = components["schemas"]["WebhookFilter"];
 export type ApiWebhookSubscription = components["schemas"]["WebhookSubscription"];
 export type ApiWorkspace = components["schemas"]["Workspace"];
 export type ApiWorkspaceMembership = components["schemas"]["WorkspaceMembership"];
-
 
 
 

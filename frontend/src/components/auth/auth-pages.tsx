@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { RefreshCcw, ShieldAlert, UserRound } from "lucide-react";
+import { RefreshCcw, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { completeLogin } from "@/lib/oidc-client";
 import { useAuth } from "@/lib/auth-context";
 
@@ -30,12 +30,11 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-6 text-white">
       <Card className="w-full max-w-md border-white/10 bg-white text-slate-950 shadow-2xl">
-        <CardContent className="p-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-            <UserRound className="h-6 w-6" />
-          </div>
-          <h1 className="mt-5 text-2xl font-bold">Welcome back</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
+        <CardHeader className="flex flex-col items-start gap-3 px-8 pt-7 pb-0">
+          <img src="/logo.png" alt="Deploy Controller" className="h-10 w-auto" />
+        </CardHeader>
+        <CardContent className="px-8 pb-8 pt-3">
+          <p className="text-sm leading-6 text-slate-600">
             Sign in with your account to continue.
           </p>
           {auth.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{auth.error}</p> : null}
@@ -128,4 +127,3 @@ export function ForbiddenPage() {
     </div>
   );
 }
-

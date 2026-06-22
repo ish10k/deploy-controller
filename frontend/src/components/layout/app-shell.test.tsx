@@ -85,7 +85,7 @@ describe("AppShell", () => {
   });
 
   it("marks registry active for release detail pages", () => {
-    mockPathname = "/workspaces/default/releases/production-baseline";
+    mockPathname = "/workspaces/default/releases/2026.06.09";
 
     render(
       <AppShell>

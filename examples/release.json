@@ -1,5 +1,5 @@
 {
-  "releaseId": "production-baseline",
+  "releaseId": "2026.06.09",
   "baseEnvironmentId": "prod",
   "items": [
     { "componentId": "web", "version": "3.18.0" },

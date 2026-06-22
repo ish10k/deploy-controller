@@ -181,7 +181,7 @@ def test_fastapi_version_and_deployment_notes_round_trip() -> None:
         json={
             "releaseId": "notes-release",
             "notes": "Promote api 9.9.9 while inheriting the current worker version.",
-            "baseReleaseId": "integration-baseline",
+            "baseReleaseId": "2026.06.05",
             "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "9.9.9"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}],
             "createdBy": "ci",
         },
@@ -193,7 +193,7 @@ def test_fastapi_version_and_deployment_notes_round_trip() -> None:
         f"{WORKSPACE}/deployments",
         json={
             "environmentId": "prod",
-            "releaseId": "production-baseline",
+            "releaseId": "2026.06.09",
             "requestedBy": "ops",
             "notes": "Production rollout requested after change window opened.",
             "force": True,

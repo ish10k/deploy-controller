@@ -24,7 +24,7 @@ def authenticated_container():
     store = MemoryRepositories()
     seed_local_data(store)
     container = build_memory_container(store)
-    runner = store.get_deployment_runner("local-runner-01")
+    runner = store.get_deployment_runner("package-runner-01")
     assert runner is not None
     store.put_deployment_runner(runner.model_copy(update={"token_hash": hash_token(TOKEN)}))
     principal = store.get_principal(runner.principal_id)
@@ -98,7 +98,7 @@ def test_lambda_deployment_notes_round_trip() -> None:
             f"{WORKSPACE}/deployments",
             {
                 "environmentId": "prod",
-                "releaseId": "production-baseline",
+                "releaseId": "2026.06.09",
                 "requestedBy": "ops",
                 "notes": "Lambda deployment note coverage.",
                 "force": True,
@@ -202,8 +202,6 @@ def test_lambda_runner_items_include_historical_and_current_work() -> None:
     items = json.loads(response["body"])
     assert any(item["status"] == "succeeded" for item in items)
     assert any(item["status"] == "pending" for item in items)
-
-
 
 
 

@@ -262,7 +262,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     # Releases
     store.put_release(
         Release(
-            release_id="customer-platform-baseline",
+            release_id="2026.06.01",
             schema_version=1,
             description="Primary application stack for the checkout and account experience.",
             items=[
@@ -280,7 +280,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.put_release(
         Release(
-            release_id="shared-data-platform",
+            release_id="2026.06.03",
             schema_version=1,
             description="Shared data services used by application stacks and batch jobs.",
             items=[
@@ -508,7 +508,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     # releases
     store.create_release(
         Release(
-            release_id="integration-baseline",
+            release_id="2026.06.05",
             schema_version=1,
             description="Default local app stack for demos and smoke testing.",
             notes="Baseline local stack used for demos, smoke tests, and onboarding.",
@@ -527,7 +527,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="integration-hotfix",
+            release_id="2026.06.06",
             schema_version=1,
             description="Hotfix variant of the local app stack with a patched web version.",
             notes="Local hotfix track kept close to production while validating urgent fixes.",
@@ -546,7 +546,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="dev-baseline",
+            release_id="2026.06.07",
             schema_version=1,
             description="Integration environment baseline for day-to-day development.",
             notes="Main development baseline used by CI and shared integration testing.",
@@ -565,7 +565,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="staging-candidate",
+            release_id="2026.06.08",
             schema_version=1,
             description="Pre-production stack used for version validation and smoke tests.",
             notes="Staging candidate promoted after integration sign-off and before CAB review.",
@@ -584,7 +584,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="production-baseline",
+            release_id="2026.06.09",
             schema_version=1,
             description="Stable production baseline for the customer-facing stack.",
             notes="Current stable production baseline approved for the primary customer ring.",
@@ -603,7 +603,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="production-hotfix",
+            release_id="2026.06.12",
             schema_version=1,
             description="Production hotfix track with only the minimum approved change set.",
             notes="Emergency production track reserved for tightly scoped, approved hotfixes.",
@@ -622,7 +622,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
     )
     store.create_release(
         Release(
-            release_id="shared-data-baseline",
+            release_id="2026.06.10",
             schema_version=1,
             description="Shared data platform baseline for storage and cache services.",
             notes="Shared data baseline coordinated with platform and database maintenance windows.",
@@ -714,50 +714,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
             )
         )
 
-    # Existing runner history coverage
-    for runner_id, display_name, environment_ids, component_ids, team in [
-        ("local-runner-01", "Local Runner", ["local"], ["customer-platform-baseline"], "platform"),
-        ("dev-runner-01", "Dev Runner", ["dev"], ["customer-platform-baseline"], "platform"),
-        ("staging-runner-01", "Staging Runner", ["staging"], ["customer-platform-baseline"], "platform"),
-        ("prod-runner-01", "Prod Runner", ["prod"], ["customer-platform-baseline"], "platform"),
-        ("data-runner-01", "Data Services Runner", ["shared-data"], ["shared-data-platform"], "data-platform"),
-    ]:
-        principal_id = f"service:deployment-runner:{runner_id}"
-        store.put_deployment_runner(
-            DeploymentRunner(
-                runner_id=runner_id,
-                display_name=display_name,
-                principal_id=principal_id,
-                active=True,
-                scope=DeploymentRunnerScope(environment_ids=environment_ids, component_ids=component_ids),
-                webhook_id=None,
-                last_heartbeat_at="2026-06-17T10:05:00Z",
-                tags={"team": team},
-                created_at="2026-04-01T09:10:00Z",
-                created_by="platform-bootstrap",
-            )
-        )
-        store.put_principal(
-            Principal(
-                principal_id=principal_id,
-                type=PrincipalType.SERVICE,
-                display_name=display_name,
-                auth_method="pat",
-                roles=["deployment-runner"],
-                active=True,
-                tags={"team": team},
-                created_at="2026-04-01T09:10:00Z",
-                created_by="system:local-seed",
-            )
-        )
-
     # Deployment history
     _seed_execution(
         store,
         Deployment(
             deployment_id="a1b2c3d4",
             environment_id="local",
-            release_id="integration-baseline",
+            release_id="2026.06.05",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="dev@company.com",
             notes="Local smoke deployment requested after frontend and auth updates merged.",
@@ -772,7 +735,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="local-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="api",
@@ -781,7 +744,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="local-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="worker",
@@ -790,7 +753,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SKIPPED,
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
-                    reported_by="local-runner-01",
+                    reported_by="package-runner-01",
                     runner_reason="worker already matched the desired version",
                 ),
                 _execution_item(
@@ -800,13 +763,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="local-runner-01",
+                    reported_by="package-runner-01",
                 ),
             ],
         ),
         EnvironmentState(
             environment_id="local",
-            release_id="integration-baseline",
+            release_id="2026.06.05",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="a1b2c3d4",
             updated_at="2026-06-15T09:18:00Z",
@@ -817,7 +780,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="b2c3d4e5",
             environment_id="dev",
-            release_id="dev-baseline",
+            release_id="2026.06.07",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="ci:version-bot",
             notes="Automated dev rollout after the nightly integration promotion completed.",
@@ -832,7 +795,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="dev-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="api",
@@ -841,7 +804,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="dev-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="worker",
@@ -850,7 +813,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="dev-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="auth",
@@ -859,13 +822,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="dev-runner-01",
+                    reported_by="package-runner-01",
                 ),
             ],
         ),
         EnvironmentState(
             environment_id="dev",
-            release_id="dev-baseline",
+            release_id="2026.06.07",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="b2c3d4e5",
             updated_at="2026-06-12T14:11:00Z",
@@ -876,7 +839,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="c3d4e5f6",
             environment_id="staging",
-            release_id="staging-candidate",
+            release_id="2026.06.08",
             status=ExecutionStatus.FAILED,
             requested_by="version-manager",
             notes="Staging validation run blocked on checkout API readiness during smoke tests.",
@@ -891,7 +854,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="staging-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="api",
@@ -900,7 +863,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.FAILED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="staging-runner-01",
+                    reported_by="package-runner-01",
                     message="Deployment started but smoke tests failed.",
                     error="Checkout API readiness probe never returned healthy.",
                 ),
@@ -911,7 +874,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SKIPPED,
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
-                    reported_by="staging-runner-01",
+                    reported_by="package-runner-01",
                     runner_reason="no worker changes in this change set",
                 ),
                 _execution_item(
@@ -921,14 +884,14 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SKIPPED,
                     requested_reason=RequestedReason.LATEST_EXECUTION_ALREADY_SUCCEEDED,
                     reported_action=ReportedAction.SKIP,
-                    reported_by="staging-runner-01",
+                    reported_by="package-runner-01",
                     runner_reason="auth already matched the requested version",
                 ),
             ],
         ),
         EnvironmentState(
             environment_id="staging",
-            release_id="staging-candidate",
+            release_id="2026.06.08",
             status=ExecutionStatus.FAILED,
             last_deployment_id="c3d4e5f6",
             updated_at="2026-06-13T11:07:00Z",
@@ -939,7 +902,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="d4e5f6a7",
             environment_id="staging",
-            release_id="staging-candidate",
+            release_id="2026.06.08",
             status=ExecutionStatus.PENDING,
             requested_by="version-manager",
             notes="Retry queued after the previous staging failure was triaged and a fix was prepared.",
@@ -979,7 +942,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="staging",
-            release_id="staging-candidate",
+            release_id="2026.06.08",
             status=ExecutionStatus.PENDING,
             last_deployment_id="d4e5f6a7",
             updated_at="2026-06-16T08:30:00Z",
@@ -990,7 +953,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="e5f6a7b8",
             environment_id="prod",
-            release_id="production-baseline",
+            release_id="2026.06.09",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="change-advisory-board",
             notes="CAB-approved production rollout executed during the scheduled evening window.",
@@ -1005,7 +968,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="prod-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="api",
@@ -1014,7 +977,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="prod-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="worker",
@@ -1023,7 +986,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="prod-runner-01",
+                    reported_by="package-runner-01",
                 ),
                 _execution_item(
                     component_id="auth",
@@ -1032,13 +995,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="prod-runner-01",
+                    reported_by="package-runner-01",
                 ),
             ],
         ),
         EnvironmentState(
             environment_id="prod",
-            release_id="production-baseline",
+            release_id="2026.06.09",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="e5f6a7b8",
             updated_at="2026-06-10T22:19:00Z",
@@ -1049,7 +1012,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="f6a7b8c9",
             environment_id="shared-data",
-            release_id="shared-data-baseline",
+            release_id="2026.06.10",
             status=ExecutionStatus.SUCCEEDED,
             requested_by="data-version-manager",
             notes="Shared data services rollout coordinated with the weekly platform maintenance window.",
@@ -1064,7 +1027,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="data-runner-01",
+                    reported_by="docker-compose-runner-01",
                 ),
                 _execution_item(
                     component_id="redis",
@@ -1073,13 +1036,13 @@ def seed_local_data(store: MemoryRepositories) -> None:
                     status=ItemStatus.SUCCEEDED,
                     requested_reason=RequestedReason.VERSION_CHANGED,
                     reported_action=ReportedAction.DEPLOY,
-                    reported_by="data-runner-01",
+                    reported_by="docker-compose-runner-01",
                 ),
             ],
         ),
         EnvironmentState(
             environment_id="shared-data",
-            release_id="shared-data-baseline",
+            release_id="2026.06.10",
             status=ExecutionStatus.SUCCEEDED,
             last_deployment_id="f6a7b8c9",
             updated_at="2026-06-09T07:52:00Z",
@@ -1090,7 +1053,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Deployment(
             deployment_id="g7h8i9j0",
             environment_id="shared-data",
-            release_id="shared-data-baseline",
+            release_id="2026.06.10",
             status=ExecutionStatus.PENDING,
             requested_by="data-version-manager",
             notes="Pending docker-compose validation rollout for the example compose runner.",
@@ -1116,15 +1079,12 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ),
         EnvironmentState(
             environment_id="shared-data",
-            release_id="shared-data-baseline",
+            release_id="2026.06.10",
             status=ExecutionStatus.PENDING,
             last_deployment_id="g7h8i9j0",
             updated_at="2026-06-18T09:15:00Z",
         ),
     )
-
-
-
 
 
 

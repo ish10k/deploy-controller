@@ -20,7 +20,7 @@ class PlanDeploymentRequest(ApiSchema):
     release_id: str = Field(
         alias="releaseId",
         description="Release to plan.",
-        examples=["production-baseline"],
+        examples=["2026.06.09"],
     )
     force: bool = Field(
         default=False,
@@ -96,7 +96,6 @@ class ReportExecutionItemStatusRequest(ApiSchema):
         description="Optional failure reason from the deployment runner.",
         examples=["artifact unavailable"],
     )
-
 
 
 

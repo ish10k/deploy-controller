@@ -148,13 +148,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="fixed inset-x-0 top-0 z-40 flex h-[60px] items-center border-b border-slate-900 bg-[#07111f] px-5 text-white shadow-sm">
-        <div className="flex w-[230px] shrink-0 items-center gap-1">
-          <div className="flex h-7 w-7 items-center justify-center">
-            <ENTITY_ICONS.deployment className="h-5 w-5" />
-          </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-xl font-bold tracking-normal">OneVersion</span>
-          </div>
+        <div className="flex w-[230px] shrink-0 items-center">
+          <img src="/logo_white.png" alt="OneVersion" className="h-8 w-auto" />
         </div>
 
         {/* <div className="ml-8 flex h-10 w-[596px] items-center rounded-lg border border-white/10 bg-white/10 px-3 shadow-inner">
@@ -532,7 +527,6 @@ function isNotificationEvent(event: ApiEventLogEntry) {
   }
   return NOTIFICATION_ACTIONS.has(event.action);
 }
-
 
 
 
