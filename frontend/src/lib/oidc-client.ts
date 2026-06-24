@@ -1,10 +1,10 @@
 import { clearTokens, storeTokens } from "@/lib/auth-token";
 
-const OIDC_STATE_KEY = "settle.oidc.state";
-const OIDC_VERIFIER_KEY = "settle.oidc.codeVerifier";
+const OIDC_STATE_KEY = "onerelease.oidc.state";
+const OIDC_VERIFIER_KEY = "onerelease.oidc.codeVerifier";
 
-const issuer = import.meta.env.VITE_OIDC_ISSUER ?? "http://localhost:5556/realms/settle";
-const clientId = import.meta.env.VITE_OIDC_CLIENT_ID ?? "settle-ui";
+const issuer = import.meta.env.VITE_OIDC_ISSUER ?? "http://localhost:5556/realms/onerelease";
+const clientId = import.meta.env.VITE_OIDC_CLIENT_ID ?? "onerelease-ui";
 const redirectPath = "/auth/callback";
 
 function redirectUri() {

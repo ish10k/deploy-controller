@@ -1,24 +1,24 @@
-class ReleaseControllerError(Exception):
+class OneReleaseError(Exception):
     status_code = 500
 
 
-class NotFoundError(ReleaseControllerError):
+class NotFoundError(OneReleaseError):
     status_code = 404
 
 
-class ConflictError(ReleaseControllerError):
+class ConflictError(OneReleaseError):
     status_code = 409
 
 
-class ValidationError(ReleaseControllerError):
+class ValidationError(OneReleaseError):
     status_code = 400
 
 
-class UnauthorizedError(ReleaseControllerError):
+class UnauthorizedError(OneReleaseError):
     status_code = 401
 
 
-class ForbiddenError(ReleaseControllerError):
+class ForbiddenError(OneReleaseError):
     status_code = 403
 
 

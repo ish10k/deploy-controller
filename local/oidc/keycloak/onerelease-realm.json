@@ -1,7 +1,7 @@
 {
-  "realm": "settle",
+  "realm": "onerelease",
   "enabled": true,
-  "displayName": "Settle Local",
+  "displayName": "OneRelease Local",
   "roles": {
     "realm": [
       { "name": "admin" },
@@ -11,8 +11,8 @@
   },
   "clients": [
     {
-      "clientId": "settle-ui",
-      "name": "Settle UI",
+      "clientId": "onerelease-ui",
+      "name": "OneRelease UI",
       "enabled": true,
       "publicClient": true,
       "protocol": "openid-connect",
@@ -28,12 +28,12 @@
       },
       "protocolMappers": [
         {
-          "name": "settle-api-audience",
+          "name": "onerelease-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "settle-api",
+            "included.client.audience": "onerelease-api",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -54,8 +54,8 @@
       ]
     },
     {
-      "clientId": "settle-api",
-      "name": "Settle API",
+      "clientId": "onerelease-api",
+      "name": "OneRelease API",
       "enabled": true,
       "bearerOnly": true,
       "protocol": "openid-connect"

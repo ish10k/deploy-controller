@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "release-controller"
+name = "onerelease-controller"
 version = "0.1.0"
-description = "Control-plane MVP for Release-based deployment planning."
+description = "OneRelease control-plane MVP for deployment planning."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"

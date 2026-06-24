@@ -387,7 +387,7 @@ function WebhookDrawer({ open, pending, onClose, onSubmit }: { open: boolean; pe
             <label className="block text-sm font-medium text-slate-700 md:col-span-2">
               URL
               <RequiredMark />
-              <Input className="mt-1" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/settle" />
+              <Input className="mt-1" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/onerelease" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Secret ref

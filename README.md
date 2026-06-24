@@ -1,4 +1,4 @@
-# Release Controller
+# OneRelease
 
 This repository now uses a simple monorepo layout:
 
@@ -13,7 +13,7 @@ To work on the backend:
 ```bash
 cd api
 pip install -e ".[dev]"
-DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
+ONERELEASE_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload
 ```
 
 To work on the frontend:
@@ -44,8 +44,8 @@ docker compose up --build
 
 Services:
 
-- Settle API: `http://localhost:8000`
-- Settle UI: `http://localhost:5173`
+- OneRelease API: `http://localhost:8000`
+- OneRelease UI: `http://localhost:5173`
 - Local OIDC / Keycloak: `http://localhost:5556`
 - Postgres for Keycloak: `localhost:5432`
 - Example package runner: `package-runner`
@@ -57,7 +57,7 @@ Seeded local OIDC users all use password `password`:
 - `deployer@example.local`
 - `viewer@example.local`
 
-The API is configured for OIDC mode with `SETTLE_BOOTSTRAP_ALLOWED_EMAIL=admin@example.local`. Human auth should use OIDC; machine actors use PATs issued by deployment runner / publisher create and rotate-token flows.
+The API is configured for OIDC mode with `ONERELEASE_BOOTSTRAP_ALLOWED_EMAIL=admin@example.local`. Human auth should use OIDC; machine actors use PATs issued by deployment runner / publisher create and rotate-token flows.
 The two example runner containers use seeded PATs from local data so they can claim the example package and docker compose workloads immediately after boot.
 
 

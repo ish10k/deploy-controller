@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from settle_sdk.errors import UnsupportedOperationError
-from settle_sdk.models import Deployment, DeploymentItem, ReportedAction
+from onerelease_sdk.errors import UnsupportedOperationError
+from onerelease_sdk.models import Deployment, DeploymentItem, ReportedAction
 
 if TYPE_CHECKING:
-    from settle_sdk.client import SettleClient
+    from onerelease_sdk.client import OneReleaseClient
 
 
 DeployJob = DeploymentItem
@@ -15,7 +15,7 @@ DeployJobRef = str | DeployJob
 
 
 class DeploymentRunnerClient:
-    def __init__(self, client: "SettleClient", runner_id: str) -> None:
+    def __init__(self, client: "OneReleaseClient", runner_id: str) -> None:
         self.client = client
         self.runner_id = runner_id
         self.current_execution_id: str | None = None

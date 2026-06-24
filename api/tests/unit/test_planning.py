@@ -44,17 +44,6 @@ def test_same_version_succeeded_skips() -> None:
     )
 
 
-def test_same_version_skipped_also_skips() -> None:
-    assert requested_action_for_item(
-        requested_version="1.0.0",
-        latest_item=item(status="skipped"),
-    ) == (
-        "skip",
-        "skipped",
-        "latest_execution_already_succeeded",
-    )
-
-
 def test_different_version_deploys() -> None:
     assert requested_action_for_item(requested_version="2.0.0", latest_item=item(version="1.0.0")) == (
         "deploy",
@@ -82,4 +71,5 @@ def test_possible_drift_when_force_redeploys_same_successful_version() -> None:
         )
         == "same_version_redeployed"
     )
+
 

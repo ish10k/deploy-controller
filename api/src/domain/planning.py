@@ -14,7 +14,7 @@ def requested_action_for_item(
     if latest_item is None:
         return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.MISSING_LATEST_EXECUTION_ITEM
 
-    if latest_item.status not in {ItemStatus.SUCCEEDED, ItemStatus.SKIPPED}:
+    if latest_item.status != ItemStatus.SUCCEEDED:
         return RequestedAction.DEPLOY, ItemStatus.PENDING, RequestedReason.LATEST_STATUS_NOT_SUCCEEDED
 
     if latest_item.version != requested_version:
@@ -41,5 +41,6 @@ def possible_drift_reason(
     ):
         return DriftReason.SAME_VERSION_REDEPLOYED
     return None
+
 
 

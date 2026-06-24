@@ -1,4 +1,4 @@
-"""Release Controller MVP."""
+"""OneRelease MVP."""
 
 
 

@@ -17,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/toast";
 import {
   createRelease,
-  listComponents,
   listReleases,
   listEnvironmentState,
   listEnvironments,
@@ -26,7 +25,6 @@ import {
   type ApiRelease,
   type ApiReleaseCreateRequest,
   type ApiEnvironmentState,
-  type ApiComponent,
   type ApiVersion,
 } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
@@ -89,7 +87,6 @@ export function ReleasesPage({
   const [releaseFilter, setReleaseFilter] = useState("all");
 
   const releasesQuery = useQuery({ queryKey: queryKeys.releases, queryFn: listReleases });
-  const componentsQuery = useQuery({ queryKey: queryKeys.components, queryFn: listComponents });
   const environmentsQuery = useQuery({ queryKey: queryKeys.environments, queryFn: listEnvironments });
   const environmentStateQuery = useQuery({ queryKey: queryKeys.environmentState, queryFn: listEnvironmentState });
   const versionsQuery = useQuery({ queryKey: queryKeys.versions(), queryFn: () => listVersions() });
@@ -118,12 +115,11 @@ export function ReleasesPage({
   useEffect(() => {
     if (refreshSignal > 0) {
       void releasesQuery.refetch();
-      void componentsQuery.refetch();
       void environmentsQuery.refetch();
       void environmentStateQuery.refetch();
       void versionsQuery.refetch();
     }
-  }, [componentsQuery.refetch, environmentStateQuery.refetch, environmentsQuery.refetch, releasesQuery.refetch, refreshSignal, versionsQuery.refetch]);
+  }, [refreshSignal]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -212,7 +208,6 @@ export function ReleasesPage({
     <CreateReleaseDrawer
       open={drawerEntered}
       releases={releasesQuery.data ?? []}
-      components={componentsQuery.data ?? []}
       environments={environmentsQuery.data ?? []}
       environmentState={environmentStateQuery.data ?? []}
       versions={versionsQuery.data ?? []}
@@ -347,7 +342,6 @@ function ReleasesTable({ rows }: { rows: ApiRelease[] }) {
 function CreateReleaseDrawer({
   open,
   releases,
-  components,
   environments,
   environmentState,
   versions,
@@ -358,7 +352,6 @@ function CreateReleaseDrawer({
 }: {
   open: boolean;
   releases: ApiRelease[];
-  components: ApiComponent[];
   environments: { environmentId: string }[];
   environmentState: ApiEnvironmentState[];
   versions: ApiVersion[];
@@ -368,10 +361,11 @@ function CreateReleaseDrawer({
   onSubmit: (request: ApiReleaseCreateRequest) => void;
 }) {
   const [form, setForm] = useState<ReleaseFormState>(() => defaultForm());
-  const activeComponentIds = useMemo(
-    () => components.filter((component) => component.active).map((component) => component.componentId),
-    [components],
+  const selectedRelease = useMemo(
+    () => releases.find((release) => release.releaseId === form.releaseId),
+    [releases, form.releaseId],
   );
+  const componentIds = useMemo(() => selectedRelease?.items?.map((item) => item.componentId) ?? [], [selectedRelease]);
   const releaseById = useMemo(() => new Map(releases.map((release) => [release.releaseId, release])), [releases]);
   const environmentStateById = useMemo(() => new Map(environmentState.map((state) => [state.environmentId, state])), [environmentState]);
   const versionsByComponent = useMemo(() => {
@@ -398,15 +392,22 @@ function CreateReleaseDrawer({
     const state = form.baseEnvironmentId ? environmentStateById.get(form.baseEnvironmentId) : undefined;
     return state?.releaseId ? releaseById.get(state.releaseId) : undefined;
   }, [releaseById, environmentStateById, form.baseReleaseId, form.baseEnvironmentId]);
+  const baseSourceLabel = form.baseReleaseId || (form.baseEnvironmentId ? `${form.baseEnvironmentId} current state` : "");
 
   const errors = validateForm(form);
   const canSubmit = Boolean(form.releaseId.trim()) && Object.keys(errors).length === 0 && !pending;
   const parsedTags = tagsToRecord(form.tags);
 
   useEffect(() => {
+    if (!form.releaseId && releases[0]?.releaseId) {
+      setForm((current) => ({ ...current, releaseId: releases[0].releaseId }));
+    }
+  }, [releases, form.releaseId]);
+
+  useEffect(() => {
     setForm((current) => {
       const existingByComponent = new Map(current.items.map((item) => [item.componentId, item]));
-      const nextItems = activeComponentIds.map((componentId) => {
+      const nextItems = componentIds.map((componentId) => {
         const existing = existingByComponent.get(componentId);
         return existing ? { ...existing } : draftItem(componentId);
       });
@@ -420,7 +421,7 @@ function CreateReleaseDrawer({
 
       return { ...current, items: nextItems };
     });
-  }, [activeComponentIds]);
+  }, [componentIds]);
 
   const updateItemVersion = (id: string, version: string) => {
     setForm((current) => ({
@@ -438,6 +439,7 @@ function CreateReleaseDrawer({
 
     setForm((current) => ({
       ...current,
+      releaseId: current.releaseId || resolvedBaseRelease.releaseId,
       items: current.items.length
         ? current.items.map((item) => ({
             ...item,
@@ -500,10 +502,20 @@ function CreateReleaseDrawer({
 
         <div className="min-h-0 flex-1 overflow-hidden p-5">
           <ScrollFade className="h-full rounded-lg" contentClassName="space-y-4 pr-1">
-            <SectionCard title="Identity" description="Name the Release.">
-              <div className="mb-4 grid grid-cols-1 gap-3">
+            <SectionCard title="Identity" description="Name the Release and attach it to the version set it satisfies.">
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 <Field label="Release ID" required>
-                  <Input value={form.releaseId} onChange={(event) => setForm({ ...form, releaseId: event.target.value })} placeholder="Enter release ID" />
+                  <Input value={form.releaseId} onChange={(event) => setForm({ ...form, releaseId: event.target.value })} placeholder="webstack-prod-v6" />
+                </Field>
+                <Field label="Release" required error={errors.releaseId}>
+                  <Select variant="light" value={form.releaseId} onChange={(event) => setForm({ ...form, releaseId: event.target.value })}>
+                    <option value="">Select version set</option>
+                    {releases.map((release) => (
+                      <option key={release.releaseId} value={release.releaseId}>
+                        {release.releaseId}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
               </div>
             </SectionCard>
@@ -589,7 +601,7 @@ function CreateReleaseDrawer({
                   </TableBody>
                 </Table>
               </div>
-              {!form.items.length ? <p className="mt-3 text-xs font-medium text-slate-500">Active components in this workspace will appear here.</p> : null}
+              {!form.items.length ? <p className="mt-3 text-xs font-medium text-slate-500">Select a version set to choose versions.</p> : null}
               {errors.items ? <InlineFormError message={errors.items} /> : null}
             </SectionCard>
 
@@ -768,3 +780,9 @@ function validateForm(form: ReleaseFormState) {
 
   return errors;
 }
+
+
+
+
+
+

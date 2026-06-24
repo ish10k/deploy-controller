@@ -1,6 +1,6 @@
 # Core Planning Invariant
 
-Release Controller creates execution items from a complete immutable Release. It does not inspect provider infrastructure or derive artifact locations.
+OneRelease creates execution items from a complete immutable Release. It does not inspect provider infrastructure or derive artifact locations.
 
 The brain requests `skip` only when:
 

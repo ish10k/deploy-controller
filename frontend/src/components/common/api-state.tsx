@@ -109,7 +109,7 @@ export function EmptyPanel({ label = "No records returned by the API." }: { labe
 }
 
 export function ApiErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  const message = error instanceof Error ? error.message : "Unable to reach the Release API.";
+  const message = error instanceof Error ? error.message : "Unable to reach the OneRelease API.";
   const status = error instanceof ApiRequestError ? error.status : null;
   const isConnectionError = status === null;
   const title = status === 404 ? "Record not found" : status ? "API request failed" : "API connection needed";
@@ -133,7 +133,7 @@ export function ApiErrorPanel({ error, onRetry }: { error: unknown; onRetry?: ()
             {isConnectionError ? (
               <p className="mt-3 text-sm text-orange-950">
                 Start the backend with{" "}
-                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">cd api; DEPLOYSET_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload</code>{" "}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">cd api; ONERELEASE_BACKEND=memory uvicorn src.interfaces.fastapi.app:app --reload</code>{" "}
                 or set <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">VITE_API_TARGET</code> to a working API.
               </p>
             ) : null}

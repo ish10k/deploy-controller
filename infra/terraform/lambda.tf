@@ -10,7 +10,7 @@ resource "aws_lambda_function" "deploy_controller" {
 
   environment {
     variables = {
-      DEPLOYSET_BACKEND              = "dynamodb"
+      ONERELEASE_BACKEND              = "dynamodb"
       ORGANIZATIONS_TABLE            = aws_dynamodb_table.organizations.name
       WORKSPACES_TABLE               = aws_dynamodb_table.workspaces.name
       ORGANIZATION_MEMBERSHIPS_TABLE = aws_dynamodb_table.organization_memberships.name

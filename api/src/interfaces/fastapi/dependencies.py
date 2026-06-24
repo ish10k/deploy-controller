@@ -13,7 +13,7 @@ from src.domain.models import AuthContext
 
 @lru_cache(maxsize=1)
 def get_container() -> Container:
-    backend = os.getenv("DEPLOYSET_BACKEND", "memory")
+    backend = os.getenv("ONERELEASE_BACKEND", "memory")
     if backend == "dynamodb":
         return build_aws_container()
     return build_memory_container()
@@ -31,7 +31,7 @@ def get_auth_context(
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise UnauthorizedError("Authorization bearer token is required.")
-    if token.startswith("settle_pat_"):
+    if token.startswith("onerelease_pat_"):
         return require_pat_context(
             token=token,
             principals=container.principals.list(),
@@ -39,18 +39,18 @@ def get_auth_context(
             publishers=container.publishers.list(),
             roles=container.roles.list_unchecked(),
         )
-    if os.getenv("SETTLE_AUTH_MODE", "oidc") != "oidc":
+    if os.getenv("ONERELEASE_AUTH_MODE", "oidc") != "oidc":
         raise UnauthorizedError("OIDC authentication is not configured in this runtime.")
-    issuer = os.getenv("SETTLE_OIDC_ISSUER")
-    audience = os.getenv("SETTLE_OIDC_AUDIENCE")
-    client_id = os.getenv("SETTLE_OIDC_CLIENT_ID", "settle-ui")
+    issuer = os.getenv("ONERELEASE_OIDC_ISSUER")
+    audience = os.getenv("ONERELEASE_OIDC_AUDIENCE")
+    client_id = os.getenv("ONERELEASE_OIDC_CLIENT_ID", "onerelease-ui")
     if not issuer or not audience:
         raise UnauthorizedError("OIDC issuer and audience must be configured.")
-    public_issuer = os.getenv("SETTLE_OIDC_PUBLIC_ISSUER", issuer)
-    jwks_url = os.getenv("SETTLE_OIDC_JWKS_URL", f"{issuer.rstrip('/')}/protocol/openid-connect/certs")
-    email_claim = os.getenv("SETTLE_OIDC_EMAIL_CLAIM", "email")
-    name_claim = os.getenv("SETTLE_OIDC_NAME_CLAIM", "name")
-    subject_claim = os.getenv("SETTLE_OIDC_SUBJECT_CLAIM", "sub")
+    public_issuer = os.getenv("ONERELEASE_OIDC_PUBLIC_ISSUER", issuer)
+    jwks_url = os.getenv("ONERELEASE_OIDC_JWKS_URL", f"{issuer.rstrip('/')}/protocol/openid-connect/certs")
+    email_claim = os.getenv("ONERELEASE_OIDC_EMAIL_CLAIM", "email")
+    name_claim = os.getenv("ONERELEASE_OIDC_NAME_CLAIM", "name")
+    subject_claim = os.getenv("ONERELEASE_OIDC_SUBJECT_CLAIM", "sub")
     claims = verify_oidc_token(
         token,
         OidcSettings(
@@ -72,8 +72,8 @@ def get_auth_context(
         subject=subject,
         email=str(email) if email is not None else None,
         display_name=str(name) if name is not None else None,
-        bootstrap_allowed_email=os.getenv("SETTLE_BOOTSTRAP_ALLOWED_EMAIL"),
-        bootstrap_allowed_subject=os.getenv("SETTLE_BOOTSTRAP_ALLOWED_SUB"),
+        bootstrap_allowed_email=os.getenv("ONERELEASE_BOOTSTRAP_ALLOWED_EMAIL"),
+        bootstrap_allowed_subject=os.getenv("ONERELEASE_BOOTSTRAP_ALLOWED_SUB"),
         claims=claims,
     )
 

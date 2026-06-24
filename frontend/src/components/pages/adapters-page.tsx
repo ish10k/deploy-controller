@@ -218,7 +218,7 @@ function DeploymentRunnerDrawer({
       <div className="space-y-5">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">Identity</h3>
-          <p className="mt-1 text-sm text-slate-500">Use a stable runner ID. Settle creates the backing service principal and PAT automatically.</p>
+          <p className="mt-1 text-sm text-slate-500">Use a stable runner ID. OneRelease creates the backing service principal and PAT automatically.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
               Runner ID

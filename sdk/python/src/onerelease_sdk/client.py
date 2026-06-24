@@ -7,11 +7,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from settle_sdk.errors import SettleApiError
-from settle_sdk.models import TagDefinition, TagResourceType
+from onerelease_sdk.errors import OneReleaseApiError
+from onerelease_sdk.models import TagDefinition, TagResourceType
 
 
-class SettleClient:
+class OneReleaseClient:
     def __init__(
         self,
         base_url: str,
@@ -19,7 +19,7 @@ class SettleClient:
         token: str | None = None,
         workspace_id: str = "default",
         timeout: float = 30.0,
-        user_agent: str = "settle-sdk-python/0.1.0",
+        user_agent: str = "onerelease-sdk-python/0.1.0",
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.token = token
@@ -28,12 +28,12 @@ class SettleClient:
         self.user_agent = user_agent
 
     def runner(self, runner_id: str) -> "DeploymentRunnerClient":
-        from settle_sdk.runner import DeploymentRunnerClient
+        from onerelease_sdk.runner import DeploymentRunnerClient
 
         return DeploymentRunnerClient(self, runner_id)
 
     def publisher(self, publisher_id: str) -> "PublisherClient":
-        from settle_sdk.publisher import PublisherClient
+        from onerelease_sdk.publisher import PublisherClient
 
         return PublisherClient(self, publisher_id)
 
@@ -82,22 +82,22 @@ class SettleClient:
         except (HTTPError, URLError) as exc:
             raise self._api_error(exc) from exc
 
-    def _api_error(self, exc: HTTPError | URLError) -> SettleApiError:
+    def _api_error(self, exc: HTTPError | URLError) -> OneReleaseApiError:
         if isinstance(exc, URLError):
             reason = exc.reason
             if isinstance(reason, Exception):
-                return SettleApiError(503, str(reason))
-            return SettleApiError(503, str(reason))
+                return OneReleaseApiError(503, str(reason))
+            return OneReleaseApiError(503, str(reason))
 
         raw = exc.read()
         if not raw:
-            return SettleApiError(exc.code, exc.reason)
+            return OneReleaseApiError(exc.code, exc.reason)
         try:
             body = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             text = raw.decode("utf-8", errors="replace")
-            return SettleApiError(exc.code, text, response_body=text)
+            return OneReleaseApiError(exc.code, text, response_body=text)
         if isinstance(body, dict):
             message = body.get("message") or body.get("detail") or exc.reason
-            return SettleApiError(exc.code, str(message), response_body=body)
-        return SettleApiError(exc.code, exc.reason, response_body=body)
+            return OneReleaseApiError(exc.code, str(message), response_body=body)
+        return OneReleaseApiError(exc.code, exc.reason, response_body=body)

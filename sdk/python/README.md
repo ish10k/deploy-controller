@@ -1,6 +1,6 @@
-# Settle Python SDK
+# OneRelease Python SDK
 
-Python SDK for machine actors that integrate with Settle.
+Python SDK for machine actors that integrate with OneRelease.
 
 The first SDK surface focuses on:
 
@@ -18,11 +18,11 @@ pip install -e sdk/python
 ## Runner
 
 ```python
-from settle_sdk import SettleClient
+from onerelease_sdk import OneReleaseClient
 
-client = SettleClient(
+client = OneReleaseClient(
     base_url="http://localhost:8000",
-    token="pat_...",
+    token="onerelease_pat_...",
     workspace_id="default",
 )
 
@@ -47,9 +47,9 @@ For a complete runnable example that uses this SDK inside a custom package, see 
 ## Publisher
 
 ```python
-from settle_sdk import Artifact, Version, SettleClient
+from onerelease_sdk import Artifact, Version, OneReleaseClient
 
-client = SettleClient("http://localhost:8000", token="pat_...")
+client = OneReleaseClient("http://localhost:8000", token="onerelease_pat_...")
 publisher = client.publisher("platform-ci")
 
 version = publisher.publish(

@@ -275,6 +275,3 @@ def _requested_action(value: object) -> RequestedAction:
     if value in {"deploy", "skip"}:
         return value
     raise ValueError(f"unsupported requested action: {value!r}")
-
-
-

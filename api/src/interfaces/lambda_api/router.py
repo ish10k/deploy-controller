@@ -53,7 +53,7 @@ def _auth_context(event: dict[str, Any], container: Container):
     if scheme.lower() != "bearer" or not token:
         from src.domain.errors import UnauthorizedError
         raise UnauthorizedError("Authorization bearer token is required.")
-    if token.startswith("settle_pat_"):
+    if token.startswith("onerelease_pat_"):
         return require_pat_context(
             token=token,
             principals=container.principals.list(),

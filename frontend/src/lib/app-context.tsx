@@ -23,7 +23,7 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
-const selectedWorkspaceStorageKey = "settle.selectedWorkspaceId";
+const selectedWorkspaceStorageKey = "onerelease.selectedWorkspaceId";
 
 function readSelectedWorkspaceId() {
   if (typeof window === "undefined") {

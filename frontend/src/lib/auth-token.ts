@@ -1,7 +1,7 @@
-const ACCESS_TOKEN_KEY = "settle.auth.accessToken";
-const ID_TOKEN_KEY = "settle.auth.idToken";
-const EXPIRES_AT_KEY = "settle.auth.expiresAt";
-const LAST_ACCESS_TOKEN_CLAIMS_KEY = "settle.auth.lastAccessTokenClaims";
+const ACCESS_TOKEN_KEY = "onerelease.auth.accessToken";
+const ID_TOKEN_KEY = "onerelease.auth.idToken";
+const EXPIRES_AT_KEY = "onerelease.auth.expiresAt";
+const LAST_ACCESS_TOKEN_CLAIMS_KEY = "onerelease.auth.lastAccessTokenClaims";
 
 export type StoredTokens = {
   accessToken: string;

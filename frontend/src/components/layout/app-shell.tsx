@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="w-full max-w-md">
-          <LoadingPanel label="Checking your Settle session..." />
+          <LoadingPanel label="Checking your OneRelease session..." />
         </div>
       </div>
     );
@@ -346,7 +346,7 @@ function NotificationBell({ principalId, enabled }: { principalId: string | unde
 
 function EventNotificationBell({ principalId }: { principalId: string | undefined }) {
   const [open, setOpen] = useState(false);
-  const storageKey = principalId ? `settle.notifications.readAt.${principalId}` : "settle.notifications.readAt.anonymous";
+  const storageKey = principalId ? `onerelease.notifications.readAt.${principalId}` : "onerelease.notifications.readAt.anonymous";
   const [readAt, setReadAt] = useState(() => readNotificationTimestamp(storageKey));
   const recentWindowMs = 30 * 60 * 1000;
   const query = useQuery({

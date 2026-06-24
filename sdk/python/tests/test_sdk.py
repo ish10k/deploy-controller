@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from settle_sdk import Artifact, DeployJob, DeploymentRunnerClient, PublisherClient, Version
+from onerelease_sdk import Artifact, DeployJob, DeploymentRunnerClient, PublisherClient, Version
 
 
 class FakeClient:

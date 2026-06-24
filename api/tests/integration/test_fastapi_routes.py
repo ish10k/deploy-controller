@@ -274,7 +274,7 @@ def test_fastapi_webhook_round_trip_with_subscriptions() -> None:
     webhook = {
         "webhookId": "ops-events",
         "displayName": "Ops events",
-        "url": "https://example.com/settle",
+        "url": "https://example.com/onerelease",
         "active": True,
         "secretRef": "secret/webhooks/ops",
         "retryPolicy": {"maxAttempts": 2, "backoffSeconds": 30},

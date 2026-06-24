@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from src.domain.errors import ReleaseControllerError
+from src.domain.errors import OneReleaseError
 from src.interfaces.fastapi.routes import router
 
 app = FastAPI(
-    title="Release Controller",
+    title="OneRelease",
     description=(
         "Control-plane API for managing components, releases, versions, environments, and deployments."
     ),
@@ -24,8 +24,8 @@ app = FastAPI(
 app.include_router(router)
 
 
-@app.exception_handler(ReleaseControllerError)
-def release_controller_error_handler(_request, exc: ReleaseControllerError):
+@app.exception_handler(OneReleaseError)
+def one_release_error_handler(_request, exc: OneReleaseError):
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
 

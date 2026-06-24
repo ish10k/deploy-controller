@@ -7,7 +7,7 @@ from src.composition.memory_container import build_memory_container
 from src.infrastructure.memory.repositories import MemoryRepositories
 from src.interfaces.lambda_api.router import route
 
-TOKEN = "settle_pat_test_admin"
+TOKEN = "onerelease_pat_test_admin"
 WORKSPACE = "/workspaces/default"
 
 

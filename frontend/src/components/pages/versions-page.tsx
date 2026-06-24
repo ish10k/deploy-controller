@@ -333,7 +333,7 @@ export function VersionDrawer({
             <label className="block text-sm font-medium text-slate-700">
               Version
               <RequiredMark />
-              <Input className="mt-1" value={version} onChange={(event) => setVersion(event.target.value)} placeholder="Enter version" />
+              <Input className="mt-1" value={version} onChange={(event) => setVersion(event.target.value)} placeholder="2026.06.17.1" />
             </label>
           </div>
         </section>
@@ -344,11 +344,11 @@ export function VersionDrawer({
             <label className="block text-sm font-medium text-slate-700">
               Artifact key
               <RequiredMark />
-              <Input className="mt-1" value={artifactKey} onChange={(event) => setArtifactKey(event.target.value)} placeholder="Enter artifact key" />
+              <Input className="mt-1" value={artifactKey} onChange={(event) => setArtifactKey(event.target.value)} placeholder="artifacts/checkout-api/2026.06.17.1.zip" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Artifact digest
-              <Input className="mt-1" value={artifactDigest} onChange={(event) => setArtifactDigest(event.target.value)} placeholder="Enter artifact digest" />
+              <Input className="mt-1" value={artifactDigest} onChange={(event) => setArtifactDigest(event.target.value)} placeholder="sha256:..." />
             </label>
           </div>
         </section>
@@ -384,6 +384,7 @@ function latestVersionsByComponent(versions: ApiVersion[]) {
 
   return latest;
 }
+
 
 
 

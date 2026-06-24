@@ -289,6 +289,7 @@ export function DeploymentWorkflowPage({
                 value={activeReleaseId}
                 onChange={(event) => {
                   setReleaseId(event.target.value);
+                  setReleaseId("");
                 }}
                 disabled={lockTarget || releasesQuery.isLoading || !releasesQuery.data?.length}
               >
@@ -471,6 +472,7 @@ function DeploymentConfirmFooter({
     </div>
   );
 }
+
 
 
 

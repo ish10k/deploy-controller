@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from settle_sdk.models import Artifact, Version, Source
+from onerelease_sdk.models import Artifact, Version, Source
 
 if TYPE_CHECKING:
-    from settle_sdk.client import SettleClient
+    from onerelease_sdk.client import OneReleaseClient
 
 
 class PublisherClient:
-    def __init__(self, client: "SettleClient", publisher_id: str) -> None:
+    def __init__(self, client: "OneReleaseClient", publisher_id: str) -> None:
         self.client = client
         self.publisher_id = publisher_id
 
@@ -53,4 +53,3 @@ def _dict(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise TypeError("expected object")
     return value
-

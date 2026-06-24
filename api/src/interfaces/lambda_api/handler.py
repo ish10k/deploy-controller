@@ -11,7 +11,7 @@ from src.interfaces.lambda_api.router import route
 
 @lru_cache(maxsize=1)
 def _container() -> Container:
-    if os.getenv("DEPLOYSET_BACKEND", "dynamodb") == "memory":
+    if os.getenv("ONERELEASE_BACKEND", "dynamodb") == "memory":
         return build_memory_container()
     return build_aws_container()
 

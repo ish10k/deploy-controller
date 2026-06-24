@@ -353,7 +353,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Webhook(
             webhook_id="platform-events",
             display_name="Platform Events",
-            url="https://hooks.example.com/settle/platform",
+            url="https://hooks.example.com/onerelease/platform",
             active=True,
             retry_policy=WebhookRetryPolicy(max_attempts=3, backoff_seconds=60),
             subscriptions=[
@@ -379,7 +379,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Webhook(
             webhook_id="audit-feed",
             display_name="Audit Feed",
-            url="https://hooks.example.com/settle/audit",
+            url="https://hooks.example.com/onerelease/audit",
             active=True,
             retry_policy=WebhookRetryPolicy(max_attempts=5, backoff_seconds=120),
             subscriptions=[
@@ -400,7 +400,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         Webhook(
             webhook_id="ops-deployments",
             display_name="Ops Deployments",
-            url="https://hooks.example.com/settle/ops",
+            url="https://hooks.example.com/onerelease/ops",
             active=False,
             retry_policy=WebhookRetryPolicy(max_attempts=2, backoff_seconds=30),
             subscriptions=[
@@ -683,7 +683,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
         ("docker-compose-runner-01", "Docker Compose Runner", ["docker-compose"], "platform"),
     ]:
         principal_id = f"service:deployment-runner:{runner_id}"
-        token = f"settle_pat_{runner_id.replace('-', '_')}"
+        token = f"onerelease_pat_{runner_id.replace('-', '_')}"
         store.put_deployment_runner(
             DeploymentRunner(
                 runner_id=runner_id,

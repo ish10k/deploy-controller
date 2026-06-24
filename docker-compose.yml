@@ -34,25 +34,25 @@ services:
     ports:
       - "5556:8080"
     volumes:
-      - ./local/oidc/keycloak/settle-realm.json:/opt/keycloak/data/import/settle-realm.json:ro
+      - ./local/oidc/keycloak/onerelease-realm.json:/opt/keycloak/data/import/onerelease-realm.json:ro
 
-  settle-server:
+  onerelease-server:
     build:
       context: ./api
     environment:
-      DEPLOYSET_BACKEND: memory
+      ONERELEASE_BACKEND: memory
       WATCHFILES_FORCE_POLLING: "true"
-      SETTLE_AUTH_MODE: oidc
-      SETTLE_OIDC_ISSUER: http://local-oidc:8080/realms/settle
-      SETTLE_OIDC_PUBLIC_ISSUER: http://localhost:5556/realms/settle
-      SETTLE_OIDC_JWKS_URL: http://local-oidc:8080/realms/settle/protocol/openid-connect/certs
-      SETTLE_OIDC_AUDIENCE: settle-api
-      SETTLE_OIDC_CLIENT_ID: settle-ui
-      SETTLE_OIDC_GROUPS_CLAIM: groups
-      SETTLE_OIDC_EMAIL_CLAIM: email
-      SETTLE_OIDC_NAME_CLAIM: name
-      SETTLE_OIDC_SUBJECT_CLAIM: email
-      SETTLE_BOOTSTRAP_ALLOWED_EMAIL: admin@example.local
+      ONERELEASE_AUTH_MODE: oidc
+      ONERELEASE_OIDC_ISSUER: http://local-oidc:8080/realms/onerelease
+      ONERELEASE_OIDC_PUBLIC_ISSUER: http://localhost:5556/realms/onerelease
+      ONERELEASE_OIDC_JWKS_URL: http://local-oidc:8080/realms/onerelease/protocol/openid-connect/certs
+      ONERELEASE_OIDC_AUDIENCE: onerelease-api
+      ONERELEASE_OIDC_CLIENT_ID: onerelease-ui
+      ONERELEASE_OIDC_GROUPS_CLAIM: groups
+      ONERELEASE_OIDC_EMAIL_CLAIM: email
+      ONERELEASE_OIDC_NAME_CLAIM: name
+      ONERELEASE_OIDC_SUBJECT_CLAIM: email
+      ONERELEASE_BOOTSTRAP_ALLOWED_EMAIL: admin@example.local
     depends_on:
       - local-oidc
     ports:
@@ -65,38 +65,38 @@ services:
       timeout: 5s
       retries: 20
 
-  settle-ui:
+  onerelease-ui:
     build:
       context: ./frontend
     environment:
       CHOKIDAR_USEPOLLING: "true"
-      VITE_API_TARGET: http://settle-server:8000
-      VITE_OIDC_ISSUER: http://localhost:5556/realms/settle
-      VITE_OIDC_CLIENT_ID: settle-ui
-      VITE_OIDC_AUDIENCE: settle-api
+      VITE_API_TARGET: http://onerelease-server:8000
+      VITE_OIDC_ISSUER: http://localhost:5556/realms/onerelease
+      VITE_OIDC_CLIENT_ID: onerelease-ui
+      VITE_OIDC_AUDIENCE: onerelease-api
     depends_on:
-      - settle-server
+      - onerelease-server
       - local-oidc
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - settle-ui-node-modules:/app/node_modules
+      - onerelease-ui-node-modules:/app/node_modules
 
   package-runner:
     build:
       context: .
       dockerfile: runner-example/Dockerfile
     environment:
-      SETTLE_API_BASE_URL: http://settle-server:8000
-      SETTLE_WORKSPACE_ID: default
-      SETTLE_RUNNER_ID: package-runner-01
-      SETTLE_RUNNER_TOKEN: settle_pat_package_runner_01
-      SETTLE_RUNNER_DISPLAY_NAME: Package Runner
-      SETTLE_RUNNER_POLL_SECONDS: "3"
-      SETTLE_RUNNER_WORK_SECONDS: "15"
+      ONERELEASE_API_BASE_URL: http://onerelease-server:8000
+      ONERELEASE_WORKSPACE_ID: default
+      ONERELEASE_RUNNER_ID: package-runner-01
+      ONERELEASE_RUNNER_TOKEN: onerelease_pat_package_runner_01
+      ONERELEASE_RUNNER_DISPLAY_NAME: Package Runner
+      ONERELEASE_RUNNER_POLL_SECONDS: "3"
+      ONERELEASE_RUNNER_WORK_SECONDS: "15"
     depends_on:
-      settle-server:
+      onerelease-server:
         condition: service_healthy
     volumes:
       - ./runner-example:/app/runner-example
@@ -107,15 +107,15 @@ services:
       context: .
       dockerfile: runner-example/Dockerfile
     environment:
-      SETTLE_API_BASE_URL: http://settle-server:8000
-      SETTLE_WORKSPACE_ID: default
-      SETTLE_RUNNER_ID: docker-compose-runner-01
-      SETTLE_RUNNER_TOKEN: settle_pat_docker_compose_runner_01
-      SETTLE_RUNNER_DISPLAY_NAME: Docker Compose Runner
-      SETTLE_RUNNER_POLL_SECONDS: "3"
-      SETTLE_RUNNER_WORK_SECONDS: "25"
+      ONERELEASE_API_BASE_URL: http://onerelease-server:8000
+      ONERELEASE_WORKSPACE_ID: default
+      ONERELEASE_RUNNER_ID: docker-compose-runner-01
+      ONERELEASE_RUNNER_TOKEN: onerelease_pat_docker_compose_runner_01
+      ONERELEASE_RUNNER_DISPLAY_NAME: Docker Compose Runner
+      ONERELEASE_RUNNER_POLL_SECONDS: "3"
+      ONERELEASE_RUNNER_WORK_SECONDS: "25"
     depends_on:
-      settle-server:
+      onerelease-server:
         condition: service_healthy
     volumes:
       - ./runner-example:/app/runner-example
@@ -123,4 +123,4 @@ services:
 
 volumes:
   postgres-data:
-  settle-ui-node-modules:
+  onerelease-ui-node-modules:

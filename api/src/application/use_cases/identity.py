@@ -153,9 +153,9 @@ class PrincipalUseCases:
         now = self.clock.now()
         if principal is None and not bootstrap.completed:
             if bootstrap_allowed_subject and subject != bootstrap_allowed_subject:
-                raise ForbiddenError("OIDC user is not allowed to bootstrap this Settle instance.")
+                raise ForbiddenError("OIDC user is not allowed to bootstrap this OneRelease instance.")
             if bootstrap_allowed_email and email != bootstrap_allowed_email:
-                raise ForbiddenError("OIDC user is not allowed to bootstrap this Settle instance.")
+                raise ForbiddenError("OIDC user is not allowed to bootstrap this OneRelease instance.")
             principal_id = f"user:{subject}"
             principal = Principal(
                 principal_id=principal_id,
@@ -188,7 +188,7 @@ class PrincipalUseCases:
                 )
             return auth_context_for_oidc_principal(principal, claims or {}, self.roles.list())
         if principal is None or not principal.active or principal.type != PrincipalType.USER or principal.auth_method != "oidc":
-            raise ForbiddenError("OIDC token is valid, but no active Settle principal is registered.")
+            raise ForbiddenError("OIDC token is valid, but no active OneRelease principal is registered.")
         updated = principal.model_copy(update={"last_seen_at": now})
         self.principals.put(updated)
         return auth_context_for_oidc_principal(updated, claims or {}, self.roles.list())

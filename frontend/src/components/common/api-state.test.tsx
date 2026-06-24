@@ -8,7 +8,7 @@ afterEach(() => cleanup());
 
 describe("ApiErrorPanel", () => {
   it("prompts the user to configure a working API", () => {
-    render(<ApiErrorPanel error={new Error("Unable to reach the Release API.")} />);
+    render(<ApiErrorPanel error={new Error("Unable to reach the OneRelease API.")} />);
 
     expect(screen.getByText("API connection needed")).toBeInTheDocument();
     expect(screen.getByText(/VITE_API_TARGET/)).toBeInTheDocument();

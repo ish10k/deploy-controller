@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.routing import APIRoute
 
 from src.composition import Container
-from src.domain.errors import ReleaseControllerError
+from src.domain.errors import OneReleaseError
 from src.domain.models import (
     Component,
     Release,
@@ -306,7 +306,7 @@ def list_principals(container: ContainerDep) -> list[Principal]:
     "/principals",
     tags=["Principals"],
     summary="Create a principal",
-    description="Creates a Settle Principal. Human principals use OIDC; service principals use PAT and are normally created by product-object workflows.",
+    description="Creates a OneRelease Principal. Human principals use OIDC; service principals use PAT and are normally created by publisher or runner workflows.",
     response_model=Principal,
     responses=WRITE_RESPONSES,
 )
@@ -418,7 +418,7 @@ def _json(value: Any) -> Any:
 def _handle(fn: Any) -> Any:
     try:
         return _json(fn())
-    except ReleaseControllerError as exc:
+    except OneReleaseError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 

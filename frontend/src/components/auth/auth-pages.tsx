@@ -31,7 +31,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-6 text-white">
       <Card className="w-full max-w-md border-white/10 bg-white text-slate-950 shadow-2xl">
         <CardHeader className="flex flex-col items-start gap-3 px-8 pt-7 pb-0">
-          <img src="/logo.png" alt="Deploy Controller" className="h-10 w-auto" />
+          <img src="/logo.png" alt="OneRelease" className="h-10 w-auto" />
         </CardHeader>
         <CardContent className="px-8 pb-8 pt-3">
           <p className="text-sm leading-6 text-slate-600">
@@ -113,7 +113,7 @@ export function ForbiddenPage() {
           <ShieldAlert className="h-9 w-9 text-amber-600" />
           <h1 className="mt-4 text-2xl font-bold">Access is not enabled</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Your OIDC login succeeded, but no active Settle Principal is registered for this issuer and subject.
+            Your OIDC login succeeded, but no active OneRelease Principal is registered for this issuer and subject.
           </p>
           {auth.error ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{auth.error}</p> : null}
           <div className="mt-5 flex gap-2">

@@ -509,7 +509,7 @@ function UserDrawer({
             <label className="block text-sm font-medium text-slate-700">
               External issuer
               <RequiredMark />
-              <Input className="mt-1" value={externalIssuer} onChange={(event) => setExternalIssuer(event.target.value)} placeholder="https://issuer.example/realms/settle" />
+              <Input className="mt-1" value={externalIssuer} onChange={(event) => setExternalIssuer(event.target.value)} placeholder="https://issuer.example/realms/onerelease" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               External subject

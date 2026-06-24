@@ -200,7 +200,7 @@ export interface paths {
         put?: never;
         /**
          * Create a principal
-         * @description Creates a Settle Principal. Human principals use OIDC; service principals use PAT and are normally created by product-object workflows.
+         * @description Creates a OneRelease Principal. Human principals use OIDC; service principals use PAT and are normally created by publisher or runner workflows.
          */
         post: operations["postPrincipal"];
         delete?: never;

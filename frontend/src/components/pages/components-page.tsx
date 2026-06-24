@@ -278,11 +278,11 @@ function ComponentDrawer({
             <label className="block text-sm font-medium text-slate-700">
               Component ID
               <RequiredMark />
-              <Input className="mt-1" value={componentId} onChange={(event) => setComponentId(event.target.value)} placeholder="Enter component ID" />
+              <Input className="mt-1" value={componentId} onChange={(event) => setComponentId(event.target.value)} placeholder="checkout-api" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Runtime type
-              <Input className="mt-1" list="component-runtime-type-options" value={type} onChange={(event) => setType(event.target.value)} placeholder="Enter runtime type" />
+              <Input className="mt-1" list="component-runtime-type-options" value={type} onChange={(event) => setType(event.target.value)} placeholder="ecs-service" />
               <datalist id="component-runtime-type-options">
                 {typeOptions.map((option) => (
                   <option key={option} value={option} />
@@ -326,5 +326,6 @@ function latestVersionsByComponent(versions: ApiVersion[]) {
 
   return latest;
 }
+
 
 

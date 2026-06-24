@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { AlertTriangle, ArrowLeft, Box, CircleSlash, Clock3, FileText, Package, Radio, RefreshCcw, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Box, CircleSlash, Clock3, FileText, Package, Radio, RefreshCcw, Server, UserRound } from "lucide-react";
 
 import { ApiErrorPanel, EmptyPanel, LoadingPanel, PageHeader } from "@/components/common/api-state";
 import { ReportedActionBadge, RequestedActionBadge, StatusBadge } from "@/components/deployments/status-badge";
@@ -90,6 +90,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
   const driftCount = execution.items.filter((item) => item.driftDetected).length;
   const failedCount = execution.items.filter((item) => item.status === "failed").length;
   const succeededCount = execution.items.filter((item) => item.status === "succeeded").length;
+  const claimedByRunners = Array.from(new Set(execution.items.map((item) => item.claimedBy).filter((value): value is string => Boolean(value))));
   const currentVersions = new Map(
     executionsQuery.data
       ?.find((candidate) => candidate.deploymentId !== execution.deploymentId)
@@ -188,7 +189,7 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
         <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
           <Card>
             <CardHeader>
-            <CardTitle>Deployment metadata</CardTitle>
+              <CardTitle>Execution metadata</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <MetaRow
@@ -211,6 +212,21 @@ function ExecutionDetailsView({ execution, onRefresh }: { execution: ApiDeployme
               />
               <MetaRow icon={UserRound} label="Requested by" value={execution.requestedBy} />
               <MetaRow icon={FileText} label="Notes" value={execution.notes ?? "None"} />
+              <MetaRow
+                icon={Server}
+                label="Claims"
+                value={
+                  claimedByRunners.length === 1 ? (
+                    <EntityLink kind="runner" to="/deployment-runners/$runnerId" params={{ runnerId: claimedByRunners[0] }}>
+                      {claimedByRunners[0]}
+                    </EntityLink>
+                  ) : claimedByRunners.length > 1 ? (
+                    "multiple runners"
+                  ) : (
+                    "unclaimed"
+                  )
+                }
+              />
               <MetaRow icon={FileText} label="Tags" value={<TagList tags={execution.tags} emptyLabel="No tags" />} />
               <MetaRow icon={Clock3} label="Started" value={formatDateTime(execution.startedAt)} />
               <MetaRow icon={Clock3} label="Completed" value={formatDateTime(execution.completedAt)} />
@@ -448,5 +464,6 @@ function VersionCell({
     </div>
   );
 }
+
 
 
