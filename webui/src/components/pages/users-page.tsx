@@ -47,7 +47,7 @@ import {
   type ApiDeployment,
   type ApiEventLogEntry,
   type ApiPrincipal,
-  type ApiVersion,
+  type ApiComponentVersion,
   type ApiRole,
 } from "@/lib/api-client";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
@@ -73,7 +73,7 @@ type UserActivity = {
 type UserDetailData = {
   principal: ApiPrincipal;
   deployments: ApiDeployment[];
-  versions: ApiVersion[];
+  versions: ApiComponentVersion[];
   releases: ApiRelease[];
   events: ApiEventLogEntry[];
   roles: ApiRole[];
@@ -634,7 +634,7 @@ function UserDetailSwitcherContent({
   activities: UserActivity[];
   events: ApiEventLogEntry[];
   deployments: ApiDeployment[];
-  versions: ApiVersion[];
+  versions: ApiComponentVersion[];
   releases: ApiRelease[];
 }) {
   if (view === "deployments") {
@@ -764,7 +764,7 @@ function UserDeploymentsPanel({ deployments }: { deployments: ApiDeployment[] })
   );
 }
 
-function UserVersionsPanel({ versions }: { versions: ApiVersion[] }) {
+function UserVersionsPanel({ versions }: { versions: ApiComponentVersion[] }) {
   if (!versions.length) {
     return <EmptyCardMessage>No versions found.</EmptyCardMessage>;
   }
@@ -899,7 +899,7 @@ function UsersAccessPanel() {
 function buildUserActivity(
   principal: ApiPrincipal,
   deployments: ApiDeployment[],
-  versions: ApiVersion[],
+  versions: ApiComponentVersion[],
   releases: ApiRelease[],
 ) {
   const events: UserActivity[] = [
@@ -974,7 +974,6 @@ function rolesToTags(roles: string[]) {
 function normalizeDisplayRoles(roles: string[]) {
   return roles.map((role) => (role === "platform-admin" ? "admin" : role));
 }
-
 
 
 

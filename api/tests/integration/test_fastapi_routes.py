@@ -169,12 +169,12 @@ def test_fastapi_version_and_deployment_notes_round_trip() -> None:
             "notes": "Built from commit abc123 and approved by platform.",
             "artifact": {"key": "api:9.9.9", "digest": "sha256:abc123"},
             "source": {"key": "git+https://git.example.com/api.git#9.9.9", "digest": "sha256:src-abc123"},
-            "createdAt": "2026-06-16T12:00:00Z",
-            "createdBy": "ci",
         },
     )
     assert version_response.status_code == 200
     assert version_response.json()["notes"] == "Built from commit abc123 and approved by platform."
+    assert version_response.json()["createdBy"] == "user:test-admin"
+    assert version_response.json()["createdAt"]
 
     release_response = client_instance.post(
         f"{WORKSPACE}/releases",
@@ -183,11 +183,11 @@ def test_fastapi_version_and_deployment_notes_round_trip() -> None:
             "notes": "Promote api 9.9.9 while inheriting the current worker version.",
             "baseReleaseId": "2026.06.05",
             "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "9.9.9"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}],
-            "createdBy": "ci",
         },
     )
     assert release_response.status_code == 200
     assert release_response.json()["release"]["notes"] == "Promote api 9.9.9 while inheriting the current worker version."
+    assert release_response.json()["release"]["createdBy"] == "user:test-admin"
 
     deployment_response = client_instance.post(
         f"{WORKSPACE}/deployments",
@@ -235,7 +235,6 @@ def test_fastapi_live_runner_warning_is_serialized() -> None:
         json={
             "releaseId": "edge-platform",
             "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "5.7.1"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}, {"componentId": "edge-api", "version": "1.0.0"}],
-            "createdBy": "test",
         },
     )
     assert response.status_code == 200

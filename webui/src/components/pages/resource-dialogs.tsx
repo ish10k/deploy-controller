@@ -9,7 +9,7 @@ import {
   type ApiComponent,
   type ApiReleaseCreateRequest,
   type ApiEnvironment,
-  type ApiVersion,
+  type ApiComponentVersionCreateRequest,
 } from "@/lib/api-client";
 import { parseReleaseItems, parseKeyValueList } from "@/lib/form-utils";
 
@@ -38,8 +38,7 @@ export function ComponentDialog({ open, onClose, onSubmit, pending }: DialogProp
   );
 }
 
-export function VersionDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiVersion>) {
-  const { workspaceId } = useAppContext();
+export function VersionDialog({ open, onClose, onSubmit, pending }: DialogProps<ApiComponentVersionCreateRequest>) {
   const [componentId, setComponentId] = useState("");
   const [version, setVersion] = useState("");
   const [artifactKey, setArtifactKey] = useState("s3://version-artifacts/component/version.tar.gz");
@@ -51,15 +50,12 @@ export function VersionDialog({ open, onClose, onSubmit, pending }: DialogProps<
       onClose={onClose}
       onSave={() =>
         onSubmit({
-          workspaceId,
           componentId,
           version,
           description: `${componentId} ${version}`,
           notes: notes || null,
           artifact: { key: artifactKey, digest: "" },
           source: null,
-          createdAt: new Date().toISOString(),
-          createdBy: "amit.kumar",
           tags: {},
         })
       }
@@ -77,7 +73,6 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
   const [releaseId, setReleaseId] = useState("");
   const [baseEnvironmentId, setBaseEnvironmentId] = useState("");
   const [baseReleaseId, setBaseReleaseId] = useState("");
-  const [createdBy, setCreatedBy] = useState("amit.kumar");
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("track=prod");
   const [items, setItems] = useState("api=1.0.0,worker=1.0.0");
@@ -93,7 +88,6 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
           baseReleaseId: baseReleaseId || null,
           notes: notes || null,
           items: parseReleaseItems(items),
-          createdBy,
           tags: parseKeyValueList(tags),
         })
       }
@@ -104,7 +98,6 @@ export function ReleaseDialog({ open, onClose, onSubmit, pending }: DialogProps<
       <Field label="Base environment ID" value={baseEnvironmentId} onChange={setBaseEnvironmentId} />
       <Field label="Base Release ID" value={baseReleaseId} onChange={setBaseReleaseId} />
       <Field label="Items" value={items} onChange={setItems} />
-      <Field label="Created by" value={createdBy} onChange={setCreatedBy} />
       <Field label="Notes" value={notes} onChange={setNotes} />
       <Field label="Tags" value={tags} onChange={setTags} />
     </SimpleDialog>
@@ -168,7 +161,3 @@ export function Field({ label, value, onChange }: { label: string; value: string
     </label>
   );
 }
-
-
-
-

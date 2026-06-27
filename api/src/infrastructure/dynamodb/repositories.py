@@ -18,7 +18,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Version,
+    ComponentVersion,
     Publisher,
     Role,
     TagDefinition,
@@ -160,20 +160,20 @@ class DynamoReleaseRepository:
         self.table.put_item(Item=_dump(release))
 
 
-class DynamoVersionRepository:
+class DynamoComponentVersionRepository:
     def __init__(self, table_name: str) -> None:
         self.table = _table(table_name)
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> ComponentVersion | None:
         item = self.table.get_item(Key={"componentId": component_id, "version": version}).get("Item")
-        return Version.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
-    def create(self, version: Version) -> None:
-        _create(self.table, _dump(version), "attribute_not_exists(componentId) AND attribute_not_exists(version)")
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+        return ComponentVersion.model_validate(item) if item and item.get("workspaceId", "default") == workspace_id else None
+    def create(self, component_version: ComponentVersion) -> None:
+        _create(self.table, _dump(component_version), "attribute_not_exists(componentId) AND attribute_not_exists(version)")
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[ComponentVersion]:
         if component_id is None:
             items = self.table.scan().get("Items", [])
         else:
             items = self.table.query(KeyConditionExpression=Key("componentId").eq(component_id)).get("Items", [])
-        return [Version.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
+        return [ComponentVersion.model_validate(item) for item in items if item.get("workspaceId", "default") == workspace_id]
 
 
 class DynamoPublisherRepository:
@@ -454,6 +454,5 @@ class DynamoWebhookDeliveryRepository:
 
     def put(self, delivery: WebhookDelivery) -> None:
         self.table.put_item(Item=_dump(delivery))
-
 
 

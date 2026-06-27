@@ -16,7 +16,8 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Version,
+    ComponentVersion,
+    ComponentVersionCreateRequest,
     Publisher,
     PublisherCreateRequest,
     Role,
@@ -135,7 +136,7 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         if method == "GET" and len(scoped) == 3 and scoped[0] == "versions":
             return response(200, container.versions.get(scoped[1], scoped[2], workspace_id))
         if method == "POST" and scoped == ["versions"]:
-            return response(200, container.versions.create(_body(event, Version), _auth_context(event, container), workspace_id))
+            return response(200, container.versions.create(_body(event, ComponentVersionCreateRequest), _auth_context(event, container), workspace_id))
         if method == "POST" and scoped == ["releases"]:
             return response(200, container.releases.create(_body(event, ReleaseCreateRequest), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["environments"]:
@@ -198,8 +199,6 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
             return response(200, container.publishers.put(publisher, _auth_context(event, container), workspace_id))
         if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "rotate-token":
             return response(200, container.publishers.rotate_token(scoped[1], _auth_context(event, container), workspace_id))
-        if method == "POST" and len(scoped) == 3 and scoped[0] == "publishers" and scoped[2] == "versions":
-            return response(200, container.publishers.publish_version(scoped[1], _body(event, Version), _auth_context(event, container), workspace_id))
         if method == "GET" and scoped == ["deployment-runners"]:
             return response(200, container.deployment_runners.list(workspace_id))
         if method == "POST" and scoped == ["deployment-runners"]:
@@ -298,6 +297,3 @@ def route(event: dict[str, Any], container: Container) -> dict[str, Any]:
         return response(200, container.events.get(_auth_context(event, container), parts[1]))
 
     raise NotFoundError(f"Route not found: {method} {path}")
-
-
-

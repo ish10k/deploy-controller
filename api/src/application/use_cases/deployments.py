@@ -11,7 +11,7 @@ from src.application.ports import (
     EnvironmentRepository,
     EnvironmentStateRepository,
     IdGenerator,
-    VersionRepository,
+    ComponentVersionRepository,
 )
 from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
@@ -131,7 +131,7 @@ class PlanDeploymentUseCase:
         self,
         *,
         releases: ReleaseRepository,
-        versions: VersionRepository,
+        versions: ComponentVersionRepository,
         environments: EnvironmentRepository,
         executions: DeploymentRepository,
         runner_eligibility: RunnerEligibilityUseCases,

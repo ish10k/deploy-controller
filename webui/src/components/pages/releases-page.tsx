@@ -25,7 +25,7 @@ import {
   type ApiRelease,
   type ApiReleaseCreateRequest,
   type ApiEnvironmentState,
-  type ApiVersion,
+  type ApiComponentVersion,
 } from "@/lib/api-client";
 import { formatRelativeTime, tagSummary } from "@/lib/format";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
@@ -354,7 +354,7 @@ function CreateReleaseDrawer({
   releases: ApiRelease[];
   environments: { environmentId: string }[];
   environmentState: ApiEnvironmentState[];
-  versions: ApiVersion[];
+  versions: ApiComponentVersion[];
   pending: boolean;
   error: unknown;
   onClose: () => void;
@@ -369,7 +369,7 @@ function CreateReleaseDrawer({
   const releaseById = useMemo(() => new Map(releases.map((release) => [release.releaseId, release])), [releases]);
   const environmentStateById = useMemo(() => new Map(environmentState.map((state) => [state.environmentId, state])), [environmentState]);
   const versionsByComponent = useMemo(() => {
-    const grouped = new Map<string, ApiVersion[]>();
+    const grouped = new Map<string, ApiComponentVersion[]>();
 
     for (const version of versions) {
       grouped.set(version.componentId, [...(grouped.get(version.componentId) ?? []), version]);
@@ -471,7 +471,6 @@ function CreateReleaseDrawer({
       baseReleaseId: form.baseReleaseId || null,
       notes: form.notes.trim() || null,
       items: form.items.map((item) => ({ componentId: item.componentId.trim(), version: item.version.trim() })),
-      createdBy: "amit.kumar",
       tags: parsedTags,
     });
   };
@@ -755,7 +754,7 @@ function ReadonlyUnderlineValue({ value }: { value: string }) {
   );
 }
 
-function versionOptionsForComponent(componentId: string, currentVersion: string, versionsByComponent: Map<string, ApiVersion[]>) {
+function versionOptionsForComponent(componentId: string, currentVersion: string, versionsByComponent: Map<string, ApiComponentVersion[]>) {
   const versions = versionsByComponent.get(componentId)?.map((version) => version.version) ?? [];
   return Array.from(new Set([currentVersion, ...versions].filter(Boolean)));
 }
@@ -780,8 +779,6 @@ function validateForm(form: ReleaseFormState) {
 
   return errors;
 }
-
-
 
 
 

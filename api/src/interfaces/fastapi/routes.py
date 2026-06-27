@@ -25,7 +25,8 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Version,
+    ComponentVersion,
+    ComponentVersionCreateRequest,
     Publisher,
     PublisherCreateRequest,
     PublisherCreateResult,
@@ -507,23 +508,23 @@ def put_workspace_component(workspace_id: str, component_id: str, component: Com
     return _handle(lambda: container.components.put(updated, context, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=list[Version], responses=NOT_FOUND_RESPONSES)
+@router.get("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=list[ComponentVersion], responses=NOT_FOUND_RESPONSES)
 def list_workspace_versions(
     workspace_id: str,
     container: ContainerDep,
     componentId: Annotated[str | None, Query(description="Optional component ID filter.")] = None,
-) -> list[Version]:
+) -> list[ComponentVersion]:
     return _handle(lambda: container.versions.list(componentId, workspace_id))
 
 
-@router.get("/workspaces/{workspace_id}/versions/{component_id}/{version}", tags=["Versions"], response_model=Version, responses=NOT_FOUND_RESPONSES)
-def get_workspace_version(workspace_id: str, component_id: str, version: str, container: ContainerDep) -> Version:
+@router.get("/workspaces/{workspace_id}/versions/{component_id}/{version}", tags=["Versions"], response_model=ComponentVersion, responses=NOT_FOUND_RESPONSES)
+def get_workspace_version(workspace_id: str, component_id: str, version: str, container: ContainerDep) -> ComponentVersion:
     return _handle(lambda: container.versions.get(component_id, version, workspace_id))
 
 
-@router.post("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=Version, responses=WRITE_RESPONSES)
-def create_workspace_version(workspace_id: str, version: Version, context: AuthDep, container: ContainerDep) -> Version:
-    return _handle(lambda: container.versions.create(version, context, workspace_id))
+@router.post("/workspaces/{workspace_id}/versions", tags=["Versions"], response_model=ComponentVersion, responses=WRITE_RESPONSES)
+def create_workspace_version(workspace_id: str, request: ComponentVersionCreateRequest, context: AuthDep, container: ContainerDep) -> ComponentVersion:
+    return _handle(lambda: container.versions.create(request, context, workspace_id))
 
 
 @router.get("/workspaces/{workspace_id}/releases", tags=["Releases"], response_model=list[Release], responses=NOT_FOUND_RESPONSES)
@@ -739,17 +740,3 @@ def put_workspace_publisher(
 @router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/rotate-token", tags=["Publishers"], response_model=RotateTokenResult, responses=WRITE_RESPONSES)
 def rotate_workspace_publisher_token(workspace_id: str, publisher_id: str, context: AuthDep, container: ContainerDep) -> RotateTokenResult:
     return _handle(lambda: container.publishers.rotate_token(publisher_id, context, workspace_id))
-
-
-@router.post("/workspaces/{workspace_id}/publishers/{publisher_id}/versions", tags=["Publishers"], response_model=Version, responses=WRITE_RESPONSES)
-def publish_workspace_version_from_publisher(
-    workspace_id: str,
-    publisher_id: str,
-    version: Version,
-    context: AuthDep,
-    container: ContainerDep,
-) -> Version:
-    return _handle(lambda: container.publishers.publish_version(publisher_id, version, context, workspace_id))
-
-
-

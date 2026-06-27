@@ -71,7 +71,6 @@ DEFAULT_ROLES: dict[str, Role] = {
         description="Service role for external version publishers.",
         permissions=[
             Permission.VERSIONS_CREATE,
-            Permission.PUBLISHERS_PUBLISH,
         ],
         system=True,
     ),
@@ -161,6 +160,5 @@ class RoleUseCases:
                 after=updated,
             )
         return updated
-
 
 

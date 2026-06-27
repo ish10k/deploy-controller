@@ -67,7 +67,7 @@ services:
 
   onerelease-ui:
     build:
-      context: ./frontend
+      context: ./webui
     environment:
       CHOKIDAR_USEPOLLING: "true"
       VITE_API_TARGET: http://onerelease-server:8000
@@ -80,7 +80,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./webui:/app
       - onerelease-ui-node-modules:/app/node_modules
 
   package-runner:

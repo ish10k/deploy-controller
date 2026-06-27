@@ -108,7 +108,7 @@ class Artifact(ApiModel):
     )
 
 
-class Version(ApiModel):
+class ComponentVersion(ApiModel):
     workspace_id: str = Field(default=DEFAULT_WORKSPACE_ID, alias="workspaceId")
     component_id: str = Field(alias="componentId")
     version: str
@@ -121,6 +121,21 @@ class Version(ApiModel):
     )
     created_at: str = Field(alias="createdAt")
     created_by: str = Field(alias="createdBy")
+    tags: dict[str, str] = Field(default_factory=dict)
+
+
+class ComponentVersionCreateRequest(ApiModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    component_id: str = Field(alias="componentId")
+    version: str
+    description: str | None = None
+    notes: str | None = None
+    artifact: Artifact
+    source: Source | None = Field(
+        default=None,
+        description="Optional source object that produced the version.",
+    )
     tags: dict[str, str] = Field(default_factory=dict)
 
 
@@ -187,12 +202,13 @@ class ReleaseCreateItem(ApiModel):
 
 
 class ReleaseCreateRequest(ApiModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
     release_id: str = Field(alias="releaseId")
     base_environment_id: str | None = Field(default=None, alias="baseEnvironmentId")
     base_release_id: str | None = Field(default=None, alias="baseReleaseId")
     notes: str | None = None
     items: list[ReleaseCreateItem]
-    created_by: str = Field(alias="createdBy")
     tags: dict[str, str] = Field(default_factory=dict)
 
 
@@ -496,6 +512,3 @@ class DeploymentPlan(ApiModel):
     environment_id: str = Field(alias="environmentId")
     release_id: str = Field(alias="releaseId")
     items: list[DeploymentItem]
-
-
-

@@ -50,7 +50,7 @@ class Source:
 
 
 @dataclass(frozen=True)
-class Version:
+class ComponentVersion:
     component_id: str
     version: str
     artifact: Artifact
@@ -82,8 +82,23 @@ class Version:
             payload["createdBy"] = self.created_by
         return payload
 
+    def to_create_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "componentId": self.component_id,
+            "version": self.version,
+            "artifact": self.artifact.to_dict(),
+            "tags": dict(self.tags),
+        }
+        if self.description is not None:
+            payload["description"] = self.description
+        if self.notes is not None:
+            payload["notes"] = self.notes
+        if self.source is not None:
+            payload["source"] = self.source.to_dict()
+        return payload
+
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Version:
+    def from_dict(cls, data: dict[str, Any]) -> ComponentVersion:
         source = data.get("source")
         return cls(
             workspace_id=str(data.get("workspaceId", "default")),
@@ -97,6 +112,9 @@ class Version:
             created_by=_optional_str(data.get("createdBy")),
             tags=_string_map(data.get("tags")),
         )
+
+
+Version = ComponentVersion
 
 
 @dataclass(frozen=True)

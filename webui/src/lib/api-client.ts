@@ -20,7 +20,8 @@ import type {
   ApiPlanDeploymentRequest,
   ApiBootstrapState,
   ApiPrincipal,
-  ApiVersion,
+  ApiComponentVersion,
+  ApiComponentVersionCreateRequest,
   ApiPublisher,
   ApiPublisherCreateRequest,
   ApiPublisherCreateResult,
@@ -260,17 +261,17 @@ export async function putRelease(releaseId: string, release: ApiRelease) {
 
 export async function listVersions(componentId?: string) {
   const query = componentId ? `?componentId=${encodeURIComponent(componentId)}` : "";
-  return request<ApiVersion[]>(workspacePath(`/versions${query}`));
+  return request<ApiComponentVersion[]>(workspacePath(`/versions${query}`));
 }
 
 export async function getVersion(componentId: string, version: string) {
-  return request<ApiVersion>(workspacePath(`/versions/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`));
+  return request<ApiComponentVersion>(workspacePath(`/versions/${encodeURIComponent(componentId)}/${encodeURIComponent(version)}`));
 }
 
-export async function createVersion(version: ApiVersion) {
-  return request<ApiVersion>(workspacePath("/versions"), {
+export async function createVersion(componentVersion: ApiComponentVersionCreateRequest) {
+  return request<ApiComponentVersion>(workspacePath("/versions"), {
     method: "POST",
-    body: version,
+    body: componentVersion,
   });
 }
 
@@ -302,10 +303,10 @@ export async function putPublisher(publisherId: string, publisher: ApiPublisher)
   });
 }
 
-export async function publishVersionFromPublisher(publisherId: string, version: ApiVersion) {
-  return request<ApiVersion>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/versions`), {
+export async function publishVersionFromPublisher(publisherId: string, componentVersion: ApiComponentVersion) {
+  return request<ApiComponentVersion>(workspacePath(`/publishers/${encodeURIComponent(publisherId)}/versions`), {
     method: "POST",
-    body: version,
+    body: componentVersion,
   });
 }
 
@@ -554,7 +555,8 @@ export type {
   ApiOrganizationMembership,
   ApiBootstrapState,
   ApiPrincipal,
-  ApiVersion,
+  ApiComponentVersion,
+  ApiComponentVersionCreateRequest,
   ApiPublisher,
   ApiPublisherCreateRequest,
   ApiPublisherCreateResult,

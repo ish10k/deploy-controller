@@ -15,7 +15,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Version,
+    ComponentVersion,
     Publisher,
     Role,
     TagDefinition,
@@ -35,7 +35,7 @@ class MemoryRepositories:
     workspace_memberships: dict[tuple[str, str], WorkspaceMembership] = field(default_factory=dict)
     components: dict[tuple[str, str], Component] = field(default_factory=dict)
     releases: dict[tuple[str, str], Release] = field(default_factory=dict)
-    versions: dict[tuple[str, str, str], Version] = field(default_factory=dict)
+    versions: dict[tuple[str, str, str], ComponentVersion] = field(default_factory=dict)
     publishers: dict[tuple[str, str], Publisher] = field(default_factory=dict)
     environments: dict[tuple[str, str], Environment] = field(default_factory=dict)
     deployment_runners: dict[tuple[str, str], DeploymentRunner] = field(default_factory=dict)
@@ -135,17 +135,17 @@ class MemoryRepositories:
     def put_release(self, release: Release) -> None:
         self.releases[(release.workspace_id, release.release_id)] = release
 
-    def get_version(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+    def get_version(self, component_id: str, version: str, workspace_id: str = "default") -> ComponentVersion | None:
         return self.versions.get((workspace_id, component_id, version))
 
-    def create_version(self, version: Version) -> None:
-        key = (version.workspace_id, version.component_id, version.version)
+    def create_version(self, component_version: ComponentVersion) -> None:
+        key = (component_version.workspace_id, component_version.component_id, component_version.version)
         if key in self.versions:
-            raise ConflictError(f"Version already exists: {version.component_id}/{version.version}")
-        self.versions[key] = version
+            raise ConflictError(f"Version already exists: {component_version.component_id}/{component_version.version}")
+        self.versions[key] = component_version
 
-    def list_versions(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
-        values: Iterable[Version] = (item for item in self.versions.values() if item.workspace_id == workspace_id)
+    def list_versions(self, component_id: str | None = None, workspace_id: str = "default") -> list[ComponentVersion]:
+        values: Iterable[ComponentVersion] = (item for item in self.versions.values() if item.workspace_id == workspace_id)
         if component_id is not None:
             values = (item for item in values if item.component_id == component_id)
         return sorted(values, key=lambda item: (item.component_id, item.version))
@@ -453,17 +453,17 @@ class MemoryReleaseRepository:
         self.store.put_release(release)
 
 
-class MemoryVersionRepository:
+class MemoryComponentVersionRepository:
     def __init__(self, store: MemoryRepositories) -> None:
         self.store = store
 
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None:
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> ComponentVersion | None:
         return self.store.get_version(component_id, version, workspace_id)
 
-    def create(self, version: Version) -> None:
-        self.store.create_version(version)
+    def create(self, component_version: ComponentVersion) -> None:
+        self.store.create_version(component_version)
 
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[ComponentVersion]:
         return self.store.list_versions(component_id, workspace_id)
 
 
@@ -668,6 +668,5 @@ class MemoryWebhookDeliveryRepository:
 
     def put(self, delivery: WebhookDelivery) -> None:
         self.store.put_webhook_delivery(delivery)
-
 
 

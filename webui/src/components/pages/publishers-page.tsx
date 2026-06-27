@@ -31,7 +31,7 @@ import {
   queryKeys,
   rotatePublisherToken,
   type ApiComponent,
-  type ApiVersion,
+  type ApiComponentVersion,
   type ApiPublisher,
   type ApiPublisherCreateRequest,
   type ApiRotateTokenResult,
@@ -226,7 +226,7 @@ function PublisherDetailsView({
 }: {
   publisher: ApiPublisher;
   components: ApiComponent[];
-  versions: ApiVersion[];
+  versions: ApiComponentVersion[];
   onInvalidate: () => Promise<void>;
   onRefresh: () => Promise<unknown>;
 }) {
@@ -629,7 +629,7 @@ function CheckboxGroup({
     <div>
       <div className="mb-2 text-sm font-semibold text-slate-800">{title}</div>
       {values.length ? (
-        <div className="max-h-52 space-y-2 overflow-y-auto rounded-lg bg-slate-50 p-3">
+        <div className="max-h-52 space-y-2 overflow-y-auto p-3">
           {values.map((value) => (
             <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
               <input
@@ -727,6 +727,5 @@ function recordToDrafts(record: Record<string, string>) {
   const drafts = Object.entries(record).map(([key, value]) => createTagDraft(key, value));
   return drafts.length ? [...drafts, createTagDraft()] : [createTagDraft()];
 }
-
 
 

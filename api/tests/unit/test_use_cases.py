@@ -15,7 +15,7 @@ from src.domain.models import (
     Release,
     Environment,
     Principal,
-    Version,
+    ComponentVersion,
     Role,
 )
 from src.infrastructure.memory.repositories import MemoryRepositories
@@ -39,9 +39,9 @@ def admin_context() -> AuthContext:
     )
 
 
-def version(component_id: str, version: str, sha: str) -> Version:
+def version(component_id: str, version: str, sha: str) -> ComponentVersion:
     source_sha = f"src-{sha}" if not sha.startswith("src-") else sha
-    return Version(
+    return ComponentVersion(
         componentId=component_id,
         version=version,
         artifact=artifact(component_id, version, sha),
@@ -106,9 +106,10 @@ def test_version_create_is_idempotent_for_same_content() -> None:
     store = MemoryRepositories()
     container = build_memory_container(store)
     item = version("api", "1.0.0", "sha-a")
-    expected = item.model_copy(update={"created_by": admin_context().principal_id})
-    container.versions.create(item, admin_context())
-    assert container.versions.create(item, admin_context()) == expected
+    created = container.versions.create(item, admin_context())
+    assert created.created_by == admin_context().principal_id
+    assert created.created_at
+    assert container.versions.create(item, admin_context()) == created
 
 
 def test_cannot_disable_last_active_admin_user() -> None:
@@ -184,7 +185,6 @@ def test_release_create_expands_partial_request_from_base_release() -> None:
             "baseReleaseId": "platform",
             "notes": "Promote API v2 while inheriting the current worker version.",
             "items": [{"componentId": "api", "version": "2.0.0"}],
-            "createdBy": "ishina",
         },
         admin_context(),
     )
@@ -194,6 +194,7 @@ def test_release_create_expands_partial_request_from_base_release() -> None:
     assert result.release.items[1].version == "1.0.0"
     assert result.release.items[1].source == "inferred"
     assert result.release.notes == "Promote API v2 while inheriting the current worker version."
+    assert result.release.created_by == "user:test-admin"
     assert result.warnings
 
 

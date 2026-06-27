@@ -32,7 +32,7 @@ class OneReleaseClient:
 
         return DeploymentRunnerClient(self, runner_id)
 
-    def publisher(self, publisher_id: str) -> "PublisherClient":
+    def publisher(self, publisher_id: str = "") -> "PublisherClient":
         from onerelease_sdk.publisher import PublisherClient
 
         return PublisherClient(self, publisher_id)

@@ -5,7 +5,7 @@ from src.application.ports import (
     DeploymentRepository,
     EnvironmentRepository,
     EnvironmentStateRepository,
-    VersionRepository,
+    ComponentVersionRepository,
     PublisherRepository,
     TagDefinitionRepository,
 )
@@ -13,7 +13,7 @@ from src.application.use_cases.authorization import require_permission
 from src.application.use_cases.events import EventLogUseCases
 from src.application.use_cases.deployments import RunnerEligibilityUseCases
 from src.domain.enums import ReleaseItemSource, ExecutionStatus, ItemStatus, Permission, RequestedAction, TagResourceType
-from src.domain.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from src.domain.errors import ConflictError, NotFoundError, ValidationError
 from src.domain.models import (
     Component,
     Release,
@@ -24,7 +24,8 @@ from src.domain.models import (
     Environment,
     EnvironmentState,
     AuthContext,
-    Version,
+    ComponentVersion,
+    ComponentVersionCreateRequest,
     Publisher,
     PublisherCreateRequest,
     PublisherCreateResult,
@@ -107,42 +108,68 @@ class ReleaseUseCases:
         return self.releases.list(workspace_id)
 
 
-class VersionUseCases:
-    def __init__(self, versions: VersionRepository, events: EventLogUseCases | None = None) -> None:
+class ComponentVersionUseCases:
+    def __init__(self, versions: ComponentVersionRepository, clock: Clock, events: EventLogUseCases | None = None) -> None:
         self.versions = versions
+        self.clock = clock
         self.events = events
 
-    def create(self, version: Version, context: AuthContext, workspace_id: str = "default") -> Version:
+    def create(self, request: ComponentVersion | ComponentVersionCreateRequest | dict[str, object], context: AuthContext, workspace_id: str = "default") -> ComponentVersion:
         require_permission(context, Permission.VERSIONS_CREATE)
-        version = version.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
-        existing = self.versions.get(version.component_id, version.version, workspace_id)
+        if isinstance(request, dict):
+            request = ComponentVersionCreateRequest.model_validate(request)
+        if isinstance(request, ComponentVersion):
+            create_request = ComponentVersionCreateRequest(
+                componentId=request.component_id,
+                version=request.version,
+                description=request.description,
+                notes=request.notes,
+                artifact=request.artifact,
+                source=request.source,
+                tags=request.tags,
+            )
+        else:
+            create_request = request
+        existing = self.versions.get(create_request.component_id, create_request.version, workspace_id)
+        component_version = ComponentVersion(
+            workspaceId=workspace_id,
+            componentId=create_request.component_id,
+            version=create_request.version,
+            description=create_request.description,
+            notes=create_request.notes,
+            artifact=create_request.artifact,
+            source=create_request.source,
+            createdAt=existing.created_at if existing is not None else self.clock.now(),
+            createdBy=context.principal_id,
+            tags=create_request.tags,
+        )
         if existing is not None:
-            if _same(existing, version):
+            if _same(existing, component_version):
                 return existing
             raise ConflictError(
-                f"Version already exists with different content: {version.component_id}/{version.version}"
+                f"Version already exists with different content: {component_version.component_id}/{component_version.version}"
             )
-        self.versions.create(version)
+        self.versions.create(component_version)
         if self.events:
             self.events.append_actor(
-                actor_principal_id=version.created_by,
+                actor_principal_id=component_version.created_by,
                 action="version.created",
                 category="version",
-                summary=f"Created version {version.component_id} {version.version}",
+                summary=f"Created version {component_version.component_id} {component_version.version}",
                 resource_type="version",
-                resource_id=f"{version.component_id}:{version.version}",
-                after=version,
-                metadata={"componentId": version.component_id, "version": version.version},
+                resource_id=f"{component_version.component_id}:{component_version.version}",
+                after=component_version,
+                metadata={"componentId": component_version.component_id, "version": component_version.version},
             )
-        return version
+        return component_version
 
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version:
-        version = self.versions.get(component_id, version, workspace_id)
-        if version is None:
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> ComponentVersion:
+        component_version = self.versions.get(component_id, version, workspace_id)
+        if component_version is None:
             raise NotFoundError(f"Version not found: {component_id}/{version}")
-        return version
+        return component_version
 
-    def list(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]:
+    def list(self, component_id: str | None = None, workspace_id: str = "default") -> list[ComponentVersion]:
         return self.versions.list_by_component(component_id, workspace_id)
 
 
@@ -151,15 +178,11 @@ class PublisherUseCases:
         self,
         *,
         publishers: PublisherRepository,
-        versions: VersionRepository,
-        releases: ReleaseRepository,
         clock: Clock,
         principals: PrincipalUseCases,
         events: EventLogUseCases | None = None,
     ) -> None:
         self.publishers = publishers
-        self.versions = versions
-        self.releases = releases
         self.clock = clock
         self.principals = principals
         self.events = events
@@ -266,54 +289,13 @@ class PublisherUseCases:
             )
         return RotateTokenResult(token=token)
 
-    def publish_version(self, publisher_id: str, version: Version, context: AuthContext, workspace_id: str = "default") -> Version:
-        require_permission(context, Permission.PUBLISHERS_PUBLISH)
-        publisher = self.get(publisher_id, workspace_id)
-        if context.principal_id.startswith("service:") and context.principal_id != publisher.principal_id:
-            raise ForbiddenError(f"Publisher token cannot publish for another publisher: {publisher_id}")
-        if not publisher.active:
-            raise ValidationError(f"Publisher is inactive: {publisher_id}")
-        if not self._allows_component(publisher, version.component_id):
-            raise ValidationError(f"Publisher scope does not allow component: {version.component_id}")
-
-        version = version.model_copy(update={"workspace_id": workspace_id, "created_by": context.principal_id})
-        existing = self.versions.get(version.component_id, version.version, workspace_id)
-        if existing is not None:
-            if _same(existing, version):
-                return existing
-            raise ConflictError(
-                f"Version already exists with different content: {version.component_id}/{version.version}"
-            )
-        self.versions.create(version)
-        if self.events:
-            self.events.append_actor(
-                actor_principal_id=context.principal_id,
-                action="version.published",
-                category="version",
-                summary=f"Published version {version.component_id} {version.version} from {publisher_id}",
-                resource_type="version",
-                resource_id=f"{version.component_id}:{version.version}",
-                after=version,
-                metadata={"publisherId": publisher_id, "componentId": version.component_id, "version": version.version},
-            )
-        return version
-
-    def _allows_component(self, publisher: Publisher, component_id: str) -> bool:
-        scope = publisher.scope
-        if not scope.component_ids:
-            return True
-        if component_id in scope.component_ids:
-            return True
-        return False
-
-
 class ReleaseUseCases:
     def __init__(
         self,
         *,
         releases: ReleaseRepository,
         components: ComponentRepository,
-        versions: VersionRepository,
+        versions: ComponentVersionRepository,
         executions: DeploymentRepository,
         clock: Clock,
         events: EventLogUseCases | None = None,
@@ -329,11 +311,9 @@ class ReleaseUseCases:
         require_permission(context, Permission.RELEASES_CREATE)
         if isinstance(request, dict):
             request = ReleaseCreateRequest.model_validate(request)
-        if isinstance(request, ReleaseCreateRequest):
-            request = request.model_copy(update={"created_by": context.principal_id})
         if isinstance(request, Release):
             request = request.model_copy(update={"created_by": context.principal_id})
-        release, warnings = self._expand(request, workspace_id)
+        release, warnings = self._expand(request, workspace_id, context.principal_id)
         existing = self.releases.get(release.release_id, workspace_id)
         if existing is not None:
             if _same(existing, release):
@@ -353,7 +333,7 @@ class ReleaseUseCases:
             )
         return ReleaseCreateResult(release=release, warnings=warnings)
 
-    def _expand(self, request: Release | ReleaseCreateRequest, workspace_id: str) -> tuple[Release, list[str]]:
+    def _expand(self, request: Release | ReleaseCreateRequest, workspace_id: str, created_by: str) -> tuple[Release, list[str]]:
         if isinstance(request, Release):
             request = request.model_copy(update={"workspace_id": workspace_id})
             self._validate_complete(request, workspace_id)
@@ -415,7 +395,7 @@ class ReleaseUseCases:
                 base_release_id=request.base_release_id,
                 items=items,
                 created_at=self.clock.now(),
-                created_by=request.created_by,
+                created_by=created_by,
                 tags=request.tags,
             ),
             warnings,
@@ -560,6 +540,3 @@ class ReadOnlyUseCases:
 
     def list_pending_deployment_executions(self, workspace_id: str = "default") -> list[Deployment]:
         return self.executions.list_pending(workspace_id)
-
-
-

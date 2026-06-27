@@ -110,7 +110,6 @@ class Permission(StrEnum):
     EXECUTIONS_REPORT_STATUS = "executions:report_status"
     DEPLOYMENT_RUNNERS_WRITE = "deployment_runners:write"
     PUBLISHERS_WRITE = "publishers:write"
-    PUBLISHERS_PUBLISH = "publishers:publish"
     PRINCIPALS_READ = "principals:read"
     PRINCIPALS_WRITE = "principals:write"
     ROLES_READ = "roles:read"
@@ -145,6 +144,5 @@ class DriftReason(StrEnum):
     SAME_VERSION_REDEPLOYED = "same_version_redeployed"
     SAME_VERSION_TARGET_MISSING = "same_version_target_missing"
     SAME_VERSION_ARTIFACT_MISMATCH = "same_version_artifact_mismatch"
-
 
 

@@ -14,8 +14,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraft } from "@/components/ui/tags-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
-import { useAppContext } from "@/lib/app-context";
-import { createVersion, listComponents, listVersions, queryKeys, type ApiVersion } from "@/lib/api-client";
+import { createVersion, listComponents, listVersions, queryKeys, type ApiComponentVersion, type ApiComponentVersionCreateRequest } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 export function VersionsPage({
@@ -176,7 +175,7 @@ export function VersionsPage({
   );
 }
 
-function VersionsTableContent({ rows }: { rows: ApiVersion[] }) {
+function VersionsTableContent({ rows }: { rows: ApiComponentVersion[] }) {
   return (
     <>
                 <TableHeader>
@@ -229,16 +228,15 @@ export function VersionDrawer({
   lockComponent = false,
 }: {
   componentOptions: string[];
-  latestVersionByComponent: Map<string, ApiVersion>;
+  latestVersionByComponent: Map<string, ApiComponentVersion>;
   open: boolean;
   onClose: () => void;
-  onSubmit: (version: ApiVersion) => void;
+  onSubmit: (version: ApiComponentVersionCreateRequest) => void;
   pending: boolean;
   onCreateComponent?: () => void;
   initialComponentId?: string;
   lockComponent?: boolean;
 }) {
-  const { workspaceId } = useAppContext();
   const [componentId, setComponentId] = useState(initialComponentId);
   const [version, setVersion] = useState("");
   const [artifactKey, setArtifactKey] = useState("");
@@ -267,15 +265,12 @@ export function VersionDrawer({
     }
 
     onSubmit({
-      workspaceId,
       componentId: trimmedComponentId,
       version: trimmedVersion,
       description: `${trimmedComponentId} ${trimmedVersion}`,
       artifact: { key: trimmedArtifactKey, digest: artifactDigest.trim() || "" },
       source: null,
       notes: notes.trim() || null,
-      createdAt: new Date().toISOString(),
-      createdBy: "amit.kumar",
       tags: tagsToRecord(tags),
     });
   };
@@ -372,8 +367,8 @@ export function VersionDrawer({
   );
 }
 
-function latestVersionsByComponent(versions: ApiVersion[]) {
-  const latest = new Map<string, ApiVersion>();
+function latestVersionsByComponent(versions: ApiComponentVersion[]) {
+  const latest = new Map<string, ApiComponentVersion>();
 
   for (const version of versions) {
     const current = latest.get(version.componentId);
@@ -384,7 +379,4 @@ function latestVersionsByComponent(versions: ApiVersion[]) {
 
   return latest;
 }
-
-
-
 

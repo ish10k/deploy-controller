@@ -10,7 +10,6 @@ import { Modal } from "@/components/ui/modal";
 
 const schema = z.object({
   releaseId: z.string().min(3),
-  createdBy: z.string().min(2),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -29,7 +28,6 @@ export function CreateReleaseDialog({ open, onClose }: Props) {
     resolver: zodResolver(schema),
     defaultValues: {
       releaseId: "webstack-prod-v6",
-      createdBy: "amit.kumar",
     },
   });
 
@@ -43,9 +41,6 @@ export function CreateReleaseDialog({ open, onClose }: Props) {
       >
         <Field label="Release ID" error={errors.releaseId?.message}>
           <Input {...register("releaseId")} />
-        </Field>
-        <Field label="Created by" error={errors.createdBy?.message}>
-          <Input {...register("createdBy")} />
         </Field>
         <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -70,6 +65,5 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     </label>
   );
 }
-
 
 

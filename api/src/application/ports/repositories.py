@@ -12,7 +12,7 @@ from src.domain.models import (
     Organization,
     OrganizationMembership,
     Principal,
-    Version,
+    ComponentVersion,
     Publisher,
     Role,
     TagDefinition,
@@ -66,10 +66,10 @@ class ReleaseRepository(Protocol):
     def create(self, release: Release) -> None: ...
 
 
-class VersionRepository(Protocol):
-    def get(self, component_id: str, version: str, workspace_id: str = "default") -> Version | None: ...
-    def create(self, version: Version) -> None: ...
-    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[Version]: ...
+class ComponentVersionRepository(Protocol):
+    def get(self, component_id: str, version: str, workspace_id: str = "default") -> ComponentVersion | None: ...
+    def create(self, component_version: ComponentVersion) -> None: ...
+    def list_by_component(self, component_id: str | None = None, workspace_id: str = "default") -> list[ComponentVersion]: ...
 
 
 class PublisherRepository(Protocol):
@@ -169,6 +169,5 @@ class Clock(Protocol):
 
 class IdGenerator(Protocol):
     def new_id(self) -> str: ...
-
 
 

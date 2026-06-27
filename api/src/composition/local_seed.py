@@ -24,7 +24,7 @@ from src.domain.models import (
     EnvironmentState,
     Organization,
     Principal,
-    Version,
+    ComponentVersion,
     Publisher,
     PublisherScope,
     Source,
@@ -70,8 +70,8 @@ def _source(component_id: str, version: str) -> Source:
     )
 
 
-def _version(component_id: str, version: str, *, created_at: str, created_by: str) -> Version:
-    return Version(
+def _version(component_id: str, version: str, *, created_at: str, created_by: str) -> ComponentVersion:
+    return ComponentVersion(
         component_id=component_id,
         version=version,
         description=f"{component_id} version {version}",
@@ -359,7 +359,7 @@ def seed_local_data(store: MemoryRepositories) -> None:
             subscriptions=[
                 WebhookSubscription(
                     subscription_id="sub-platform-versions",
-                    event_types=["version.created", "version.published"],
+                    event_types=["version.created"],
                     filters=WebhookFilter(resource_types=["version"], categories=["registry"]),
                 ),
                 WebhookSubscription(
@@ -1085,8 +1085,6 @@ def seed_local_data(store: MemoryRepositories) -> None:
             updated_at="2026-06-18T09:15:00Z",
         ),
     )
-
-
 
 
 

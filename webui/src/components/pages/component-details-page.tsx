@@ -12,7 +12,7 @@ import { TagList } from "@/components/ui/tag-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
-import { createVersion, getComponent, listVersions, queryKeys, type ApiComponent, type ApiVersion } from "@/lib/api-client";
+import { createVersion, getComponent, listVersions, queryKeys, type ApiComponent, type ApiComponentVersion } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/format";
 
 export function ComponentDetailsPage({ componentId }: { componentId: string }) {
@@ -34,13 +34,13 @@ export function ComponentDetailsPage({ componentId }: { componentId: string }) {
   return <ComponentDetailsView component={query.data.component} versions={query.data.versions} onRefresh={() => query.refetch()} />;
 }
 
-function ComponentDetailsView({ component, versions, onRefresh }: { component: ApiComponent; versions: ApiVersion[]; onRefresh: () => Promise<unknown> }) {
+function ComponentDetailsView({ component, versions, onRefresh }: { component: ApiComponent; versions: ApiComponentVersion[]; onRefresh: () => Promise<unknown> }) {
   const queryClient = useQueryClient();
   const navigate = useWorkspaceNavigate();
   const [versionOpen, setVersionOpen] = useState(false);
   const latestVersion = versions[0];
   const latestVersionByComponent = useMemo(() => {
-    const latest = new Map<string, ApiVersion>();
+    const latest = new Map<string, ApiComponentVersion>();
     if (latestVersion) {
       latest.set(component.componentId, latestVersion);
     }
@@ -234,5 +234,4 @@ function MetaRow({ icon: Icon, label, value, multiline = false }: { icon: typeof
     </div>
   );
 }
-
 

@@ -11,7 +11,7 @@ import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TagList } from "@/components/ui/tag-list";
 import { WorkspaceLink as Link } from "@/components/ui/workspace-link";
-import { getVersion, listDeployments, type ApiVersion } from "@/lib/api-client";
+import { getVersion, listDeployments, type ApiComponentVersion } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 
 export function VersionDetailsPage({ componentId, version }: { componentId: string; version: string }) {
@@ -27,7 +27,7 @@ export function VersionDetailsPage({ componentId, version }: { componentId: stri
   return <VersionDetailsView version={query.data} onRefresh={() => query.refetch()} />;
 }
 
-function VersionDetailsView({ version, onRefresh }: { version: ApiVersion; onRefresh: () => Promise<unknown> }) {
+function VersionDetailsView({ version, onRefresh }: { version: ApiComponentVersion; onRefresh: () => Promise<unknown> }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const deploymentsQuery = useQuery({
@@ -287,6 +287,5 @@ function CopyableMetaRow({
     </div>
   );
 }
-
 
 

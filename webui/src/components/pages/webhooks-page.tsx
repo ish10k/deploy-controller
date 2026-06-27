@@ -40,7 +40,7 @@ import { canManageWebhooks, canRetryWebhookDeliveries, canViewWebhookDeliveries,
 
 const EVENT_GROUPS = [
   { label: "Components", events: ["component.created", "component.updated", "release.created", "release.updated"] },
-  { label: "Versions", events: ["version.created", "version.published", "publisher.created", "publisher.updated", "publisher.token_rotated"] },
+  { label: "Versions", events: ["version.created", "publisher.created", "publisher.updated", "publisher.token_rotated"] },
   { label: "Deployments", events: ["release.created", "deployment.created", "deployment.claimed", "deployment.status_changed", "deployment_item.status_changed"] },
   { label: "Runtime", events: ["environment.created", "environment.updated", "environment_state.updated", "deployment_runner.created", "deployment_runner.updated", "deployment_runner.heartbeat", "deployment_runner.token_rotated"] },
   { label: "Governance", events: ["principal.created", "principal.updated", "principal.roles_changed", "principal.login", "role.created", "role.updated", "webhook.created", "webhook.updated", "eventlog.created"] },
@@ -581,6 +581,5 @@ function deliveryHealth(deliveries: ApiWebhookDelivery[]) {
   if (failed) return `${failed} failed / ${deliveries.length} total`;
   return `${deliveries.length} delivered`;
 }
-
 
 

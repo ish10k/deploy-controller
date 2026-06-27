@@ -19,7 +19,7 @@ from src.application.ports.repositories import (
     WorkspaceRepository,
     WebhookDeliveryRepository,
     WebhookRepository,
-    VersionRepository,
+    ComponentVersionRepository,
     PublisherRepository,
 )
 
@@ -44,9 +44,8 @@ __all__ = [
     "WorkspaceRepository",
     "WebhookDeliveryRepository",
     "WebhookRepository",
-    "VersionRepository",
+    "ComponentVersionRepository",
     "PublisherRepository",
 ]
-
 
 

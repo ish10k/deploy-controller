@@ -6,7 +6,7 @@ from src.application.use_cases.registry import (
     ComponentUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
-    VersionUseCases,
+    ComponentVersionUseCases,
     PublisherUseCases,
     TagDefinitionUseCases,
 )
@@ -21,7 +21,7 @@ from src.application.use_cases.webhooks import WebhookUseCases
 class Container:
     components: ComponentUseCases
     releases: ReleaseUseCases
-    versions: VersionUseCases
+    versions: ComponentVersionUseCases
     publishers: PublisherUseCases
     environments: EnvironmentUseCases
     tag_definitions: TagDefinitionUseCases
@@ -35,6 +35,5 @@ class Container:
     workspaces: WorkspaceUseCases
     events: EventLogUseCases
     webhooks: WebhookUseCases
-
 
 

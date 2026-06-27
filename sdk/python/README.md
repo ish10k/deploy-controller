@@ -47,10 +47,10 @@ For a complete runnable example that uses this SDK inside a custom package, see 
 ## Publisher
 
 ```python
-from onerelease_sdk import Artifact, Version, OneReleaseClient
+from onerelease_sdk import Artifact, OneReleaseClient
 
 client = OneReleaseClient("http://localhost:8000", token="onerelease_pat_...")
-publisher = client.publisher("platform-ci")
+publisher = client.publisher()
 
 version = publisher.publish(
     component_id="api",
@@ -66,4 +66,3 @@ print(version.component_id, version.version)
 ## Notes
 
 The runner SDK reports component statuses. Job status is derived by the control plane from claim state and component status reports. Cancellation is a control-plane action today, so the SDK exposes `cancel` as an explicit unsupported operation rather than pretending the runner can report it.
-

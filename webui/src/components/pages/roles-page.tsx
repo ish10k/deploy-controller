@@ -39,7 +39,6 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
   "executions:report_status",
   "deployment_runners:write",
   "publishers:write",
-  "publishers:publish",
   "principals:read",
   "principals:write",
   "roles:read",
@@ -392,7 +391,6 @@ function RolesAccessPanel() {
     </>
   );
 }
-
 
 
 

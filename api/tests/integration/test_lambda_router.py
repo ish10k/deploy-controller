@@ -82,15 +82,16 @@ def test_lambda_deployment_notes_round_trip() -> None:
                 "notes": "Lambda router version note coverage.",
                 "artifact": {"key": "api:9.9.9", "digest": "sha256:abc123"},
                 "source": {"key": "git+https://git.example.com/api.git#9.9.9", "digest": "sha256:src-abc123"},
-                "createdAt": "2026-06-16T12:00:00Z",
-                "createdBy": "ci",
             },
             authenticated=True,
         ),
         container,
     )
     assert version_response["statusCode"] == 200
-    assert json.loads(version_response["body"])["notes"] == "Lambda router version note coverage."
+    version_body = json.loads(version_response["body"])
+    assert version_body["notes"] == "Lambda router version note coverage."
+    assert version_body["createdBy"] == "user:test-admin"
+    assert version_body["createdAt"]
 
     response = route(
         event(
@@ -153,7 +154,6 @@ def test_lambda_live_runner_warning_is_serialized() -> None:
             {
                 "releaseId": "edge-platform",
                 "items": [{"componentId": "web", "version": "3.19.0"}, {"componentId": "api", "version": "5.7.1"}, {"componentId": "worker", "version": "5.7.0"}, {"componentId": "auth", "version": "2.15.0"}, {"componentId": "postgres", "version": "14.11.0"}, {"componentId": "redis", "version": "7.0.12"}, {"componentId": "edge-api", "version": "1.0.0"}],
-                "createdBy": "test",
             },
             authenticated=True,
         ),
@@ -202,8 +202,5 @@ def test_lambda_runner_items_include_historical_and_current_work() -> None:
     items = json.loads(response["body"])
     assert any(item["status"] == "succeeded" for item in items)
     assert any(item["status"] == "pending" for item in items)
-
-
-
 
 

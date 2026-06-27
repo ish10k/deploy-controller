@@ -14,7 +14,7 @@ import { TagsCard, createTagDraft, tagsToRecord, validateTagDrafts, type TagDraf
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate";
 import { useAppContext } from "@/lib/app-context";
-import { listComponents, listVersions, putComponent, queryKeys, type ApiComponent, type ApiVersion } from "@/lib/api-client";
+import { listComponents, listVersions, putComponent, queryKeys, type ApiComponent, type ApiComponentVersion } from "@/lib/api-client";
 import { tagSummary } from "@/lib/format";
 import { Plus, Search } from "lucide-react";
 
@@ -161,7 +161,7 @@ export function ComponentsPage({
   );
 }
 
-function ComponentsTableContent({ rows, latestVersionByComponent }: { rows: ApiComponent[]; latestVersionByComponent: Map<string, ApiVersion> }) {
+function ComponentsTableContent({ rows, latestVersionByComponent }: { rows: ApiComponent[]; latestVersionByComponent: Map<string, ApiComponentVersion> }) {
   return (
     <>
               <TableHeader>
@@ -314,8 +314,8 @@ function ComponentDrawer({
   );
 }
 
-function latestVersionsByComponent(versions: ApiVersion[]) {
-  const latest = new Map<string, ApiVersion>();
+function latestVersionsByComponent(versions: ApiComponentVersion[]) {
+  const latest = new Map<string, ApiComponentVersion>();
 
   for (const version of versions) {
     const current = latest.get(version.componentId);
@@ -326,6 +326,5 @@ function latestVersionsByComponent(versions: ApiVersion[]) {
 
   return latest;
 }
-
 
 

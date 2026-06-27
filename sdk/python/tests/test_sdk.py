@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from onerelease_sdk import Artifact, DeployJob, DeploymentRunnerClient, PublisherClient, Version
+from onerelease_sdk import Artifact, ComponentVersion, DeployJob, DeploymentRunnerClient, PublisherClient
 
 
 class FakeClient:
@@ -26,6 +26,7 @@ class FakeClient:
             assert isinstance(body, dict)
             return {
                 **body,
+                "workspaceId": self.workspace_id,
                 "createdAt": "2026-06-19T10:00:00Z",
                 "createdBy": "service:publisher:ci",
             }
@@ -48,7 +49,7 @@ class SdkTests(unittest.TestCase):
 
         self.assertEqual(
             version,
-            Version(
+            ComponentVersion(
                 workspace_id="ws-1",
                 component_id="api",
                 version="1.2.3",
@@ -63,9 +64,8 @@ class SdkTests(unittest.TestCase):
             [
                 (
                     "POST",
-                    "/workspaces/ws-1/publishers/platform-ci/versions",
+                    "/workspaces/ws-1/versions",
                     {
-                        "workspaceId": "ws-1",
                         "componentId": "api",
                         "version": "1.2.3",
                         "artifact": {"key": "s3://bucket/api.tgz", "digest": "sha256:abc"},
@@ -149,5 +149,3 @@ def _component(*, status: str = "pending", claimed_by: str | None = None) -> dic
 
 if __name__ == "__main__":
     unittest.main()
-
-

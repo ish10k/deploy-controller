@@ -863,23 +863,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspace_id}/publishers/{publisher_id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Publish Workspace Version From Publisher */
-        post: operations["publishWorkspaceVersionFromPublisher"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1401,7 +1384,7 @@ export interface components {
          * Permission
          * @enum {string}
          */
-        Permission: "organizations:read" | "organizations:write" | "workspaces:read" | "workspaces:write" | "workspaces:create" | "organization_memberships:read" | "organization_memberships:write" | "workspace_memberships:read" | "workspace_memberships:write" | "components:read" | "components:write" | "releases:read" | "releases:write" | "releases:create" | "versions:read" | "versions:create" | "environments:read" | "environments:write" | "deployments:read" | "deployments:create" | "deployments:cancel" | "executions:claim" | "executions:report_status" | "deployment_runners:write" | "publishers:write" | "publishers:publish" | "principals:read" | "principals:write" | "roles:read" | "roles:write" | "webhooks:read" | "webhooks:write" | "webhook_deliveries:read" | "webhook_deliveries:retry" | "events:read" | "tag_definitions:read";
+        Permission: "organizations:read" | "organizations:write" | "workspaces:read" | "workspaces:write" | "workspaces:create" | "organization_memberships:read" | "organization_memberships:write" | "workspace_memberships:read" | "workspace_memberships:write" | "components:read" | "components:write" | "releases:read" | "releases:write" | "releases:create" | "versions:read" | "versions:create" | "environments:read" | "environments:write" | "deployments:read" | "deployments:create" | "deployments:cancel" | "executions:claim" | "executions:report_status" | "deployment_runners:write" | "publishers:write" | "principals:read" | "principals:write" | "roles:read" | "roles:write" | "webhooks:read" | "webhooks:write" | "webhook_deliveries:read" | "webhook_deliveries:retry" | "events:read" | "tag_definitions:read";
         /** PlanDeploymentRequest */
         PlanDeploymentRequest: {
             /**
@@ -1534,8 +1517,8 @@ export interface components {
             /** Componentids */
             componentIds?: string[];
         };
-        /** Version */
-        Version: {
+        /** ComponentVersion */
+        ComponentVersion: {
             /**
              * Workspaceid
              * @default default
@@ -1556,6 +1539,24 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy: string;
+            /** Tags */
+            tags?: {
+                [key: string]: string;
+            };
+        };
+        /** ComponentVersionCreateRequest */
+        ComponentVersionCreateRequest: {
+            /** Componentid */
+            componentId: string;
+            /** Version */
+            version: string;
+            /** Description */
+            description?: string | null;
+            /** Notes */
+            notes?: string | null;
+            artifact: components["schemas"]["Artifact"];
+            /** @description Optional source object that produced the version. */
+            source?: components["schemas"]["Source"] | null;
             /** Tags */
             tags?: {
                 [key: string]: string;
@@ -1610,8 +1611,6 @@ export interface components {
             notes?: string | null;
             /** Items */
             items: components["schemas"]["ReleaseCreateItem"][];
-            /** Createdby */
-            createdBy: string;
             /** Tags */
             tags?: {
                 [key: string]: string;
@@ -3835,7 +3834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Version"][];
+                    "application/json": components["schemas"]["ComponentVersion"][];
                 };
             };
             /** @description Resource not found */
@@ -3871,7 +3870,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Version"];
+                "application/json": components["schemas"]["ComponentVersionCreateRequest"];
             };
         };
         responses: {
@@ -3881,7 +3880,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Version"];
+                    "application/json": components["schemas"]["ComponentVersion"];
                 };
             };
             /** @description Validation error */
@@ -3941,7 +3940,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Version"];
+                    "application/json": components["schemas"]["ComponentVersion"];
                 };
             };
             /** @description Resource not found */
@@ -5513,71 +5512,6 @@ export interface operations {
             };
         };
     };
-    publishWorkspaceVersionFromPublisher: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                workspace_id: string;
-                publisher_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Version"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Version"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
 }
 
 export type ApiComponent = components["schemas"]["Component"];
@@ -5603,7 +5537,8 @@ export type ApiOrganizationMembership = components["schemas"]["OrganizationMembe
 export type ApiPlanDeploymentRequest = components["schemas"]["PlanDeploymentRequest"];
 export type ApiBootstrapState = components["schemas"]["BootstrapState"];
 export type ApiPrincipal = components["schemas"]["Principal"];
-export type ApiVersion = components["schemas"]["Version"];
+export type ApiComponentVersion = components["schemas"]["ComponentVersion"];
+export type ApiComponentVersionCreateRequest = components["schemas"]["ComponentVersionCreateRequest"];
 export type ApiPublisher = components["schemas"]["Publisher"];
 export type ApiPublisherCreateRequest = components["schemas"]["PublisherCreateRequest"];
 export type ApiPublisherCreateResult = components["schemas"]["PublisherCreateResult"];
@@ -5619,6 +5554,3 @@ export type ApiWebhookFilter = components["schemas"]["WebhookFilter"];
 export type ApiWebhookSubscription = components["schemas"]["WebhookSubscription"];
 export type ApiWorkspace = components["schemas"]["Workspace"];
 export type ApiWorkspaceMembership = components["schemas"]["WorkspaceMembership"];
-
-
-

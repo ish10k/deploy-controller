@@ -7,7 +7,7 @@ from src.application.use_cases.registry import (
     ComponentUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
-    VersionUseCases,
+    ComponentVersionUseCases,
     PublisherUseCases,
     TagDefinitionUseCases,
 )
@@ -28,7 +28,7 @@ from src.infrastructure.dynamodb.repositories import (
     DynamoOrganizationMembershipRepository,
     DynamoOrganizationRepository,
     DynamoPrincipalRepository,
-    DynamoVersionRepository,
+    DynamoComponentVersionRepository,
     DynamoPublisherRepository,
     DynamoRoleRepository,
     DynamoTagDefinitionRepository,
@@ -45,7 +45,7 @@ def build_aws_container() -> Container:
     components = DynamoComponentRepository(os.environ["COMPONENTS_TABLE"])
     releases_table = os.environ.get("RELEASES_TABLE") or os.environ.get("DEPLOYSETS_TABLE") or os.environ["COMPONENT_SETS_TABLE"]
     releases = DynamoReleaseRepository(releases_table)
-    versions = DynamoVersionRepository(os.environ["VERSIONS_TABLE"])
+    versions = DynamoComponentVersionRepository(os.environ["VERSIONS_TABLE"])
     publishers = DynamoPublisherRepository(os.environ["PUBLISHERS_TABLE"])
     environments = DynamoEnvironmentRepository(os.environ["ENVIRONMENTS_TABLE"])
     runners = DynamoDeploymentRunnerRepository(os.environ["DEPLOYMENT_RUNNERS_TABLE"])
@@ -109,11 +109,9 @@ def build_aws_container() -> Container:
     return Container(
         components=ComponentUseCases(components, events=events),
         releases=ReleaseUseCases(releases=releases, components=components, versions=versions, executions=executions, clock=clock, events=events),
-        versions=VersionUseCases(versions, events=events),
+        versions=ComponentVersionUseCases(versions, clock=clock, events=events),
         publishers=PublisherUseCases(
             publishers=publishers,
-            versions=versions,
-            releases=releases,
             clock=clock,
             principals=identity,
             events=events,
@@ -148,8 +146,5 @@ def build_aws_container() -> Container:
         events=events,
         webhooks=webhooks,
     )
-
-
-
 
 

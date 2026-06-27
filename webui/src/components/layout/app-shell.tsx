@@ -507,7 +507,6 @@ const NOTIFICATION_ACTIONS = new Set([
   "deployment.status_changed",
   "deployment_item.status_reported",
   "version.created",
-  "version.published",
   "publisher.created",
   "publisher.token_rotated",
   "deployment_runner.created",
@@ -527,7 +526,6 @@ function isNotificationEvent(event: ApiEventLogEntry) {
   }
   return NOTIFICATION_ACTIONS.has(event.action);
 }
-
 
 
 

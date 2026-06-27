@@ -5,7 +5,7 @@ from src.application.use_cases.registry import (
     ComponentUseCases,
     EnvironmentUseCases,
     ReadOnlyUseCases,
-    VersionUseCases,
+    ComponentVersionUseCases,
     PublisherUseCases,
     TagDefinitionUseCases,
 )
@@ -28,7 +28,7 @@ from src.infrastructure.memory.repositories import (
     MemoryOrganizationMembershipRepository,
     MemoryOrganizationRepository,
     MemoryPrincipalRepository,
-    MemoryVersionRepository,
+    MemoryComponentVersionRepository,
     MemoryPublisherRepository,
     MemoryRepositories,
     MemoryRoleRepository,
@@ -48,7 +48,7 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         seed_local_data(store)
     components = MemoryComponentRepository(store)
     releases = MemoryReleaseRepository(store)
-    versions = MemoryVersionRepository(store)
+    versions = MemoryComponentVersionRepository(store)
     publishers = MemoryPublisherRepository(store)
     environments = MemoryEnvironmentRepository(store)
     runners = MemoryDeploymentRunnerRepository(store)
@@ -112,11 +112,9 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
     return Container(
         components=ComponentUseCases(components, events=events),
         releases=ReleaseUseCases(releases=releases, components=components, versions=versions, executions=executions, clock=clock, events=events),
-        versions=VersionUseCases(versions, events=events),
+        versions=ComponentVersionUseCases(versions, clock=clock, events=events),
         publishers=PublisherUseCases(
             publishers=publishers,
-            versions=versions,
-            releases=releases,
             clock=clock,
             principals=identity,
             events=events,
@@ -151,8 +149,5 @@ def build_memory_container(store: MemoryRepositories | None = None) -> Container
         events=events,
         webhooks=webhooks,
     )
-
-
-
 
 
