@@ -1,4 +1,4 @@
-package registry
+package runner
 
 import (
 	"github.com/ish10k/onerelease/internal/audit"
@@ -6,7 +6,7 @@ import (
 	"github.com/ish10k/onerelease/internal/tag"
 )
 
-type Publisher struct {
+type Runner struct {
 	audit.Fields
 	identity.TokenFields
 	WorkspaceID string
@@ -15,5 +15,16 @@ type Publisher struct {
 	PrincipalID string
 	AuthMethod  identity.AuthMethod
 	Active      bool
-	Tag         tag.Tags
+	Scope       Scope
+	WebhookID   string
+	Tags        tag.Tags
+}
+
+type Scope struct {
+	EnvironmentIDs      []string
+	ComponentIDs        []string
+	ComponentTypes      []string
+	ComponentTags       []string
+	EnvironmentTags     []string
+	MaxConcurrentClaims int
 }

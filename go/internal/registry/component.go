@@ -7,8 +7,8 @@ import (
 
 type Component struct {
 	audit.Fields
-	WorkspaceId string
-	ComponentId string
+	WorkspaceID string
+	ID          string
 	Type        string
 	Active      bool
 	Tags        tag.Tags

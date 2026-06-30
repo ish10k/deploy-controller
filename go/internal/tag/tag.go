@@ -6,30 +6,30 @@ type Tags map[string]string
 
 type TagDefinition struct {
 	audit.Fields
-	WorkspaceId   string
-	Key           string
+	WorkspaceID   string
+	ID            string
 	Description   string
 	DefaultValue  string
 	AllowedValues []string
-	Selector      TagDefinitionSelector
+	Scope         TagDefinitionScope
 }
 
-type TagDefinitionSelector struct {
+type TagDefinitionScope struct {
 	ResourceTypes []TagResourceType
 }
 
 type TagResourceType string
 
 const (
-	OrganisationTagResourceType TagResourceType = "Organisation"
-	WorkspaceTagResourceType    TagResourceType = "Workspace"
-	ComponmentTagResourceType   TagResourceType = "Component"
-	ReleaseTagResourceType      TagResourceType = "Release"
-	VersionTagResourceType      TagResourceType = "Version"
-	DeploymentTagResourceType   TagResourceType = "Deployment"
-	EnvironmentTagResourceType  TagResourceType = "Environment"
-	RunnerTagResourceType       TagResourceType = "Runner"
-	PublisherTagResourceType    TagResourceType = "Publisher"
-	PrincipalTagResourceType    TagResourceType = "Principal"
-	WebhookTagResourceType      TagResourceType = "Webhook"
+	OrganisationTagResourceType TagResourceType = "organisation"
+	WorkspaceTagResourceType    TagResourceType = "workspace"
+	ComponentTagResourceType    TagResourceType = "component"
+	ReleaseTagResourceType      TagResourceType = "release"
+	VersionTagResourceType      TagResourceType = "version"
+	DeploymentTagResourceType   TagResourceType = "deployment"
+	EnvironmentTagResourceType  TagResourceType = "environment"
+	RunnerTagResourceType       TagResourceType = "runner"
+	PublisherTagResourceType    TagResourceType = "publisher"
+	PrincipalTagResourceType    TagResourceType = "principal"
+	WebhookTagResourceType      TagResourceType = "webhook"
 )

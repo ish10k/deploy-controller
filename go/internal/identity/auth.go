@@ -5,8 +5,8 @@ import "time"
 type AuthMethod string
 
 const (
-	PATAuthMethod         AuthMethod = "PAT"
-	AccessTokenAuthMethod AuthMethod = "AccessToken"
+	PATAuthMethod         AuthMethod = "pat"
+	AccessTokenAuthMethod AuthMethod = "access_token"
 )
 
 type TokenFields struct {

@@ -9,7 +9,7 @@ import (
 
 type Principal struct {
 	audit.Fields
-	PrincipalId     string
+	ID              string
 	Type            PrincipalType
 	DisplayName     string
 	Email           string
@@ -24,6 +24,6 @@ type Principal struct {
 type PrincipalType string
 
 const (
-	UserPrincipalType    PrincipalType = "User"
-	ServicePrincipalType PrincipalType = "Service"
+	UserPrincipalType    PrincipalType = "user"
+	ServicePrincipalType PrincipalType = "service"
 )

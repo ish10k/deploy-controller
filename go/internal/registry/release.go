@@ -7,8 +7,8 @@ import (
 
 type Release struct {
 	audit.Fields
-	WorkspaceId string
-	ReleaseId   string
+	WorkspaceID string
+	ID          string
 	Description string
 	Notes       string
 	Items       []ReleaseItem
@@ -16,7 +16,7 @@ type Release struct {
 }
 
 type ReleaseItem struct {
-	ComponentId string
+	ComponentID string
 	Version     string
 	Source      ReleaseItemSource
 }
@@ -24,6 +24,6 @@ type ReleaseItem struct {
 type ReleaseItemSource string
 
 const (
-	ExplicitReleaseItemSource ReleaseItemSource = "Explicit"
-	ImplicitReleaseItemSource ReleaseItemSource = "Implicit"
+	ExplicitReleaseItemSource ReleaseItemSource = "explicit"
+	ImplicitReleaseItemSource ReleaseItemSource = "implicit"
 )

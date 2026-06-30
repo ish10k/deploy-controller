@@ -4,8 +4,8 @@ import "github.com/ish10k/onerelease/internal/audit"
 
 type ComponentVersion struct {
 	audit.Fields
-	WorkspaceId string
-	ComponentId string
+	WorkspaceID string
+	ComponentID string
 	Version     string
 	Description string
 	Notes       string
